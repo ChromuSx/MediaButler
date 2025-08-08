@@ -23,10 +23,10 @@
 - 🔄 **Resume Support** - Handles connection interruptions gracefully
 - 🐳 **Docker Ready** - Easy deployment with Docker Compose
 
-## 📸 Screenshots
+## 📸 Examples
 
 <details>
-<summary>Click to view screenshots</summary>
+<summary>Click to view examples</summary>
 
 ### File Detection
 ```
