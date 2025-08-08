@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  teledrop:
+    build: .
+    container_name: teledrop
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AUTHORIZED_USERS=${AUTHORIZED_USERS}
+      - MOVIES_PATH=/media/movies
+      - TV_PATH=/media/tv
+      - TEMP_PATH=/media/temp
+      - SESSION_PATH=/app/session/bot_session
+      - MAX_CONCURRENT_DOWNLOADS=${MAX_CONCURRENT_DOWNLOADS:-3}
+      - MIN_FREE_SPACE_GB=${MIN_FREE_SPACE_GB:-5}
+      - WARNING_THRESHOLD_GB=${WARNING_THRESHOLD_GB:-10}
+      - SPACE_CHECK_INTERVAL=${SPACE_CHECK_INTERVAL:-30}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-UTC}
+    volumes:
+      # Media directories - adjust these paths to your setup
+      - ${MOVIES_PATH:-./media/movies}:/media/movies
+      - ${TV_PATH:-./media/tv}:/media/tv
+      - ${TEMP_PATH:-./media/temp}:/media/temp
+      # Session persistence
+      - ./session:/app/session
+    # Optional: if you need to access logs
+    # logging:
+    #   driver: "json-file"
+    #   options:
+    #     max-size: "10m"
+    #     max-file: "3"
+    
+    # Optional: add to existing network if integrating with other services
+    # networks:
+    #   - media_network
+
+# Optional: create network for integration with Jellyfin/Plex
+# networks:
+#   media_network:
+#     external: true
