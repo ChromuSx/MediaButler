@@ -1,7 +1,7 @@
 # 🎬 TeleDrop - Telegram Media Organizer Bot
 
 <div align="center">
-  <img src="logo.png" alt="TeleDrop" width="200">
+  <img src="logo.pg" alt="TeleDrop" width="200">
 </div>
 
 <p align="center">
