@@ -35,10 +35,10 @@
 ### File Detection
 ```
 📁 File received:
-Dr. Stone 4x17.mp4
+Supernatural 4x17.mp4
 📏 Size: 363.3 MB (0.4 GB)
 
-📺 Detected: Dr. Stone
+📺 Detected: Supernatural
 📅 Season 4, Episode 17
 
 Is this a movie or TV show?
@@ -50,9 +50,9 @@ Is this a movie or TV show?
 📺 TV Show
 
 📥 Downloading...
-Dr. Stone 4x17.mp4
+Supernatural 4x17.mp4
 
-📁 Series: Dr. Stone/
+📁 Series: Supernatural/
 📅 Season: Season 04/
 
 [████████████░░░░░░░░] 
@@ -76,9 +76,9 @@ Dr. Stone 4x17.mp4
     │   │   ├── Breaking.Bad.S01E01.mp4
     │   │   └── Breaking.Bad.S01E02.mp4
     │   └── Season 02/
-    └── Dr. Stone/
+    └── Supernatural/
         └── Season 04/
-            └── Dr. Stone 4x17.mp4
+            └── Supernatural 4x17.mp4
 ```
 </details>
 
