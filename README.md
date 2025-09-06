@@ -1,7 +1,7 @@
-# 🎬 TeleDrop - Telegram Media Organizer Bot
+# 🎬 MediaButler - Telegram Media Organizer Bot
 
 <div align="center">
-  <img src="logo.png" alt="TeleDrop" width="200">
+  <img src="logo.png" alt="MediaButler" width="200">
 </div>
 
 <p align="center">
@@ -262,6 +262,7 @@ services:
 - [ ] Channel monitoring mode
 - [ ] Download statistics
 - [ ] Web interface
+- [ ] Support for more media types (books, documents, music, audiobooks, etc.)
 
 ## 🤝 Contributing
 
