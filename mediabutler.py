@@ -349,7 +349,7 @@ async def start_handler(event):
         space_info += f"• TV Shows: {tv_usage['free_gb']:.1f} GB free\n"
     
     await event.reply(
-        f"🎬 **TeleDrop - Media Server Bot**\n\n"
+        f"🎬 **MediaButler - Media Server Bot**\n\n"
         f"✅ Access granted!\n"
         f"🆔 Your ID: `{user.id}`\n"
         f"🐳 Running in Docker\n"
@@ -1087,7 +1087,7 @@ async def download_file(msg_id, download_info):
 
 async def main():
     """Start the bot"""
-    logger.info("=== TELEDROP - MEDIA SERVER BOT ===")
+    logger.info("=== MEDIABUTLER - MEDIA SERVER BOT ===")
     logger.info(f"Authorized users: {len(AUTHORIZED_USERS)}")
     logger.info(f"Minimum reserved space: {MIN_FREE_SPACE_GB} GB")
     logger.info(f"Concurrent downloads: max {MAX_CONCURRENT_DOWNLOADS}")

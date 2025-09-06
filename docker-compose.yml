@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  teledrop:
+  mediabutler:
     build: .
-    container_name: teledrop
+    container_name: mediabutler
     restart: unless-stopped
     environment:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}

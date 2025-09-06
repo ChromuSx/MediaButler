@@ -95,8 +95,8 @@ Supernatural 4x17.mp4
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/teledrop.git
-cd teledrop
+git clone https://github.com/ChromuSx/mediabutler.git
+cd mediabutler
 ```
 
 2. Create `.env` file:
@@ -135,8 +135,8 @@ docker-compose up -d
 
 1. Clone and setup:
 ```bash
-git clone https://github.com/yourusername/teledrop.git
-cd teledrop
+git clone https://github.com/yourusername/mediabutler.git
+cd mediabutler
 pip install -r requirements.txt
 ```
 
@@ -144,7 +144,7 @@ pip install -r requirements.txt
 
 3. Run the bot:
 ```bash
-python teledrop.py
+python mediabutler.py
 ```
 
 ## 📖 Configuration
@@ -238,9 +238,9 @@ When a download is cancelled:
 version: '3.8'
 
 services:
-  teledrop:
+  mediabutler:
     build: .
-    container_name: teledrop
+    container_name: mediabutler
     environment:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
       - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}

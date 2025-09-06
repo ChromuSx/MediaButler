@@ -15,17 +15,17 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
-COPY teledrop.py .
+COPY mediabutler.py .
 
 # Create necessary directories
 RUN mkdir -p /app/session /media/movies /media/tv /media/temp
 
 # Create non-root user
-RUN useradd -m -u 1000 teledrop && \
-    chown -R teledrop:teledrop /app /media
+RUN useradd -m -u 1000 mediabutler && \
+    chown -R mediabutler:mediabutler /app /media
 
 # Switch to non-root user
-USER teledrop
+USER mediabutler
 
 # Run the bot
-CMD ["python", "teledrop.py"]
+CMD ["python", "mediabutler.py"]
