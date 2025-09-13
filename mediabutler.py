@@ -5,6 +5,8 @@ import asyncio
 import logging
 import shutil
 import re
+import json
+import aiohttp
 from datetime import datetime
 from pathlib import Path
 from telethon import TelegramClient, events, Button
@@ -15,7 +17,6 @@ from collections import defaultdict
 # Load environment variables if available
 try:
     from dotenv import load_dotenv
-    # Check if .env file exists
     env_path = Path('.env')
     if env_path.exists():
         print(f"✅ .env file found at: {env_path.absolute()}")
@@ -33,11 +34,18 @@ API_ID = int(os.getenv('TELEGRAM_API_ID', '0'))
 API_HASH = os.getenv('TELEGRAM_API_HASH', '')
 BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
 
+# TMDB Configuration
+TMDB_API_KEY = os.getenv('TMDB_API_KEY', '')
+TMDB_BASE_URL = 'https://api.themoviedb.org/3'
+TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/'
+TMDB_LANGUAGE = os.getenv('TMDB_LANGUAGE', 'it-IT')  # Italiano di default
+
 # Temporary debug
 print(f"\n🔍 Debug variables:")
 print(f"API_ID: {API_ID}")
 print(f"API_HASH present: {'Yes' if API_HASH else 'No'}")
 print(f"BOT_TOKEN present: {'Yes' if BOT_TOKEN else 'No'}")
+print(f"TMDB_API_KEY present: {'Yes' if TMDB_API_KEY else 'No'}")
 print(f"Current directory: {Path.cwd()}\n")
 
 # ===== SECURITY - USER WHITELIST =====
@@ -57,7 +65,6 @@ WARNING_THRESHOLD_GB = float(os.getenv('WARNING_THRESHOLD_GB', '10'))
 SPACE_CHECK_INTERVAL = int(os.getenv('SPACE_CHECK_INTERVAL', '30'))
 
 # ===== TELETHON SESSION =====
-# Session path - compatible with Windows and Linux
 if sys.platform == "win32":
     SESSION_PATH = os.getenv('SESSION_PATH', './session/bot_session')
 else:
@@ -87,6 +94,7 @@ logger.info(f"  Movies: {MOVIES_PATH}")
 logger.info(f"  TV: {TV_PATH}")
 logger.info(f"  Authorized users: {len(AUTHORIZED_USERS)}")
 logger.info(f"  Minimum free space: {MIN_FREE_SPACE_GB} GB")
+logger.info(f"  TMDB Integration: {'Enabled' if TMDB_API_KEY else 'Disabled'}")
 
 # Create client
 client = TelegramClient(
@@ -105,50 +113,203 @@ download_queue = asyncio.Queue()
 space_waiting_queue = []
 cancelled_downloads = set()
 
-# ===== FILE/FOLDER NAME UTILITIES =====
+# ===== TMDB API FUNCTIONS =====
+async def search_tmdb(query, media_type=None):
+    """Search TMDB for movies and TV shows"""
+    if not TMDB_API_KEY:
+        return None
+    
+    try:
+        # Clean query
+        query = re.sub(r'[Ss]\d+[Ee]\d+.*', '', query).strip()  # Remove episode info
+        query = re.sub(r'\(\d{4}\)', '', query).strip()  # Remove year in parentheses
+        query = re.sub(r'\d{4}$', '', query).strip()  # Remove year at end
+        query = re.sub(r'[\._]', ' ', query)  # Replace dots and underscores
+        
+        # Search endpoint - multi search gets both movies and TV
+        endpoint = '/search/multi' if not media_type else f'/search/{media_type}'
+        
+        async with aiohttp.ClientSession() as session:
+            params = {
+                'api_key': TMDB_API_KEY,
+                'query': query,
+                'language': TMDB_LANGUAGE,
+                'include_adult': 'false'
+            }
+            
+            async with session.get(f"{TMDB_BASE_URL}{endpoint}", params=params, timeout=5) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get('results', [])
+                else:
+                    logger.warning(f"TMDB API error: {response.status}")
+                    return None
+                    
+    except asyncio.TimeoutError:
+        logger.warning("TMDB API timeout")
+        return None
+    except Exception as e:
+        logger.error(f"TMDB search error: {e}")
+        return None
+
+async def get_episode_details(tv_id, season, episode):
+    """Get specific episode details from TMDB"""
+    if not TMDB_API_KEY:
+        return None
+        
+    try:
+        async with aiohttp.ClientSession() as session:
+            params = {
+                'api_key': TMDB_API_KEY,
+                'language': TMDB_LANGUAGE
+            }
+            
+            url = f"{TMDB_BASE_URL}/tv/{tv_id}/season/{season}/episode/{episode}"
+            async with session.get(url, params=params, timeout=5) as response:
+                if response.status == 200:
+                    return await response.json()
+                    
+    except Exception as e:
+        logger.error(f"TMDB episode details error: {e}")
+        
+    return None
+
+def format_tmdb_result(result, season_num=None, episode_num=None):
+    """Format TMDB result for display"""
+    media_type = result.get('media_type', 'movie')
+    
+    # Build basic info
+    if media_type == 'tv' or 'first_air_date' in result:
+        title = result.get('name', 'Unknown')
+        year = result.get('first_air_date', '')[:4]
+        emoji = "📺"
+        media_type_str = "Serie TV"
+    else:
+        title = result.get('title', 'Unknown')
+        year = result.get('release_date', '')[:4]
+        emoji = "🎬"
+        media_type_str = "Film"
+    
+    # Rating
+    rating = result.get('vote_average', 0)
+    rating_str = f"⭐ {rating:.1f}/10" if rating > 0 else ""
+    
+    # Poster URL
+    poster_path = result.get('poster_path', '')
+    poster_url = f"{TMDB_IMAGE_BASE}w200{poster_path}" if poster_path else None
+    
+    # Overview (truncate if too long)
+    overview = result.get('overview', '')
+    if len(overview) > 300:
+        overview = overview[:297] + "..."
+    
+    # Build formatted text
+    text = f"{emoji} **{media_type_str}**\n\n"
+    text += f"**{title}**"
+    if year:
+        text += f" ({year})"
+    text += "\n"
+    
+    if season_num and episode_num:
+        text += f"📅 Stagione {season_num}, Episodio {episode_num}\n"
+    
+    if rating_str:
+        text += f"{rating_str}\n"
+    
+    if overview:
+        text += f"\n📝 {overview}\n"
+    
+    return text, poster_url
+
+def create_clean_filename(tmdb_result, original_filename, is_movie=True, season=None, episode=None, episode_title=None):
+    """Create clean filename based on TMDB data"""
+    extension = os.path.splitext(original_filename)[1]
+    
+    if is_movie:
+        title = tmdb_result.get('title', 'Unknown')
+        year = tmdb_result.get('release_date', '')[:4]
+        
+        # Check for Italian tags in original
+        has_ita = any(tag in original_filename.upper() for tag in ['ITA', 'ITALIAN', 'SUBITA'])
+        
+        # Clean title
+        title = re.sub(r'[<>:"|?*]', '', title)
+        
+        if year:
+            folder_name = f"{title} ({year})"
+        else:
+            folder_name = title
+            
+        if has_ita:
+            folder_name += " [ITA]"
+            
+        filename = folder_name + extension
+        
+    else:  # TV Show
+        title = tmdb_result.get('name', 'Unknown')
+        title = re.sub(r'[<>:"|?*]', '', title)
+        
+        # Check for Italian tags
+        has_ita = any(tag in original_filename.upper() for tag in ['ITA', 'ITALIAN', 'SUBITA'])
+        
+        series_folder = title
+        if has_ita:
+            series_folder += " [ITA]"
+            
+        if season and episode:
+            # Format: Series Name - S01E01 - Episode Title.ext
+            filename = f"{title} - S{season:02d}E{episode:02d}"
+            if episode_title:
+                # Clean episode title
+                episode_title = re.sub(r'[<>:"|?*]', '', episode_title)
+                filename += f" - {episode_title}"
+            filename += extension
+        else:
+            filename = original_filename  # Fallback
+            
+        folder_name = series_folder
+    
+    return folder_name, filename
+
+# ===== FILE/FOLDER NAME UTILITIES (Enhanced) =====
 def sanitize_filename(filename):
     """Clean filename from problematic characters"""
-    # Remove invalid filesystem characters
     invalid_chars = '<>:"|?*'
     for char in invalid_chars:
         filename = filename.replace(char, '')
-    # Remove multiple dots and extra spaces
     filename = re.sub(r'\.+', '.', filename)
     filename = re.sub(r'\s+', ' ', filename).strip()
-    # Limit length
     if len(filename) > 200:
         name, ext = os.path.splitext(filename)
         filename = name[:200-len(ext)] + ext
     return filename
 
 def extract_movie_info(filename):
-    """Extract movie information from filename"""
-    # Remove extension
+    """Extract movie information from filename with better cleaning"""
     name = os.path.splitext(filename)[0]
     
-    # Common patterns for movies: "Movie Name (2024)" or "Movie Name 2024"
+    # Find year
     year_match = re.search(r'[\(\[]?(\d{4})[\)\]]?', name)
     year = year_match.group(1) if year_match else None
     
-    # Clean the name
     if year:
-        # Remove year and everything after
         name = re.sub(r'[\(\[]?\d{4}[\)\]]?.*', '', name).strip()
     
-    # Remove quality and other common tags
+    # Clean technical tags more aggressively
     quality_tags = ['1080p', '720p', '2160p', '4K', 'BluRay', 'WEBRip', 'WEB-DL', 
-                   'HDTV', 'DVDRip', 'BRRip', 'x264', 'x265', 'HEVC', 'HDR', 'ITA', 
-                   'ENG', 'SUBITA', 'DDP5.1', 'AC3', 'AAC']
+                   'HDTV', 'DVDRip', 'BRRip', 'x264', 'x265', 'HEVC', 'HDR', 
+                   'ITA', 'ENG', 'SUBITA', 'DDP5.1', 'AC3', 'AAC', 'AMZN', 
+                   'NF', 'DSNP', 'DLMux', 'BDMux']
+    
     for tag in quality_tags:
         name = re.sub(rf'\b{tag}\b', '', name, flags=re.IGNORECASE)
     
-    # Replace dots and underscores with spaces (but keep dots in abbreviations)
-    # Don't replace dots followed by space (like in "Dr. ")
+    # Clean separators
     name = re.sub(r'(?<!\s)\.(?!\s)', ' ', name)
     name = name.replace('_', ' ')
     name = re.sub(r'\s+', ' ', name).strip()
+    name = re.sub(r'[\-\.\s]+$', '', name).strip()
     
-    # Create folder name
     if year:
         folder_name = f"{name} ({year})"
     else:
@@ -157,42 +318,28 @@ def extract_movie_info(filename):
     return sanitize_filename(folder_name)
 
 def extract_series_info(filename):
-    """Extract series information from filename"""
-    # Patterns to identify season and episode
+    """Extract series information from filename (enhanced)"""
     patterns = [
-        # Standard patterns
         r'[Ss](\d+)[Ee](\d+)',              # S01E01
         r'[Ss](\d+)\s*[Ee](\d+)',           # S01 E01
         r'Season\s*(\d+)\s*Episode\s*(\d+)', # Season 1 Episode 1
-        
-        # x patterns
         r'(\d+)x(\d+)',                      # 1x01
-        r'\s(\d+)x(\d+)',                    # " 1x01" with space
-        r'[\.\s\-_](\d+)x(\d+)',            # .1x01 or -1x01 or _1x01
-        
-        # Anime patterns
-        r'[\s\-_](\d+)x(\d+)',              # Dr. Stone 4x17
-        r'[Ee][Pp][\.\s]?(\d+)',            # EP01 or Ep 01 (episode only, assume S1)
-        r'[\s\-_](\d+)[\s\-_]',            # Episode number between spaces/dashes
-        
-        # Special patterns
-        r'(\d{1,2})x(\d{1,3})',             # Generic format NxNN
+        r'\s(\d+)x(\d+)',                    # " 1x01"
+        r'[\.\s\-_](\d+)x(\d+)',            # .1x01
+        r'[Ee][Pp][\.\s]?(\d+)',            # EP01
         r'\.(\d+)x(\d+)\.',                 # .1x01.
     ]
     
-    # Save original filename for debug
     original_filename = filename
     season = None
     episode = None
     series_name = None
     
-    # First try to find pattern in original string
     for pattern in patterns:
-        # For patterns that capture episode only
-        if pattern in [r'[Ee][Pp][\.\s]?(\d+)', r'[\s\-_](\d+)[\s\-_]']:
+        if pattern in [r'[Ee][Pp][\.\s]?(\d+)']:
             match = re.search(pattern, filename, re.IGNORECASE)
             if match:
-                season = 1  # Assume season 1
+                season = 1
                 episode = int(match.group(1))
                 series_name = filename[:match.start()].strip()
                 break
@@ -207,55 +354,24 @@ def extract_series_info(filename):
                 except:
                     continue
     
-    # If no pattern found, try without extension
-    if not season:
-        name_no_ext = os.path.splitext(filename)[0]
-        for pattern in patterns:
-            if pattern in [r'[Ee][Pp][\.\s]?(\d+)', r'[\s\-_](\d+)[\s\-_]']:
-                match = re.search(pattern, name_no_ext, re.IGNORECASE)
-                if match:
-                    season = 1
-                    episode = int(match.group(1))
-                    series_name = name_no_ext[:match.start()].strip()
-                    break
-            else:
-                match = re.search(pattern, name_no_ext, re.IGNORECASE)
-                if match:
-                    try:
-                        season = int(match.group(1))
-                        episode = int(match.group(2))
-                        series_name = name_no_ext[:match.start()].strip()
-                        break
-                    except:
-                        continue
-    
-    # If still no series name, use cleaned filename
     if not series_name:
         series_name = os.path.splitext(filename)[0]
     
-    # Clean series name
-    # Remove quality and tags
+    # Better cleaning
     quality_tags = ['1080p', '720p', '2160p', '4K', 'BluRay', 'WEBRip', 'WEB-DL', 
                    'HDTV', 'DVDRip', 'x264', 'x265', 'HEVC', 'HDR', 'ITA', 'ENG', 
-                   'SUBITA', 'DDP5.1', 'AC3', 'AAC', 'AMZN', 'NF', 'DSNP']
+                   'SUBITA', 'DDP5.1', 'AC3', 'AAC', 'AMZN', 'NF', 'DSNP', 'DLMux']
     
     for tag in quality_tags:
         series_name = re.sub(rf'\b{tag}\b', '', series_name, flags=re.IGNORECASE)
     
-    # Remove year if present at the end
     series_name = re.sub(r'[\(\[]?\d{4}[\)\]]?\s*$', '', series_name)
-    
-    # Remove extra characters at the end
     series_name = re.sub(r'[\s\-_.]+$', '', series_name)
-    
-    # Normalize spaces (keep internal dots like in "Dr.")
+    series_name = re.sub(r'(?<!\s)\.(?!\s)', ' ', series_name)
+    series_name = series_name.replace('_', ' ')
     series_name = re.sub(r'\s+', ' ', series_name).strip()
     
-    # Remove trailing dash or underscore
-    series_name = re.sub(r'[\-_]$', '', series_name).strip()
-    
-    # Debug log
-    logger.info(f"Series extract debug - Original: '{original_filename}' -> Name: '{series_name}', S{season}E{episode}")
+    logger.info(f"Series extract: '{original_filename}' -> Name: '{series_name}', S{season}E{episode}")
     
     return {
         'series_name': sanitize_filename(series_name) if series_name else "Unknown Series",
@@ -348,11 +464,14 @@ async def start_handler(event):
     if tv_usage and tv_usage != movies_usage:
         space_info += f"• TV Shows: {tv_usage['free_gb']:.1f} GB free\n"
     
+    tmdb_status = "✅ TMDB Integration Active" if TMDB_API_KEY else "⚠️ TMDB not configured"
+    
     await event.reply(
         f"🎬 **MediaButler - Media Server Bot**\n\n"
         f"✅ Access granted!\n"
         f"🆔 Your ID: `{user.id}`\n"
         f"🐳 Running in Docker\n"
+        f"🎯 {tmdb_status}\n"
         f"{space_info}\n"
         f"📊 **Commands:**\n"
         f"• `/status` - Show downloads and space\n"
@@ -363,7 +482,8 @@ async def start_handler(event):
         f"⚙️ **Settings:**\n"
         f"• Minimum reserved space: {MIN_FREE_SPACE_GB} GB\n"
         f"• Concurrent downloads: max {MAX_CONCURRENT_DOWNLOADS}\n"
-        f"• 📁 Automatic folder organization\n\n"
+        f"• 📁 Automatic folder organization\n"
+        f"• 🎯 Smart content recognition\n\n"
         f"Send files to start!"
     )
 
@@ -519,10 +639,10 @@ async def stop_handler(event):
     await client.disconnect()
     sys.exit(0)
 
-# ===== FILE HANDLER =====
+# ===== FILE HANDLER (Enhanced with TMDB) =====
 @client.on(events.NewMessage(func=lambda e: e.file))
 async def file_handler(event):
-    """Handle received files"""
+    """Handle received files with TMDB integration"""
     if not await check_authorized(event):
         return
         
@@ -544,22 +664,17 @@ async def file_handler(event):
     if not filename or filename == "unknown":
         filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
     
-    # NEW: Check if there's text in the message (for forwarded files)
+    # Check if there's text in the message (for forwarded files)
     message_text = event.message.message if event.message.message else ""
     detected_name = None
     
-    # If filename is generic and there's text, use text as name
     if message_text and (filename.startswith("video_") or filename == "unknown"):
-        # Clean text and use as filename
         detected_name = message_text.strip()
-        # Add extension if not present
         if not any(detected_name.endswith(ext) for ext in ['.mp4', '.mkv', '.avi', '.mov']):
-            # Get extension from original filename
             ext = os.path.splitext(filename)[1] or '.mp4'
             detected_name += ext
         logger.info(f"Name detected from message text: {detected_name}")
     
-    # Use detected name if available
     display_filename = detected_name if detected_name else filename
     
     size_mb = event.file.size / (1024 * 1024)
@@ -577,71 +692,266 @@ async def file_handler(event):
             f"File might be queued for space."
         )
     
-    # Try to extract info from name (use detected name if available)
+    # Extract info from name
     movie_folder = extract_movie_info(display_filename)
     series_info = extract_series_info(display_filename)
     
-    info_text = ""
-    if series_info['season']:
-        info_text = f"\n\n📺 **Detected:** {series_info['series_name']}\n"
-        info_text += f"📅 Season {series_info['season']}"
-        if series_info['episode']:
-            info_text += f", Episode {series_info['episode']}"
-    else:
-        info_text = f"\n\n🎬 **Possible title:** {movie_folder}"
-        # If name contains common series patterns but not recognized
-        if any(x in display_filename.lower() for x in ['ep', 'episode', 'x0', 'x1', 'x2']):
-            info_text += f"\n⚠️ Looks like a TV show but can't identify the season"
+    # Try TMDB search if API key is configured
+    tmdb_results = None
+    tmdb_confidence = 0
+    selected_tmdb = None
     
-    buttons = [
-        [
+    if TMDB_API_KEY:
+        initial_msg = await event.reply("🔍 **Searching TMDB database...**")
+        
+        # Determine search query
+        if series_info['season']:
+            search_query = series_info['series_name']
+            media_hint = 'tv'
+        else:
+            search_query = movie_folder
+            media_hint = None
+        
+        tmdb_results = await search_tmdb(search_query, media_hint)
+        
+        if tmdb_results and len(tmdb_results) > 0:
+            # Calculate confidence based on various factors
+            first_result = tmdb_results[0]
+            
+            # Check title similarity
+            if media_hint == 'tv':
+                result_title = first_result.get('name', '').lower()
+                search_title = series_info['series_name'].lower()
+            else:
+                result_title = first_result.get('title', '').lower()
+                search_title = movie_folder.lower()
+            
+            # Simple confidence calculation
+            if result_title == search_title:
+                tmdb_confidence = 95
+            elif search_title in result_title or result_title in search_title:
+                tmdb_confidence = 80
+            else:
+                tmdb_confidence = 60
+            
+            # Boost confidence if year matches for movies
+            if media_hint != 'tv':
+                year_match = re.search(r'(\d{4})', display_filename)
+                if year_match:
+                    file_year = year_match.group(1)
+                    result_year = first_result.get('release_date', '')[:4]
+                    if file_year == result_year:
+                        tmdb_confidence = min(100, tmdb_confidence + 15)
+            
+            selected_tmdb = first_result
+    
+    # Prepare display based on TMDB results
+    if selected_tmdb and tmdb_confidence >= 80:
+        # High confidence - show TMDB result
+        text, poster_url = format_tmdb_result(selected_tmdb, series_info.get('season'), series_info.get('episode'))
+        
+        info_text = f"📁 **File:** `{display_filename}`\n"
+        info_text += f"📏 **Size:** {size_mb:.1f} MB ({size_gb:.1f} GB)\n\n"
+        info_text += f"✅ **TMDB Match** ({tmdb_confidence}% confidence)\n\n"
+        info_text += text
+        
+        # Add poster URL if available
+        if poster_url:
+            info_text = f"[​]({poster_url})" + info_text  # Hidden link for preview
+        
+        buttons = [
+            [
+                Button.inline("✅ Confirm", f"confirm_{event.message.id}"),
+                Button.inline("🔄 Search Again", f"search_{event.message.id}")
+            ],
+            [
+                Button.inline("🎬 Movie", f"movie_{event.message.id}"),
+                Button.inline("📺 TV Show", f"tv_{event.message.id}")
+            ],
+            [Button.inline("❌ Cancel", f"cancel_{event.message.id}")]
+        ]
+        
+        await initial_msg.edit(info_text + space_warning, buttons=buttons, link_preview=True)
+        
+    elif selected_tmdb and tmdb_confidence >= 60:
+        # Medium confidence - show options
+        info_text = f"📁 **File:** `{display_filename}`\n"
+        info_text += f"📏 **Size:** {size_mb:.1f} MB ({size_gb:.1f} GB)\n\n"
+        info_text += f"🔍 **Possible matches found:**\n\n"
+        
+        # Show top 3 results
+        for idx, result in enumerate(tmdb_results[:3], 1):
+            if 'name' in result:  # TV show
+                title = result.get('name', 'Unknown')
+                year = result.get('first_air_date', '')[:4]
+                emoji = "📺"
+            else:  # Movie
+                title = result.get('title', 'Unknown')
+                year = result.get('release_date', '')[:4]
+                emoji = "🎬"
+            
+            info_text += f"{idx}. {emoji} **{title}**"
+            if year:
+                info_text += f" ({year})"
+            info_text += "\n"
+        
+        info_text += "\n**Select the correct one or choose type:**"
+        
+        buttons = []
+        # Add buttons for each result
+        for idx, result in enumerate(tmdb_results[:3], 1):
+            title = result.get('name' if 'name' in result else 'title', 'Unknown')
+            if len(title) > 20:
+                title = title[:17] + "..."
+            buttons.append([Button.inline(f"{idx}. {title}", f"tmdb_{idx}_{event.message.id}")])
+        
+        buttons.append([
             Button.inline("🎬 Movie", f"movie_{event.message.id}"),
             Button.inline("📺 TV Show", f"tv_{event.message.id}")
-        ],
-        [Button.inline("❌ Cancel", f"cancel_{event.message.id}")]
-    ]
+        ])
+        buttons.append([Button.inline("❌ Cancel", f"cancel_{event.message.id}")])
+        
+        await initial_msg.edit(info_text + space_warning, buttons=buttons)
+        
+    else:
+        # No TMDB match or low confidence - fallback to original behavior
+        info_text = ""
+        if series_info['season']:
+            info_text = f"\n\n📺 **Detected:** {series_info['series_name']}\n"
+            info_text += f"📅 Season {series_info['season']}"
+            if series_info['episode']:
+                info_text += f", Episode {series_info['episode']}"
+        else:
+            info_text = f"\n\n🎬 **Possible title:** {movie_folder}"
+            if any(x in display_filename.lower() for x in ['ep', 'episode', 'x0', 'x1', 'x2']):
+                info_text += f"\n⚠️ Looks like a TV show but can't identify the season"
+        
+        if TMDB_API_KEY and not tmdb_results:
+            info_text += "\n\n⚠️ No TMDB match found - using filename info"
+        
+        buttons = [
+            [
+                Button.inline("🎬 Movie", f"movie_{event.message.id}"),
+                Button.inline("📺 TV Show", f"tv_{event.message.id}")
+            ],
+            [Button.inline("❌ Cancel", f"cancel_{event.message.id}")]
+        ]
+        
+        if initial_msg:
+            await initial_msg.edit(
+                f"📁 **File received:**\n"
+                f"`{display_filename}`\n"
+                f"📏 Size: **{size_mb:.1f} MB** ({size_gb:.1f} GB)"
+                f"{info_text}\n"
+                f"{space_warning}\n\n"
+                f"**Is this a movie or TV show?**",
+                buttons=buttons
+            )
+        else:
+            msg = await event.reply(
+                f"📁 **File received:**\n"
+                f"`{display_filename}`\n"
+                f"📏 Size: **{size_mb:.1f} MB** ({size_gb:.1f} GB)"
+                f"{info_text}\n"
+                f"{space_warning}\n\n"
+                f"**Is this a movie or TV show?**",
+                buttons=buttons
+            )
+            initial_msg = msg
     
-    queue_info = ""
-    if len(download_tasks) >= MAX_CONCURRENT_DOWNLOADS:
-        queue_info = f"\n\n⏳ **Notice:** {len(download_tasks)} active downloads.\nFile will be queued."
-    
-    # Show both original and detected name if different
-    filename_display = f"`{display_filename}`"
-    if detected_name and filename != display_filename:
-        filename_display += f"\n📝 Original name: `{filename}`"
-    
-    msg = await event.reply(
-        f"📁 **File received:**\n"
-        f"{filename_display}\n"
-        f"📏 Size: **{size_mb:.1f} MB** ({size_gb:.1f} GB)"
-        f"{info_text}\n"
-        f"{space_warning}"
-        f"{queue_info}\n\n"
-        f"**Is this a movie or TV show?**",
-        buttons=buttons
-    )
-    
+    # Store download info with TMDB data
     active_downloads[event.message.id] = {
-        'filename': detected_name if detected_name else filename,  # Use detected name for saving
+        'filename': detected_name if detected_name else filename,
         'size': event.file.size,
         'message': event.message,
-        'progress_msg': msg,
+        'progress_msg': initial_msg,
         'progress': 0,
         'user_id': event.sender_id,
         'movie_folder': movie_folder,
-        'series_info': series_info
+        'series_info': series_info,
+        'tmdb_results': tmdb_results,
+        'selected_tmdb': selected_tmdb,
+        'tmdb_confidence': tmdb_confidence
     }
 
 @client.on(events.CallbackQuery)
 async def callback_handler(event):
-    """Handle button clicks"""
+    """Handle button clicks with TMDB support"""
     if event.sender_id not in AUTHORIZED_USERS:
         await event.answer("❌ Not authorized", alert=True)
         return
         
     data = event.data.decode('utf-8')
     
-    # Handle season selection for TV shows
+    # Handle TMDB selection
+    if data.startswith('tmdb_'):
+        parts = data.split('_')
+        result_idx = int(parts[1]) - 1
+        msg_id = int(parts[2])
+        
+        if msg_id not in active_downloads:
+            await event.answer("❌ Download expired or already completed")
+            return
+        
+        download_info = active_downloads[msg_id]
+        if download_info['tmdb_results'] and result_idx < len(download_info['tmdb_results']):
+            download_info['selected_tmdb'] = download_info['tmdb_results'][result_idx]
+            download_info['tmdb_confidence'] = 100  # User confirmed
+            
+            # Determine if it's a movie or TV show
+            if 'name' in download_info['selected_tmdb']:  # TV show
+                await callback_handler_process(event, 'tv', msg_id)
+            else:  # Movie
+                await callback_handler_process(event, 'movie', msg_id)
+        return
+    
+    # Handle confirm from high confidence match
+    if data.startswith('confirm_'):
+        msg_id = int(data.split('_')[1])
+        
+        if msg_id not in active_downloads:
+            await event.answer("❌ Download expired or already completed")
+            return
+        
+        download_info = active_downloads[msg_id]
+        # Auto-detect movie vs TV from TMDB result
+        if download_info.get('selected_tmdb'):
+            if 'name' in download_info['selected_tmdb']:  # TV show
+                await callback_handler_process(event, 'tv', msg_id)
+            else:  # Movie
+                await callback_handler_process(event, 'movie', msg_id)
+        return
+    
+    # Handle search again
+    if data.startswith('search_'):
+        msg_id = int(data.split('_')[1])
+        
+        if msg_id not in active_downloads:
+            await event.answer("❌ Download expired or already completed")
+            return
+        
+        # Clear TMDB selection and show manual selection
+        download_info = active_downloads[msg_id]
+        download_info['selected_tmdb'] = None
+        download_info['tmdb_confidence'] = 0
+        
+        buttons = [
+            [
+                Button.inline("🎬 Movie", f"movie_{msg_id}"),
+                Button.inline("📺 TV Show", f"tv_{msg_id}")
+            ],
+            [Button.inline("❌ Cancel", f"cancel_{msg_id}")]
+        ]
+        
+        await event.edit(
+            f"📁 **File:** `{download_info['filename']}`\n"
+            f"📏 **Size:** {format_size_gb(download_info['size']):.1f} GB\n\n"
+            f"**Please select media type:**",
+            buttons=buttons
+        )
+        return
+    
+    # Handle season selection
     if data.startswith('season_'):
         parts = data.split('_')
         season_num = int(parts[1])
@@ -654,7 +964,6 @@ async def callback_handler(event):
         download_info = active_downloads[msg_id]
         download_info['selected_season'] = season_num
         
-        # Proceed with download
         size_gb = format_size_gb(download_info['size'])
         space_ok, free_gb = check_space_available(download_info['dest_path'], size_gb)
         
@@ -680,10 +989,14 @@ async def callback_handler(event):
         )
         return
     
-    # Handle normal movie/tv/cancel buttons
+    # Normal processing
     action, msg_id = data.split('_', 1)
     msg_id = int(msg_id)
     
+    await callback_handler_process(event, action, msg_id)
+
+async def callback_handler_process(event, action, msg_id):
+    """Process callback actions"""
     if msg_id not in active_downloads:
         await event.answer("❌ Download expired or already completed")
         return
@@ -706,7 +1019,7 @@ async def callback_handler(event):
         media_type = "Movie"
         emoji = "🎬"
         download_info['is_movie'] = True
-    else:
+    else:  # TV show
         dest_path = TV_PATH
         media_type = "TV Show"
         emoji = "📺"
@@ -715,7 +1028,6 @@ async def callback_handler(event):
         # If TV show and no season info, ask
         if not download_info['series_info']['season']:
             season_buttons = []
-            # Create buttons for seasons 1-10 in two rows
             for i in range(1, 6):
                 if len(season_buttons) < 1:
                     season_buttons.append([])
@@ -728,9 +1040,13 @@ async def callback_handler(event):
             
             season_buttons.append([Button.inline("❌ Cancel", f"cancel_{msg_id}")])
             
+            series_name = download_info['series_info']['series_name']
+            if download_info.get('selected_tmdb'):
+                series_name = download_info['selected_tmdb'].get('name', series_name)
+            
             await event.edit(
                 f"📺 **TV Show selected**\n\n"
-                f"📁 Series: `{download_info['series_info']['series_name']}`\n"
+                f"📁 Series: `{series_name}`\n"
                 f"📄 File: `{download_info['filename']}`\n\n"
                 f"**Which season is this?**",
                 buttons=season_buttons
@@ -747,7 +1063,6 @@ async def callback_handler(event):
     download_info['emoji'] = emoji
     download_info['event'] = event
     
-    # If we already have season from series info, use it
     if not download_info['is_movie'] and download_info['series_info']['season']:
         download_info['selected_season'] = download_info['series_info']['season']
     
@@ -767,7 +1082,7 @@ async def callback_handler(event):
             f"Download will start automatically when space is available.\n"
             f"Position in space queue: #{len(space_waiting_queue)}"
         )
-        logger.info(f"File {download_info['filename']} waiting for space: needs {size_gb:.1f} GB, available {free_gb:.1f} GB")
+        logger.info(f"File {download_info['filename']} waiting for space")
         return
     
     await download_queue.put((msg_id, download_info))
@@ -872,7 +1187,7 @@ async def space_monitor_worker():
             logger.error(f"Error in space monitor: {e}", exc_info=True)
 
 async def download_file(msg_id, download_info):
-    """Execute download of a single file"""
+    """Execute download of a single file with TMDB naming"""
     try:
         if msg_id in cancelled_downloads:
             logger.info(f"Download already cancelled: {download_info['filename']}")
@@ -883,50 +1198,87 @@ async def download_file(msg_id, download_info):
         # Track created folders
         created_folders = []
         
-        # Determine final path with folders
-        if download_info.get('is_movie', True):
-            # Movie: create folder with movie name
-            folder_name = download_info['movie_folder']
-            folder_path = Path(download_info['dest_path']) / folder_name
+        # Get episode details if TV show with TMDB match
+        episode_title = None
+        if not download_info.get('is_movie', True) and download_info.get('selected_tmdb'):
+            if download_info['series_info']['episode']:
+                episode_details = await get_episode_details(
+                    download_info['selected_tmdb']['id'],
+                    download_info.get('selected_season', download_info['series_info']['season']),
+                    download_info['series_info']['episode']
+                )
+                if episode_details:
+                    episode_title = episode_details.get('name')
+        
+        # Determine final path with TMDB naming if available
+        if download_info.get('selected_tmdb') and download_info.get('tmdb_confidence', 0) >= 60:
+            # Use TMDB data for naming
+            folder_name, clean_filename = create_clean_filename(
+                download_info['selected_tmdb'],
+                download_info['filename'],
+                download_info.get('is_movie', True),
+                download_info.get('selected_season', download_info['series_info']['season']),
+                download_info['series_info']['episode'],
+                episode_title
+            )
             
-            # Track if we're creating a new folder
-            if not folder_path.exists():
-                created_folders.append(folder_path)
+            if download_info.get('is_movie', True):
+                folder_path = Path(download_info['dest_path']) / folder_name
+                if not folder_path.exists():
+                    created_folders.append(folder_path)
+                folder_path.mkdir(parents=True, exist_ok=True)
+                filepath = folder_path / clean_filename
+            else:
+                series_folder = Path(download_info['dest_path']) / folder_name
+                season_num = download_info.get('selected_season', 1)
+                season_folder = series_folder / f"Season {season_num:02d}"
                 
-            folder_path.mkdir(parents=True, exist_ok=True)
-            filepath = folder_path / download_info['filename']
+                if not series_folder.exists():
+                    created_folders.append(series_folder)
+                if not season_folder.exists():
+                    created_folders.append(season_folder)
+                    
+                season_folder.mkdir(parents=True, exist_ok=True)
+                filepath = season_folder / clean_filename
         else:
-            # TV Show: create series and season folders
-            series_name = download_info['series_info']['series_name']
-            season_num = download_info.get('selected_season', 1)
-            
-            series_folder = Path(download_info['dest_path']) / series_name
-            season_folder = series_folder / f"Season {season_num:02d}"
-            
-            # Track which folders we're creating
-            if not series_folder.exists():
-                created_folders.append(series_folder)
-            if not season_folder.exists():
-                created_folders.append(season_folder)
+            # Fallback to original naming logic
+            if download_info.get('is_movie', True):
+                folder_name = download_info['movie_folder']
+                folder_path = Path(download_info['dest_path']) / folder_name
                 
-            season_folder.mkdir(parents=True, exist_ok=True)
-            
-            filepath = season_folder / download_info['filename']
+                if not folder_path.exists():
+                    created_folders.append(folder_path)
+                    
+                folder_path.mkdir(parents=True, exist_ok=True)
+                filepath = folder_path / download_info['filename']
+            else:
+                series_name = download_info['series_info']['series_name']
+                season_num = download_info.get('selected_season', 1)
+                
+                series_folder = Path(download_info['dest_path']) / series_name
+                season_folder = series_folder / f"Season {season_num:02d}"
+                
+                if not series_folder.exists():
+                    created_folders.append(series_folder)
+                if not season_folder.exists():
+                    created_folders.append(season_folder)
+                    
+                season_folder.mkdir(parents=True, exist_ok=True)
+                filepath = season_folder / download_info['filename']
         
         logger.info(f"Download started: {download_info['filename']} -> {filepath}")
         
         # Additional info for user
-        path_info = ""
         if download_info.get('is_movie', True):
-            path_info = f"📁 Folder: `{folder_name}/`\n"
+            path_info = f"📁 Folder: `{folder_path.name}/`\n"
         else:
-            path_info = f"📁 Series: `{series_name}/`\n"
+            path_info = f"📁 Series: `{series_folder.name}/`\n"
             path_info += f"📅 Season: `Season {season_num:02d}/`\n"
         
         await event.edit(
             f"{download_info['emoji']} **{download_info['media_type']}**\n\n"
             f"📥 **Downloading...**\n"
-            f"`{download_info['filename']}`\n\n"
+            f"`{filepath.name}`\n\n"
             f"{path_info}"
             f"Initializing..."
         )
@@ -974,7 +1326,7 @@ async def download_file(msg_id, download_info):
                 await event.edit(
                     f"{download_info['emoji']} **{download_info['media_type']}**\n\n"
                     f"📥 **Downloading...**\n"
-                    f"`{download_info['filename']}`\n\n"
+                    f"`{filepath.name}`\n\n"
                     f"{path_info}"
                     f"`[{bar}]`\n"
                     f"**{progress:.1f}%** - {current_mb:.1f}/{total_mb:.1f} MB\n"
@@ -1000,14 +1352,14 @@ async def download_file(msg_id, download_info):
         
         # Relative path to show user
         if download_info.get('is_movie', True):
-            display_path = f"{folder_name}/{filepath.name}"
+            display_path = f"{folder_path.name}/{filepath.name}"
         else:
-            display_path = f"{series_name}/Season {season_num:02d}/{filepath.name}"
+            display_path = f"{series_folder.name}/Season {season_num:02d}/{filepath.name}"
         
         await event.edit(
             f"✅ **Download completed!**\n\n"
             f"{download_info['emoji']} Type: **{download_info['media_type']}**\n"
-            f"📁 File: `{download_info['filename']}`\n"
+            f"📁 File: `{filepath.name}`\n"
             f"📂 Path: `{display_path}`\n"
             f"💾 Space remaining: **{final_free_gb:.1f} GB**\n\n"
             f"🎬 Available on your media server!"
@@ -1023,19 +1375,16 @@ async def download_file(msg_id, download_info):
             filepath.unlink()
             logger.info(f"Partial file deleted: {filepath}")
         
-        # SMART CLEANUP: Delete empty folders
+        # Smart cleanup: Delete empty folders
         if 'filepath' in locals():
-            # Get file folder
             file_folder = filepath.parent
             
-            # Helper function to check if folder is empty
             def is_folder_empty(folder):
                 try:
                     return not any(folder.iterdir())
                 except:
                     return False
             
-            # For movies: check only movie folder
             if download_info.get('is_movie', True):
                 if is_folder_empty(file_folder):
                     try:
@@ -1043,10 +1392,7 @@ async def download_file(msg_id, download_info):
                         logger.info(f"Empty movie folder deleted: {file_folder}")
                     except Exception as e:
                         logger.warning(f"Could not delete movie folder: {e}")
-            
-            # For TV shows: check season first, then series
             else:
-                # Check season folder
                 season_folder = file_folder
                 series_folder = season_folder.parent
                 
@@ -1055,7 +1401,6 @@ async def download_file(msg_id, download_info):
                         season_folder.rmdir()
                         logger.info(f"Empty season folder deleted: {season_folder}")
                         
-                        # Now check if series folder is also empty
                         if is_folder_empty(series_folder):
                             try:
                                 series_folder.rmdir()
@@ -1087,11 +1432,13 @@ async def download_file(msg_id, download_info):
 
 async def main():
     """Start the bot"""
-    logger.info("=== MEDIABUTLER - MEDIA SERVER BOT ===")
+    logger.info("=== MEDIABUTLER ENHANCED - MEDIA SERVER BOT ===")
     logger.info(f"Authorized users: {len(AUTHORIZED_USERS)}")
     logger.info(f"Minimum reserved space: {MIN_FREE_SPACE_GB} GB")
     logger.info(f"Concurrent downloads: max {MAX_CONCURRENT_DOWNLOADS}")
+    logger.info(f"TMDB Integration: {'Enabled' if TMDB_API_KEY else 'Disabled'}")
     logger.info("Automatic folder organization: ENABLED")
+    logger.info("Smart content recognition: ENABLED")
     logger.info("Bot ready!")
     
     workers = [

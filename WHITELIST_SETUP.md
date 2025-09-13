@@ -1,43 +1,43 @@
-# Configurazione Whitelist - Bot Sicuro
+# Whitelist Configuration - Secure Bot
 
-## Come funziona la sicurezza
+## How Security Works
 
-Il bot ora ha un sistema di **whitelist** che permette l'accesso solo agli utenti autorizzati.
+The bot now has a **whitelist** system that allows access only to authorized users.
 
-## 🚀 Setup Rapido (Prima volta)
+## 🚀 Quick Setup (First Time)
 
-### 1. Avvia il bot SENZA modificare nulla
+### 1. Start the bot WITHOUT changing anything
 ```bash
 python telegram_media_bot_secure.py
 ```
 
-### 2. Vai su Telegram e usa `/start`
-Il bot ti risponderà con:
+### 2. Go to Telegram and use `/start`
+The bot will reply with:
 ```
-🔐 Primo accesso - Admin Mode
-Sei stato aggiunto come amministratore!
-Il tuo ID: 123456789
+🔐 First access - Admin Mode
+You have been added as administrator!
+Your ID: 123456789
 
-Per aggiungere altri utenti, modifica AUTHORIZED_USERS nel codice.
+To add other users, edit AUTHORIZED_USERS in the code.
 ```
 
-### 3. Copia il tuo ID e aggiungilo al codice
-Apri il file e modifica questa sezione:
+### 3. Copy your ID and add it to the code
+Open the file and edit this section:
 ```python
 AUTHORIZED_USERS = [
-    123456789,  # Il tuo ID (sostituisci con quello vero)
+    123456789,  # Your ID (replace with the real one)
 ]
 ```
 
-### 4. Riavvia il bot
-Ora solo tu puoi usarlo!
+### 4. Restart the bot
+Now only you can use it!
 
-## 👥 Aggiungere altri utenti
+## 👥 Add Other Users
 
-### Metodo 1: Chiedi il loro ID
-1. Fai provare a usare `/start` al nuovo utente
-2. Il bot gli mostrerà il suo ID nel messaggio di errore
-3. Aggiungi quell'ID alla lista:
+### Method 1: Ask for their ID
+1. Have the new user try to use `/start`
+2. The bot will show them their ID in the error message
+3. Add that ID to the list:
 
 ```python
 AUTHORIZED_USERS = [
@@ -47,43 +47,43 @@ AUTHORIZED_USERS = [
 ]
 ```
 
-### Metodo 2: Usa il comando `/users`
-Solo l'admin (primo utente) può vedere la lista completa degli utenti autorizzati.
+### Method 2: Use the `/users` command
+Only the admin (first user) can see the full list of authorized users.
 
-## 🔐 Funzionalità di sicurezza
+## 🔐 Security Features
 
-### Per tutti gli utenti autorizzati:
-- ✅ Possono scaricare file
-- ✅ Possono usare tutti i comandi base
-- ✅ Possono gestire i propri download
+### For all authorized users:
+- ✅ Can download files
+- ✅ Can use all basic commands
+- ✅ Can manage their own downloads
 
-### Solo per l'admin (primo utente):
-- 👑 Può usare `/stop` per fermare il bot
-- 👑 Può vedere `/users` per la lista completa
-- 👑 Può decidere chi aggiungere
+### Only for the admin (first user):
+- 👑 Can use `/stop` to stop the bot
+- 👑 Can see `/users` for the full list
+- 👑 Can decide who to add
 
-### Protezioni aggiuntive:
-- ❌ Utenti non autorizzati vedono "Accesso Negato"
-- ❌ Non possono cliccare sui bottoni
-- ❌ Ogni tentativo viene loggato
-- ✅ Ogni utente può gestire solo i propri download
+### Additional protections:
+- ❌ Unauthorized users see "Access Denied"
+- ❌ They cannot click on buttons
+- ❌ Every attempt is logged
+- ✅ Each user can only manage their own downloads
 
-## 📝 Esempio di configurazione multi-utente
+## 📝 Multi-user Configuration Example
 
 ```python
-# Famiglia
+# Family
 AUTHORIZED_USERS = [
     123456789,  # Giovanni (admin)
     987654321,  # Partner
-    555555555,  # Fratello
+    555555555,  # Brother
 ]
 
-# Solo personale
+# Personal only
 AUTHORIZED_USERS = [
-    123456789,  # Solo io
+    123456789,  # Only me
 ]
 
-# Test con amici fidati
+# Test with trusted friends
 AUTHORIZED_USERS = [
     123456789,  # Giovanni (admin)
     111111111,  # Marco
@@ -91,42 +91,42 @@ AUTHORIZED_USERS = [
 ]
 ```
 
-## ⚠️ Note importanti
+## ⚠️ Important Notes
 
-1. **Il primo utente è sempre l'admin** - ha privilegi extra
-2. **Backup la lista** - se perdi gli ID, dovrai ricominciare
-3. **Non condividere il file** con la lista degli ID
-4. **Cambia username del bot** se vuoi extra sicurezza
+1. **The first user is always the admin** - has extra privileges
+2. **Backup the list** - if you lose the IDs, you'll have to start over
+3. **Do not share the file** with the list of IDs
+4. **Change the bot's username** if you want extra security
 
-## 🛡️ Sicurezza extra (opzionale)
+## 🛡️ Extra Security (Optional)
 
-Per ancora più sicurezza, puoi:
+For even more security, you can:
 
-1. **Cambiare l'username del bot** in BotFather:
+1. **Change the bot's username** in BotFather:
    ```
    /setname
-   Scegli: @mediabot_x7k9p2m_2024_bot
+   Choose: @mediabot_x7k9p2m_2024_bot
    ```
 
-2. **Non condividere mai** il link del bot
+2. **Never share** the bot link
 
-3. **Monitora i log** per tentativi di accesso:
+3. **Monitor the logs** for access attempts:
    ```bash
-   grep "non autorizzato" bot.log
+   grep "unauthorized" bot.log
    ```
 
 ## 🆘 Troubleshooting
 
-**"Ho perso il mio ID admin"**
-- Elimina `AUTHORIZED_USERS = [...]` (lasciala vuota)
-- Riavvia il bot
-- Fai `/start` - sarai di nuovo admin
+**"I lost my admin ID"**
+- Delete `AUTHORIZED_USERS = [...]` (leave it empty)
+- Restart the bot
+- Use `/start` - you will become admin again
 
-**"Voglio rimuovere un utente"**
-- Rimuovi il suo ID dalla lista
-- Riavvia il bot
+**"I want to remove a user"**
+- Remove their ID from the list
+- Restart the bot
 
-**"Il bot dice che non sono autorizzato"**
-- Verifica che il tuo ID sia nella lista
-- Controlla di non aver spazi o virgole sbagliate
-- Riavvia il bot dopo le modifiche
+**"The bot says I am not authorized"**
+- Check that your ID is in the list
+- Make sure there are no wrong spaces or commas
+- Restart the bot after changes
