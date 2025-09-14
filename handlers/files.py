@@ -11,6 +11,7 @@ from core.tmdb_client import TMDBClient
 from core.space_manager import SpaceManager
 from models.download import DownloadInfo, MediaType
 from utils.naming import FileNameParser
+from utils.helpers import ValidationHelpers, FileHelpers
 
 
 class FileHandlers:

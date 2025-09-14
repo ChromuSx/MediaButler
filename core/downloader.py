@@ -11,6 +11,7 @@ from core.config import get_config
 from core.space_manager import SpaceManager
 from core.tmdb_client import TMDBClient
 from models.download import DownloadInfo, DownloadStatus, QueueItem
+from utils.helpers import RetryHelpers
 from utils.naming import FileNameParser
 
 

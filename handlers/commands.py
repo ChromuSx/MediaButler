@@ -8,7 +8,7 @@ from core.auth import AuthManager
 from core.space_manager import SpaceManager
 from core.downloader import DownloadManager
 from core.config import get_config
-from utils.helpers import human_readable_size
+from utils.helpers import human_readable_size, FileHelpers
 
 
 class CommandHandlers:
