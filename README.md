@@ -12,283 +12,342 @@
 </p>
 
 <p align="center">
-  <strong>Your personal Telegram media librarian - Download, organize, and manage your media files with smart folder structure</strong>
+  <strong>Modular Telegram bot for automatic organization of your media library</strong>
 </p>
 
 ## ✨ Features
 
-- 🎬 **Smart Organization** - Automatically creates folders for movies and TV shows
-- 📺 **Series Detection** - Recognizes season and episode patterns (S01E01, 1x01, etc.)
-- 📁 **Clean Structure** - Movies in individual folders, TV shows organized by series/season
-- ⏳ **Queue Management** - Handle multiple downloads with configurable concurrent limits
-- 💾 **Space Monitoring** - Real-time disk space checking with automatic queue management
-- 👥 **Multi-user Support** - Whitelist system for authorized users
-- 🧹 **Smart Cleanup** - Removes empty folders when downloads are cancelled
-- 🔄 **Resume Support** - Handles connection interruptions gracefully
+- 🎬 **Smart Organization** - Automatically creates folders for movies and TV series
+- 📺 **Series Detection** - Recognizes season/episode patterns (S01E01, 1x01, etc.)
+- 🎯 **TMDB Integration** - Metadata, posters, and automatic renaming
+- 📁 **Clean Structure** - Movies in individual folders, series organized by season
+- ⏳ **Queue Management** - Multiple downloads with configurable limits
+- 💾 **Space Monitoring** - Real-time control with automatic queue management
+- 👥 **Multi-user** - Whitelist system for authorized users
+- 🔄 **Resilience** - Resume and automatic retry support
 - 🐳 **Docker Ready** - Easy deployment with Docker Compose
 
-## 📸 Examples
+## 🏗️ Architecture
 
-<details>
-<summary>Click to view examples</summary>
+The project uses a modular architecture for maximum maintainability and extensibility:
 
-### File Detection
 ```
-📁 File received:
-Supernatural 4x17.mp4
-📏 Size: 363.3 MB (0.4 GB)
-
-📺 Detected: Supernatural
-📅 Season 4, Episode 17
-
-Is this a movie or TV show?
-[🎬 Movie] [📺 TV Show] [❌ Cancel]
-```
-
-### Download Progress
-```
-📺 TV Show
-
-📥 Downloading...
-Supernatural 4x17.mp4
-
-📁 Series: Supernatural/
-📅 Season: Season 04/
-
-[████████████░░░░░░░░] 
-60.5% - 220.1/363.3 MB
-⚡ Speed: 12.5 MB/s
-⏱ Time remaining: 11s
-🟢 Free space: 1.2 TB
+mediabutler/
+├── main.py                 # Main entry point
+├── core/                   # Core system modules
+│   ├── __init__.py
+│   ├── config.py          # Centralized configuration
+│   ├── auth.py            # Authentication management
+│   ├── downloader.py      # Download and queue management
+│   ├── space_manager.py   # Disk space monitoring
+│   └── tmdb_client.py     # TMDB API client
+├── handlers/              # Telegram event handlers
+│   ├── __init__.py
+│   ├── commands.py        # Command handlers (/start, /status, etc.)
+│   ├── callbacks.py       # Inline button handlers
+│   └── files.py           # Received file handlers
+├── models/                # Data models
+│   ├── __init__.py
+│   └── download.py        # Download info dataclass
+├── utils/                 # Utilities and helpers
+│   ├── __init__.py
+│   ├── naming.py          # File name parser and management
+│   ├── formatters.py      # Message formatting
+│   └── helpers.py         # Generic helpers
+└── requirements.txt       # Python dependencies
 ```
 
-### Folder Structure
-```
-/media/
-├── movies/
-│   ├── Avatar (2009)/
-│   │   └── Avatar.2009.1080p.BluRay.mp4
-│   └── Inception (2010)/
-│       └── Inception.2010.2160p.WEB-DL.mp4
-└── tv/
-    ├── Breaking Bad/
-    │   ├── Season 01/
-    │   │   ├── Breaking.Bad.S01E01.mp4
-    │   │   └── Breaking.Bad.S01E02.mp4
-    │   └── Season 02/
-    └── Supernatural/
-        └── Season 04/
-            └── Supernatural 4x17.mp4
-```
-</details>
+### 📦 Main Modules
+
+#### Core
+- **`config`**: Centralized configuration management with validation
+- **`auth`**: Multi-user authorization system with admin
+- **`downloader`**: Download manager with queues, retry, and error handling
+- **`space_manager`**: Space monitoring and smart cleanup
+- **`tmdb_client`**: TMDB integration with rate limiting
+
+#### Handlers
+- **`commands`**: All bot commands (`/start`, `/status`, `/space`, etc.)
+- **`callbacks`**: Inline button and interaction management
+- **`files`**: Processing of received files with content recognition
+
+#### Utils
+- **`naming`**: Smart file name parsing and folder structure creation
+- **`formatters`**: Telegram message formatting and progress bar
+- **`helpers`**: Retry logic, validation, rate limiting, async helpers
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Telegram API credentials (get from [my.telegram.org](https://my.telegram.org))
+- Python 3.8+ or Docker
+- Telegram API credentials ([my.telegram.org](https://my.telegram.org))
 - Bot token from [@BotFather](https://t.me/botfather)
-- Docker and Docker Compose (optional)
-- Python 3.8+ (for manual installation)
+- (Optional) TMDB API key for metadata
 
 ### Docker Installation (Recommended)
 
-1. Clone the repository:
+1. **Clone the repository**:
 ```bash
-git clone https://github.com/ChromuSx/mediabutler.git
+git clone https://github.com/yourusername/mediabutler.git
 cd mediabutler
 ```
 
-2. Create `.env` file:
+2. **Configure environment**:
 ```bash
 cp .env.example .env
+nano .env  # Enter your credentials
 ```
 
-3. Edit `.env` with your credentials:
-```env
-# Telegram Credentials (Required)
-TELEGRAM_API_ID=your_api_id
-TELEGRAM_API_HASH=your_api_hash
-TELEGRAM_BOT_TOKEN=your_bot_token
-
-# Paths
-MOVIES_PATH=/media/movies
-TV_PATH=/media/tv
-TEMP_PATH=/media/temp
-
-# User whitelist (comma-separated user IDs, leave empty for admin mode)
-AUTHORIZED_USERS=
-
-# Settings
-MAX_CONCURRENT_DOWNLOADS=3
-MIN_FREE_SPACE_GB=5
-WARNING_THRESHOLD_GB=10
-SPACE_CHECK_INTERVAL=30
-```
-
-4. Start with Docker Compose:
+3. **Start with Docker Compose**:
 ```bash
 docker-compose up -d
 ```
 
 ### Manual Installation
 
-1. Clone and setup:
+1. **Setup Python environment**:
 ```bash
-git clone https://github.com/yourusername/mediabutler.git
-cd mediabutler
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate  # Windows
+```
+
+2. **Install dependencies**:
+```bash
 pip install -r requirements.txt
 ```
 
-2. Configure `.env` file (same as above)
-
-3. Run the bot:
+3. **Configure and start**:
 ```bash
-python mediabutler.py
+cp .env.example .env
+nano .env  # Configure credentials
+python main.py
 ```
 
 ## 📖 Configuration
 
-### Environment Variables
+### Main Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `TELEGRAM_API_ID` | Your Telegram API ID | Required |
-| `TELEGRAM_API_HASH` | Your Telegram API Hash | Required |
-| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather | Required |
-| `MOVIES_PATH` | Path for movie storage | `/media/movies` |
-| `TV_PATH` | Path for TV shows storage | `/media/tv` |
-| `TEMP_PATH` | Temporary files path | `/media/temp` |
-| `AUTHORIZED_USERS` | Comma-separated user IDs | Empty (admin mode) |
-| `MAX_CONCURRENT_DOWNLOADS` | Simultaneous downloads | `3` |
-| `MIN_FREE_SPACE_GB` | Reserved disk space | `5` |
-| `WARNING_THRESHOLD_GB` | Space warning threshold | `10` |
-| `SPACE_CHECK_INTERVAL` | Space check interval (seconds) | `30` |
+```env
+# Telegram (Required)
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=abcdef123456
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF
 
-### First Time Setup
+# TMDB (Optional but recommended)
+TMDB_API_KEY=your_tmdb_api_key
+TMDB_LANGUAGE=en-US
 
-1. Start the bot without any `AUTHORIZED_USERS` configured
-2. Send `/start` to the bot
-3. You'll be added as admin automatically
-4. Copy your user ID from the response
-5. Add it to `.env` as `AUTHORIZED_USERS=your_id`
-6. Restart the bot for permanent access
+# Paths
+MOVIES_PATH=/media/movies
+TV_PATH=/media/tv
+TEMP_PATH=/media/temp
+
+# Authorizations
+AUTHORIZED_USERS=123456789,987654321
+
+# Limits
+MAX_CONCURRENT_DOWNLOADS=3
+MIN_FREE_SPACE_GB=5
+WARNING_THRESHOLD_GB=10
+```
+
+See [`.env.example`](.env.example) for all available options.
 
 ## 🎯 Usage
 
-### Basic Commands
+### Bot Commands
 
-- `/start` - Initialize bot and show status
-- `/status` - View active downloads and queue
-- `/space` - Check disk space details
-- `/waiting` - Show files waiting for space
-- `/cancel_all` - Cancel all active downloads
-- `/stop` - Stop the bot (admin only)
+| Command      | Description                      | Permissions |
+|--------------|----------------------------------|-------------|
+| `/start`     | Start bot and show info          | All         |
+| `/status`    | Show active downloads and queue  | All         |
+| `/space`     | Disk space details               | All         |
+| `/waiting`   | Files waiting for space          | All         |
+| `/cancel_all`| Cancel all downloads             | All         |
+| `/help`      | Show command guide               | All         |
+| `/users`     | List authorized users            | Admin       |
+| `/stop`      | Stop the bot                     | Admin       |
 
-### Downloading Media
+### Download Workflow
 
-1. **Forward or send a video file** to the bot
-2. Bot will **detect the title** and show information
-3. Choose **Movie** or **TV Show**
-4. For TV shows without season info, select the season
-5. Download starts automatically or queues if needed
+1. **Send/forward** a video file to the bot
+2. Bot **analyzes** the name and searches TMDB
+3. **Confirm** or select Movie/TV Series
+4. For series, **select season** if needed
+5. **Automatic download** or queued
 
-### Supported Formats
+### Resulting Folder Structure
 
-The bot recognizes various naming patterns:
-
-**TV Shows:**
-- `Series.Name.S01E01.1080p.mp4`
-- `Series Name 1x01.mp4`
-- `Series.Name.Season.1.Episode.1.mp4`
-- `Anime Name EP01.mp4`
-
-**Movies:**
-- `Movie.Name.2024.1080p.BluRay.mp4`
-- `Movie Name (2024).mp4`
-- `Movie.Name.[2024].WEB-DL.mp4`
-
-## 🔧 Advanced Features
-
-### Multi-User Management
-
-Add multiple users by updating `AUTHORIZED_USERS`:
-```env
-AUTHORIZED_USERS=123456789,987654321,555555555
+```
+/media/
+├── movies/
+│   ├── Avatar (2009)/
+│   │   └── Avatar (2009).mp4
+│   └── Inception (2010)/
+│       └── Inception (2010).mp4
+└── tv/
+    ├── Breaking Bad [EN]/
+    │   ├── Season 01/
+    │   │   ├── Breaking Bad - S01E01 - Pilot.mp4
+    │   │   └── Breaking Bad - S01E02 - Cat's in the Bag.mp4
+    │   └── Season 02/
+    └── The Office/
+        └── Season 04/
 ```
 
-### Space Management
+## 🔧 Development
 
-The bot automatically:
-- Monitors disk space in real-time
-- Queues downloads when space is low
-- Reserves minimum free space
-- Shows color-coded space indicators (🟢🟡🔴)
+### Extending the Bot
 
-### Smart Cleanup
+The modular design makes it easy to add new features:
 
-When a download is cancelled:
-- Deletes partial files
-- Removes empty folders
-- Preserves folders with existing content
+#### Add a New Command
 
-## 🐳 Docker Compose Example
+1. Create the method in `handlers/commands.py`:
+```python
+async def mycommand_handler(self, event):
+    """Handler for /mycommand"""
+    if not await self.auth.check_authorized(event):
+        return
+    
+    # Command logic
+    await event.reply("Command response")
+```
+
+2. Register in `register()`:
+```python
+self.client.on(events.NewMessage(pattern='/mycommand'))(self.mycommand_handler)
+```
+
+#### Add a Metadata Provider
+
+1. Create a new module in `core/`:
+```python
+# core/metadata_provider.py
+class MetadataProvider:
+    async def search(self, query: str):
+        # Implement search
+        pass
+```
+
+2. Integrate in `FileHandlers` or where needed
+
+### Testing
+
+```bash
+# Unit tests
+python -m pytest tests/
+
+# Test with coverage
+python -m pytest --cov=core --cov=handlers --cov=utils tests/
+```
+
+### Code Style
+
+The project follows PEP 8:
+```bash
+# Formatting
+black .
+
+# Linting
+flake8 . --max-line-length=100
+
+# Type checking
+mypy .
+```
+
+## 🐳 Docker
+
+### Build Image
+
+```bash
+docker build -t mediabutler:latest .
+```
+
+### Custom Docker Compose
 
 ```yaml
 version: '3.8'
 
 services:
   mediabutler:
-    build: .
+    image: mediabutler:latest
     container_name: mediabutler
-    environment:
-      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
-      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - AUTHORIZED_USERS=${AUTHORIZED_USERS}
+    restart: unless-stopped
+    env_file: .env
     volumes:
       - ${MOVIES_PATH}:/media/movies
       - ${TV_PATH}:/media/tv
       - ./session:/app/session
-    restart: unless-stopped
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
 ```
+
+## 📊 Monitoring
+
+### Logs
+
+```bash
+# Docker logs
+docker logs -f mediabutler
+
+# Log file (if configured)
+tail -f logs/mediabutler.log
+```
+
+### Metrics
+
+The bot exposes internal metrics via the `/status` command:
+- Active downloads
+- Queued files
+- Available space
+- Download speed
 
 ## 🚧 Roadmap
 
-- [ ] Automatic metadata fetching
-- [ ] Integration with Jellyfin/Plex webhooks
-- [ ] Duplicate detection
-- [ ] Custom naming templates
-- [ ] Channel monitoring mode
-- [ ] Download statistics
-- [ ] Web interface
-- [ ] Support for more media types (books, documents, music, audiobooks, etc.)
+- [ ] Web UI for management
+- [ ] Jellyfin/Plex integration
+- [ ] Subtitle support
+- [ ] Playlist/channel downloads
+- [ ] Customizable notifications
+- [ ] Configuration backup/restore
+- [ ] REST API for integrations
+- [ ] Full multi-language support
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+1. Fork the project
+2. Create feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add AmazingFeature'`)
 4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+5. Open Pull Request
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
-## 🙏 Acknowledgments
+## 🙏 Acknowledgements
 
-- [Telethon](https://github.com/LonamiWebs/Telethon) - Pure Python 3 MTProto API Telegram client library
-- [python-dotenv](https://github.com/theskumar/python-dotenv) - Python-dotenv reads key-value pairs from a .env file
+- [Telethon](https://github.com/LonamiWebs/Telethon) - Telegram MTProto client
+- [TMDB](https://www.themoviedb.org) - Metadata database
+- [aiohttp](https://github.com/aio-libs/aiohttp) - Asynchronous HTTP client
+- Self-hosted community ❤️
 
 ## ⚠️ Disclaimer
 
-This bot is for personal use only. Please respect copyright laws and only download content you have the right to access.
+Bot for personal use. Respect copyright laws and only download content you have rights to.
 
 ---
 
 <p align="center">
-  Made with ❤️ for the self-hosted community
+  Developed with ❤️ for the self-hosted community
 </p>
