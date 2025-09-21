@@ -14,9 +14,9 @@ try:
     env_path = Path('.env')
     if env_path.exists():
         load_dotenv()
-        print("✅ .env file loaded successfully")
+        print("OK .env file loaded successfully")
 except ImportError:
-    print("⚠️ python-dotenv not installed")
+    print("WARNING python-dotenv not installed")
 
 
 @dataclass
@@ -69,10 +69,30 @@ class AuthConfig:
     """Configurazione autorizzazioni"""
     authorized_users: List[int]
     admin_mode: bool
-    
+
     @property
     def first_admin(self) -> Optional[int]:
         return self.authorized_users[0] if self.authorized_users else None
+
+
+@dataclass
+class SubtitleConfig:
+    """Configurazione sottotitoli"""
+    enabled: bool = False
+    auto_download: bool = False
+    languages: List[str] = None
+    opensubtitles_user_agent: str = 'MediaButler v1.0'
+    opensubtitles_username: Optional[str] = None
+    opensubtitles_password: Optional[str] = None
+    preferred_format: str = 'srt'
+
+    def __post_init__(self):
+        if self.languages is None:
+            self.languages = ['it', 'en']
+
+    @property
+    def is_opensubtitles_configured(self) -> bool:
+        return bool(self.opensubtitles_username and self.opensubtitles_password)
 
 
 class Config:
@@ -84,6 +104,7 @@ class Config:
         self.paths = self._load_paths_config()
         self.limits = self._load_limits_config()
         self.auth = self._load_auth_config()
+        self.subtitles = self._load_subtitle_config()
         self.logger = self._setup_logging()
         
         # Validazione
@@ -143,14 +164,29 @@ class Config:
         """Carica configurazione autorizzazioni"""
         users_str = os.getenv('AUTHORIZED_USERS', '')
         authorized_users = [
-            int(uid.strip()) 
-            for uid in users_str.split(',') 
+            int(uid.strip())
+            for uid in users_str.split(',')
             if uid.strip()
         ]
-        
+
         return AuthConfig(
             authorized_users=authorized_users,
             admin_mode=len(authorized_users) == 0
+        )
+
+    def _load_subtitle_config(self) -> SubtitleConfig:
+        """Carica configurazione sottotitoli"""
+        languages_str = os.getenv('SUBTITLE_LANGUAGES', 'it,en')
+        languages = [lang.strip() for lang in languages_str.split(',') if lang.strip()]
+
+        return SubtitleConfig(
+            enabled=os.getenv('SUBTITLE_ENABLED', 'false').lower() == 'true',
+            auto_download=os.getenv('SUBTITLE_AUTO_DOWNLOAD', 'false').lower() == 'true',
+            languages=languages,
+            opensubtitles_user_agent=os.getenv('OPENSUBTITLES_USER_AGENT', 'MediaButler v1.0'),
+            opensubtitles_username=os.getenv('OPENSUBTITLES_USERNAME') or None,
+            opensubtitles_password=os.getenv('OPENSUBTITLES_PASSWORD') or None,
+            preferred_format=os.getenv('SUBTITLE_FORMAT', 'srt')
         )
     
     def _setup_logging(self) -> logging.Logger:
@@ -180,6 +216,8 @@ class Config:
         self.logger.info(f"Authorized users: {len(self.auth.authorized_users)}")
         self.logger.info(f"Admin mode: {self.auth.admin_mode}")
         self.logger.info(f"TMDB enabled: {self.tmdb.is_enabled}")
+        self.logger.info(f"Subtitles enabled: {self.subtitles.enabled}")
+        self.logger.info(f"Subtitle auto-download: {self.subtitles.auto_download}")
         self.logger.info(f"Max concurrent downloads: {self.limits.max_concurrent_downloads}")
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
 

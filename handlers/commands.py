@@ -43,11 +43,15 @@ class CommandHandlers:
         self.client.on(events.NewMessage(pattern='/users'))(self.users_handler)
         self.client.on(events.NewMessage(pattern='/help'))(self.help_handler)
         self.client.on(events.NewMessage(pattern='/settings'))(self.settings_handler)
-        
+        self.client.on(events.NewMessage(pattern='/subtitles'))(self.subtitles_handler)
+        self.client.on(events.NewMessage(pattern='/sub_toggle'))(self.subtitle_toggle_handler)
+        self.client.on(events.NewMessage(pattern='/sub_auto'))(self.subtitle_auto_handler)
+
         # Callback handler per bottoni
         self.client.on(events.CallbackQuery(pattern='menu_'))(self.menu_callback_handler)
         self.client.on(events.CallbackQuery(pattern='cancel_'))(self.cancel_callback_handler)
         self.client.on(events.CallbackQuery(pattern='stop_'))(self.stop_callback_handler)
+        self.client.on(events.CallbackQuery(pattern='sub_'))(self.subtitle_callback_handler)
         
         self.logger.info("Handler comandi registrati con menu inline")
     
@@ -61,12 +65,12 @@ class CommandHandlers:
             ],
             [
                 Button.inline("⏳ In Attesa", "menu_waiting"),
-                Button.inline("⚙️ Impostazioni", "menu_settings"),
-                Button.inline("❓ Aiuto", "menu_help")
+                Button.inline("📝 Sottotitoli", "menu_subtitles"),
+                Button.inline("⚙️ Impostazioni", "menu_settings")
             ],
             [
-                Button.inline("❌ Cancella Tutto", "menu_cancel_all"),
-                Button.inline("🔄 Aggiorna", "menu_refresh")
+                Button.inline("❓ Aiuto", "menu_help"),
+                Button.inline("❌ Cancella Tutto", "menu_cancel_all")
             ]
         ]
         
@@ -398,6 +402,7 @@ class CommandHandlers:
             'space': self.space.format_disk_status,
             'downloads': self._get_downloads_detailed,
             'waiting': self._get_waiting_text,
+            'subtitles': self._get_subtitle_status,
             'settings': self._get_settings_text,
             'help': self._get_help_text,
             'users': self._get_users_text,
@@ -415,6 +420,8 @@ class CommandHandlers:
                     Button.inline("🔄 Aggiorna", f"menu_{action}"),
                     Button.inline("📱 Menu", "menu_back")
                 ])
+            elif action == 'subtitles':
+                buttons = self._create_subtitle_menu()
             elif action == 'cancel_all':
                 buttons = [
                     [
@@ -662,3 +669,113 @@ class CommandHandlers:
             f"**Totale: {total} operazioni**\n\n"
             f"Sei sicuro?"
         )
+
+    async def subtitles_handler(self, event):
+        """Handler comando /subtitles"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        await event.reply(
+            self._get_subtitle_status(),
+            buttons=self._create_subtitle_menu()
+        )
+
+    async def subtitle_toggle_handler(self, event):
+        """Handler comando /sub_toggle - abilita/disabilita sottotitoli"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        await event.reply(
+            "⚙️ **Configurazione Sottotitoli**\n\n"
+            "Per modificare le impostazioni sottotitoli, aggiorna il file .env:\n\n"
+            "• `SUBTITLE_ENABLED=true/false`\n"
+            "• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n"
+            "• `SUBTITLE_LANGUAGES=it,en`\n\n"
+            "Riavvia il bot per applicare le modifiche."
+        )
+
+    async def subtitle_auto_handler(self, event):
+        """Handler comando /sub_auto - toggle download automatico"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        await event.reply(
+            "⚙️ **Download Automatico Sottotitoli**\n\n"
+            "Per abilitare/disabilitare il download automatico, "
+            "modifica `SUBTITLE_AUTO_DOWNLOAD=true/false` nel file .env\n\n"
+            "Riavvia il bot per applicare le modifiche."
+        )
+
+    async def subtitle_callback_handler(self, event):
+        """Handler callback bottoni sottotitoli"""
+        if not await self.auth.check_authorized(event):
+            await event.answer("❌ Non autorizzato")
+            return
+
+        try:
+            data = event.data.decode('utf-8')
+
+            if data == "sub_status":
+                await event.edit(
+                    self._get_subtitle_status(),
+                    buttons=self._create_subtitle_menu()
+                )
+
+            elif data == "sub_config":
+                await event.edit(
+                    "⚙️ **Configurazione Sottotitoli**\n\n"
+                    "Per modificare le impostazioni, edita il file .env:\n\n"
+                    "• `SUBTITLE_ENABLED=true/false`\n"
+                    "• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n"
+                    "• `SUBTITLE_LANGUAGES=it,en,es`\n"
+                    "• `OPENSUBTITLES_USERNAME=username`\n"
+                    "• `OPENSUBTITLES_PASSWORD=password`\n\n"
+                    "Riavvia il bot per applicare le modifiche.",
+                    buttons=[[Button.inline("🔙 Indietro", "sub_status")]]
+                )
+
+            elif data == "sub_back_main":
+                user_id = event.sender_id
+                is_admin = self.auth.is_admin(user_id)
+                await event.edit(
+                    "🎬 **MediaButler - Menu Principale**\n\n"
+                    "Seleziona un'opzione:",
+                    buttons=self._create_main_menu(is_admin)
+                )
+
+            await event.answer()
+
+        except Exception as e:
+            self.logger.error(f"Errore callback sottotitoli: {e}")
+            await event.answer("❌ Errore")
+
+    def _get_subtitle_status(self) -> str:
+        """Ottieni stato sistema sottotitoli"""
+        config = self.config.subtitles
+
+        status_icon = "✅" if config.enabled else "❌"
+        auto_icon = "✅" if config.auto_download else "❌"
+        auth_icon = "✅" if config.is_opensubtitles_configured else "❌"
+
+        return (
+            f"📝 **Stato Sottotitoli**\n\n"
+            f"{status_icon} Sistema attivo: **{'Sì' if config.enabled else 'No'}**\n"
+            f"{auto_icon} Download automatico: **{'Sì' if config.auto_download else 'No'}**\n"
+            f"🌍 Lingue: **{', '.join(config.languages)}**\n"
+            f"{auth_icon} OpenSubtitles configurato: **{'Sì' if config.is_opensubtitles_configured else 'No'}**\n"
+            f"📄 Formato preferito: **{config.preferred_format}**\n\n"
+            f"User Agent: `{config.opensubtitles_user_agent}`"
+        )
+
+    def _create_subtitle_menu(self):
+        """Crea menu sottotitoli"""
+        return [
+            [
+                Button.inline("🔄 Aggiorna", "sub_status"),
+                Button.inline("⚙️ Configurazione", "sub_config")
+            ],
+            [
+                Button.inline("🔙 Menu Principale", "sub_back_main")
+            ]
+        ]
+    

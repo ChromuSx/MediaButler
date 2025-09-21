@@ -4,12 +4,13 @@ Gestione download e code
 import asyncio
 import time
 from pathlib import Path
-from typing import Dict, Optional, Set
+from typing import Dict, Optional, Set, List
 from collections import defaultdict
 from telethon import TelegramClient
 from core.config import get_config
 from core.space_manager import SpaceManager
 from core.tmdb_client import TMDBClient
+from core.subtitle_manager import SubtitleManager
 from models.download import DownloadInfo, DownloadStatus, QueueItem
 from utils.helpers import RetryHelpers
 from utils.naming import FileNameParser
@@ -27,6 +28,7 @@ class DownloadManager:
         self.client = client
         self.space_manager = space_manager
         self.tmdb_client = tmdb_client
+        self.subtitle_manager = SubtitleManager()
         self.config = get_config()
         self.logger = self.config.logger
         
@@ -414,7 +416,10 @@ class DownloadManager:
                 default="unknown"
             )
             self.logger.info(f"File completato: {filepath} (hash: {file_hash})")
-            
+
+            # Download sottotitoli se configurato
+            await self._handle_subtitles_download(download_info, filepath)
+
             # Notifica completamento
             await self._notify_completion(download_info, filepath)
             
@@ -600,3 +605,84 @@ class DownloadManager:
                 pass
         
         self.logger.info(f"Download completato: {filepath}")
+
+    async def _handle_subtitles_download(self, download_info: DownloadInfo, filepath: Path):
+        """Gestisce download sottotitoli dopo completamento video"""
+        if not self.config.subtitles.enabled:
+            return
+
+        if not self.config.subtitles.auto_download:
+            self.logger.debug("Download automatico sottotitoli disabilitato")
+            return
+
+        try:
+            self.logger.info(f"🎬 Avvio download sottotitoli per: {filepath.name}")
+
+            # Estrai informazioni per ricerca sottotitoli
+            season = None
+            episode = None
+            imdb_id = getattr(download_info, 'imdb_id', None)
+
+            # Se è una serie TV, estrai stagione/episodio
+            if not download_info.is_movie and hasattr(download_info, 'season') and hasattr(download_info, 'episode'):
+                season = download_info.season
+                episode = download_info.episode
+
+            # Scarica sottotitoli
+            subtitle_files = await self.subtitle_manager.download_subtitles_for_video(
+                video_path=filepath,
+                imdb_id=imdb_id,
+                season=season,
+                episode=episode,
+                languages=self.config.subtitles.languages,
+                force=False
+            )
+
+            if subtitle_files:
+                self.logger.info(f"✅ Scaricati {len(subtitle_files)} sottotitoli per {filepath.name}")
+
+                # Aggiorna notifica per includere info sottotitoli
+                if download_info.event:
+                    try:
+                        langs = ", ".join([f.stem.split('.')[-2] for f in subtitle_files if '.' in f.stem])
+                        current_text = download_info.event.text or ""
+                        if "🎬 Disponibile sul tuo media server!" in current_text:
+                            updated_text = current_text.replace(
+                                "🎬 Disponibile sul tuo media server!",
+                                f"🎬 Disponibile sul tuo media server!\n📝 Sottotitoli: {langs}"
+                            )
+                            await download_info.event.edit(updated_text)
+                    except Exception as e:
+                        self.logger.debug(f"Errore aggiornamento notifica sottotitoli: {e}")
+            else:
+                self.logger.info(f"❌ Nessun sottotitolo trovato per {filepath.name}")
+
+        except Exception as e:
+            self.logger.error(f"❌ Errore download sottotitoli per {filepath.name}: {e}")
+
+    async def download_subtitles_manually(
+        self,
+        video_path: Path,
+        languages: Optional[List[str]] = None,
+        force: bool = True
+    ) -> List[Path]:
+        """
+        Download manuale sottotitoli per un video esistente
+
+        Args:
+            video_path: Percorso del file video
+            languages: Lingue da scaricare (default: da config)
+            force: Forza download anche se già esistenti
+
+        Returns:
+            Lista file sottotitoli scaricati
+        """
+        if not self.config.subtitles.enabled:
+            self.logger.warning("Sistema sottotitoli disabilitato")
+            return []
+
+        return await self.subtitle_manager.download_subtitles_for_video(
+            video_path=video_path,
+            languages=languages or self.config.subtitles.languages,
+            force=force
+        )
