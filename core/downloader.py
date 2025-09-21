@@ -12,7 +12,7 @@ from core.space_manager import SpaceManager
 from core.tmdb_client import TMDBClient
 from core.subtitle_manager import SubtitleManager
 from models.download import DownloadInfo, DownloadStatus, QueueItem
-from utils.helpers import RetryHelpers
+from utils.helpers import RetryHelpers, FileHelpers, AsyncHelpers
 from utils.naming import FileNameParser
 
 
