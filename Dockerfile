@@ -1,31 +1,30 @@
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Installa dipendenze sistema
 RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copia requirements per cache Docker
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application
-COPY mediabutler.py .
+# Copia TUTTA la struttura modulare
+COPY main.py .
+COPY core ./core
+COPY handlers ./handlers
+COPY models ./models
+COPY utils ./utils
 
-# Create necessary directories
+# Crea directory necessarie
 RUN mkdir -p /app/session /media/movies /media/tv /media/temp
 
-# Create non-root user
+# Crea utente non-root
 RUN useradd -m -u 1000 mediabutler && \
     chown -R mediabutler:mediabutler /app /media
 
-# Switch to non-root user
 USER mediabutler
 
-# Run the bot
-CMD ["python", "mediabutler.py"]
+CMD ["python", "-u", "main.py"]

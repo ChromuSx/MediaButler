@@ -86,3 +86,4 @@ coverage.xml
 
 # Distribution
 .pypirc
+deploy.bat
