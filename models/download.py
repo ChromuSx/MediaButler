@@ -32,20 +32,35 @@ class SeriesInfo:
     season: Optional[int] = None
     episode: Optional[int] = None
     episode_title: Optional[str] = None
-    
+    end_episode: Optional[int] = None  # Per multi-episodi (S01E01-E03)
+    confidence: int = 0  # Confidence del riconoscimento (0-120)
+
     @property
     def season_folder(self) -> str:
         """Nome cartella stagione"""
         if self.season:
             return f"Season {self.season:02d}"
         return "Season 01"
-    
+
     @property
     def episode_code(self) -> str:
-        """Codice episodio (es: S01E01)"""
+        """Codice episodio (es: S01E01 o S01E01-E03)"""
         if self.season and self.episode:
-            return f"S{self.season:02d}E{self.episode:02d}"
+            code = f"S{self.season:02d}E{self.episode:02d}"
+            if self.end_episode and self.end_episode != self.episode:
+                code += f"-E{self.end_episode:02d}"
+            return code
         return ""
+
+    @property
+    def is_multi_episode(self) -> bool:
+        """True se è un multi-episodio"""
+        return self.end_episode is not None and self.end_episode > self.episode
+
+    @property
+    def is_high_confidence(self) -> bool:
+        """True se il riconoscimento ha alta confidenza (>=70)"""
+        return self.confidence >= 70
 
 
 @dataclass

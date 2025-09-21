@@ -11,14 +11,27 @@ from models.download import SeriesInfo, TMDBResult
 class FileNameParser:
     """Parser per nomi file media"""
     
-    # Pattern per identificare serie TV
+    # Pattern per identificare serie TV con scoring di confidenza
     TV_PATTERNS = [
-        (r'[Ss](\d+)[Ee](\d+)', 'standard'),              # S01E01
-        (r'[Ss](\d+)\s*[Ee](\d+)', 'spaced'),            # S01 E01
-        (r'Season\s*(\d+)\s*Episode\s*(\d+)', 'verbose'), # Season 1 Episode 1
-        (r'(\d+)x(\d+)', 'x_format'),                     # 1x01
-        (r'[\.\s\-_](\d+)x(\d+)', 'x_format_sep'),       # .1x01
-        (r'[Ee][Pp][\.\s]?(\d+)', 'episode_only'),        # EP01
+        # Pattern ad alta confidenza (90-100)
+        (r'[Ss](\d{1,2})[Ee](\d{1,3})', 'standard', 100),              # S01E01
+        (r'[Ss](\d{1,2})\s*[Ee](\d{1,3})', 'spaced', 95),              # S01 E01
+        (r'Season\s*(\d{1,2})\s*Episode\s*(\d{1,3})', 'verbose', 90),  # Season 1 Episode 1
+
+        # Pattern media confidenza (70-89)
+        (r'(\d{1,2})x(\d{1,3})', 'x_format', 85),                      # 1x01
+        (r'[\.\s\-_](\d{1,2})x(\d{1,3})', 'x_format_sep', 80),        # .1x01
+        (r'[Ss](\d{1,2})[Ee](\d{1,3})-[Ee](\d{1,3})', 'multi_episode', 75), # S01E01-E03
+
+        # Pattern nuovi
+        (r'(\d{1,2})\.(\d{1,3})', 'dot_format', 70),                   # 1.01
+        (r'[\[\(](\d{1,3})[\]\)]', 'anime_bracket', 75),               # [01] per anime
+        (r'(?:Episode|Ep)[\s\.]?(\d{1,3})', 'episode_word', 65),       # Episode 1
+        (r'[Pp]art[\s\.]?(\d{1,3})', 'part_format', 60),              # Part 1
+
+        # Pattern a bassa confidenza (50-69)
+        (r'(\d)(\d{2})(?![0-9])', 'concatenated', 55),                 # 101 (1x01)
+        (r'[Ee][Pp][\.\s]?(\d{1,3})', 'episode_only', 50),            # EP01
     ]
     
     # Tag di qualità da rimuovere
@@ -64,46 +77,93 @@ class FileNameParser:
     @classmethod
     def extract_series_info(cls, filename: str) -> SeriesInfo:
         """
-        Estrae informazioni serie TV dal nome file
-        
+        Estrae informazioni serie TV dal nome file con confidence scoring
+
         Args:
             filename: Nome file
-            
+
         Returns:
             SeriesInfo con dati estratti
         """
-        season = None
-        episode = None
-        series_name = None
-        
-        # Prova tutti i pattern
-        for pattern, pattern_type in cls.TV_PATTERNS:
+        best_match = None
+        best_confidence = 0
+
+        # Prova tutti i pattern con scoring
+        for pattern, pattern_type, confidence in cls.TV_PATTERNS:
             match = re.search(pattern, filename, re.IGNORECASE)
-            
+
             if match:
-                if pattern_type == 'episode_only':
-                    # Solo episodio, assumiamo stagione 1
+                season = None
+                episode = None
+                end_episode = None
+
+                # Gestione pattern specifici
+                if pattern_type == 'episode_only' or pattern_type == 'episode_word' or pattern_type == 'part_format':
                     season = 1
                     episode = int(match.group(1))
+                elif pattern_type == 'anime_bracket':
+                    season = 1
+                    episode = int(match.group(1))
+                elif pattern_type == 'concatenated':
+                    # 101 = S1E01
+                    season = int(match.group(1))
+                    episode = int(match.group(2))
+                elif pattern_type == 'multi_episode':
+                    season = int(match.group(1))
+                    episode = int(match.group(2))
+                    end_episode = int(match.group(3)) if len(match.groups()) >= 3 else None
                 else:
                     season = int(match.group(1))
                     episode = int(match.group(2))
-                
-                # Estrai nome serie (tutto prima del match)
-                series_name = filename[:match.start()].strip()
-                break
-        
+
+                # Validazione
+                if not cls._validate_season_episode(season, episode):
+                    continue
+
+                # Calcola confidence totale
+                total_confidence = confidence
+
+                # Bonus per context
+                total_confidence += cls._calculate_context_bonus(filename, match, pattern_type)
+
+                if total_confidence > best_confidence:
+                    best_confidence = total_confidence
+                    series_name = filename[:match.start()].strip()
+
+                    # Estrai titolo episodio se possibile
+                    episode_title = cls._extract_episode_title(filename, match)
+
+                    best_match = {
+                        'series_name': series_name,
+                        'season': season,
+                        'episode': episode,
+                        'end_episode': end_episode,
+                        'episode_title': episode_title,
+                        'confidence': total_confidence
+                    }
+
         # Se non trovato nulla, usa il nome file senza estensione
-        if not series_name:
+        if not best_match:
             series_name = os.path.splitext(filename)[0]
-        
+            best_match = {
+                'series_name': series_name,
+                'season': None,
+                'episode': None,
+                'end_episode': None,
+                'episode_title': None,
+                'confidence': 0
+            }
+
         # Pulisci il nome serie
-        series_name = cls.clean_media_name(series_name)
-        
+        clean_name = cls.clean_media_name(best_match['series_name'])
+
         return SeriesInfo(
-            series_name=cls.sanitize_filename(series_name),
-            season=season,
-            episode=episode
+            series_name=cls.sanitize_filename(clean_name),
+            season=best_match['season'],
+            episode=best_match['episode'],
+            episode_title=best_match['episode_title'],
+            end_episode=best_match['end_episode'],
+            confidence=best_match['confidence']
         )
     
     @classmethod
@@ -286,3 +346,107 @@ class FileNameParser:
                 filename = cls.sanitize_filename(original_filename)
         
         return folder_name, filename
+
+    @classmethod
+    def _validate_season_episode(cls, season: int, episode: int) -> bool:
+        """
+        Valida numeri stagione/episodio
+
+        Args:
+            season: Numero stagione
+            episode: Numero episodio
+
+        Returns:
+            True se validi
+        """
+        if season is None or episode is None:
+            return False
+
+        # Controlli ragionevolezza
+        if season < 1 or season > 50:  # Max 50 stagioni
+            return False
+
+        if episode < 1 or episode > 999:  # Max 999 episodi
+            return False
+
+        # Controllo episodi troppo alti per stagioni basse (eccetto anime)
+        if season <= 5 and episode > 100 and episode < 999:
+            return False
+
+        return True
+
+    @classmethod
+    def _calculate_context_bonus(cls, filename: str, match, pattern_type: str) -> int:
+        """
+        Calcola bonus di confidenza basato sul contesto
+
+        Args:
+            filename: Nome file completo
+            match: Match regex
+            pattern_type: Tipo di pattern
+
+        Returns:
+            Bonus confidenza (0-20)
+        """
+        bonus = 0
+
+        # Bonus se il pattern è circondato da separatori
+        start_char = filename[match.start()-1] if match.start() > 0 else ' '
+        end_char = filename[match.end()] if match.end() < len(filename) else ' '
+
+        if start_char in [' ', '.', '-', '_', '[', '(']:
+            bonus += 5
+        if end_char in [' ', '.', '-', '_', ']', ')']:
+            bonus += 5
+
+        # Bonus per presenza di parole chiave serie TV
+        tv_keywords = ['series', 'season', 'episode', 'ep', 'stagione']
+        filename_lower = filename.lower()
+
+        for keyword in tv_keywords:
+            if keyword in filename_lower:
+                bonus += 3
+                break
+
+        # Malus per formati che potrebbero essere anni
+        if pattern_type == 'concatenated':
+            # Se sembra un anno (1900-2030), riduci confidence
+            full_num = int(match.group(0)) if match.group(0).isdigit() else 0
+            if 1900 <= full_num <= 2030:
+                bonus -= 10
+
+        return max(0, min(20, bonus))  # Limita tra 0 e 20
+
+    @classmethod
+    def _extract_episode_title(cls, filename: str, match) -> Optional[str]:
+        """
+        Estrae titolo episodio dal nome file
+
+        Args:
+            filename: Nome file
+            match: Match regex del pattern SE
+
+        Returns:
+            Titolo episodio se trovato
+        """
+        # Cerca dopo il pattern SE fino a tag qualità o fine
+        after_match = filename[match.end():].strip()
+
+        # Pattern per trovare titolo (fino a tag qualità o parentesi)
+        title_patterns = [
+            r'^[\s\-\.]*(.+?)[\[\(]',  # Fino a [ o (
+            r'^[\s\-\.]*(.+?)\s+(?:' + '|'.join(cls.QUALITY_TAGS) + r')',  # Fino a tag qualità
+            r'^[\s\-\.]*(.+?)\.(?:mkv|mp4|avi|mov|wmv|flv|webm|ts)$',  # Fino a estensione
+            r'^[\s\-\.]*(.+?)$'  # Resto della stringa
+        ]
+
+        for pattern in title_patterns:
+            title_match = re.search(pattern, after_match, re.IGNORECASE)
+            if title_match:
+                title = title_match.group(1).strip()
+                # Pulisci il titolo
+                title = re.sub(r'[\-\.]+$', '', title).strip()
+                if len(title) > 3:  # Minimo 3 caratteri per essere valido
+                    return cls.sanitize_filename(title)
+
+        return None
