@@ -1,0 +1,195 @@
+{
+  "app": {
+    "name": "MediaButler",
+    "description": "媒体管理器",
+    "tagline": "Telegram 媒体整理机器人"
+  },
+  "commands": {
+    "start": {
+      "welcome": "🎬 **MediaButler - 媒体管理器**\n\n欢迎！{role}\nID: `{user_id}`\n\n**📊 系统状态：**\n• 💾 空间：{total_free} GB 可用\n• 📥 活跃：{active} 个下载\n• ⏳ 队列：{queued} 个文件\n• {tmdb_emoji} {tmdb_status}\n\n**📤 开始使用：** 发送视频文件\n\n{commands_list}\n\n**💡 使用下方菜单轻松导航！**",
+      "role_admin": "👑 管理员",
+      "role_user": "👤 用户",
+      "commands_rapid": "**📝 快速命令：**\n`/status` - 系统状态\n`/downloads` - 活跃下载\n`/space` - 磁盘空间\n`/menu` - 完整菜单\n`/help` - 帮助",
+      "commands_admin": "\n`/users` - 用户管理\n`/stop` - 停止机器人"
+    },
+    "menu": {
+      "title": "🎬 **MediaButler - 主菜单**\n\n选择一个选项：",
+      "main_buttons": {
+        "status": "📊 状态",
+        "space": "💾 空间", 
+        "downloads": "📥 下载",
+        "waiting": "⏳ 等待中",
+        "subtitles": "📝 字幕",
+        "settings": "⚙️ 设置",
+        "help": "❓ 帮助",
+        "cancel_all": "❌ 取消全部",
+        "users": "👥 用户",
+        "stop": "🛑 停止机器人",
+        "language": "🌍 语言"
+      },
+      "quick_buttons": {
+        "status": "📊 状态",
+        "downloads": "📥 下载", 
+        "full_menu": "📱 完整菜单"
+      }
+    },
+    "status": {
+      "title": "📊 **系统状态**",
+      "downloads_active": "**📥 活跃下载 ({count})：**",
+      "downloads_none": "📭 没有活跃下载",
+      "downloads_more": "  ...还有 {count} 个",
+      "queue_pending": "⏳ **队列中：** {count} 个文件",
+      "queue_waiting_space": "⏸️ **等待空间：** {count} 个文件",
+      "disk_space": "💾 **空间：**"
+    },
+    "downloads": {
+      "title": "📥 **活跃下载**",
+      "none": "📭 当前没有活跃下载。",
+      "active_count": "**活跃 ({count})：**",
+      "item": "• `{filename}`\n  {progress}% - {speed} MB/s - 剩余：{eta}",
+      "item_simple": "• `{filename}`\n  {progress}% - {speed} MB/s"
+    },
+    "waiting": {
+      "title": "⏳ **等待空间的文件**",
+      "none": "✅ **没有等待的文件**\n\n所有下载都有足够的空间。",
+      "space_waiting": "**💾 等待空间 ({count})：**",
+      "queue_pending": "**⏳ 队列中 ({count})：**",
+      "item": "• `{filename}` ({size})",
+      "note": "\n💡 文件将在可能时自动恢复。",
+      "more": "...还有 {count} 个文件"
+    },
+    "space": {
+      "title": "💾 **磁盘空间**",
+      "status_ok": "✅",
+      "status_warning": "⚠️", 
+      "status_critical": "🔴",
+      "item": "{emoji} {name}：{free} GB 可用 ({used} GB 已用 / {total} GB 总计)"
+    },
+    "settings": {
+      "title": "⚙️ **当前设置**",
+      "downloads": "**下载：**",
+      "concurrent": "• 并发数：{count}",
+      "max_size": "• 最大大小：{size} GB",
+      "space_section": "**空间：**",
+      "min_free": "• 最小保留：{size} GB",
+      "warning_threshold": "• 警告阈值：{size} GB",
+      "check_interval": "• 检查间隔：{seconds}秒",
+      "tmdb_section": "**TMDB：**",
+      "tmdb_status_active": "✅ 已启用",
+      "tmdb_status_disabled": "❌ 未配置",
+      "tmdb_language": "• 语言：{language}",
+      "paths_section": "**路径：**",
+      "path_movies": "• 电影：`{path}`",
+      "path_tv": "• 电视剧：`{path}`",
+      "path_temp": "• 临时：`{path}`",
+      "note": "ℹ️ 编辑 `.env` 来更改。"
+    },
+    "help": {
+      "title": "❓ **MediaButler 指南**",
+      "usage": "**📥 使用方法：**",
+      "step1": "1️⃣ 发送视频文件",
+      "step2": "2️⃣ 机器人识别内容", 
+      "step3": "3️⃣ 确认或选择类型",
+      "step4": "4️⃣ 自动下载",
+      "commands": "**📝 主要命令：**",
+      "cmd_menu": "• `/menu` - 交互式菜单",
+      "cmd_status": "• `/status` - 快速状态",
+      "cmd_downloads": "• `/downloads` - 活跃下载",
+      "cmd_space": "• `/space` - 磁盘空间",
+      "cmd_cancel": "• `/cancel` - 取消下载",
+      "cmd_help": "• `/help` - 此帮助",
+      "organization": "**📁 组织结构：**",
+      "org_movies": "• 电影：`/movies/名称 (年份)/`",
+      "org_tv": "• 电视剧：`/tv/系列/Season XX/`",
+      "tips": "**💡 提示：**",
+      "tip1": "• 描述性名称 = 更好的结果",
+      "tip2": "• 每个文件最大 10GB",
+      "tip3": "• 重启后下载会恢复",
+      "support": "如需支持，请联系管理员。"
+    },
+    "users": {
+      "title": "👥 **授权用户 ({count})**",
+      "admin_marker": " 👑 管理员",
+      "modify_instructions": "📝 **修改方法：**\n1. 在 `.env` 中编辑 `AUTHORIZED_USERS`\n2. 重启机器人\n\n第一个用户总是管理员。"
+    },
+    "subtitles": {
+      "title": "📝 **字幕系统**",
+      "status_enabled": "✅ 已启用",
+      "status_disabled": "❌ 已禁用", 
+      "auto_enabled": "✅ 自动下载已启用",
+      "auto_disabled": "❌ 自动下载已禁用",
+      "languages": "• 语言：{languages}",
+      "format": "• 首选格式：{format}",
+      "opensubtitles_configured": "✅ OpenSubtitles 已配置",
+      "opensubtitles_missing": "⚠️ OpenSubtitles 未配置",
+      "note": "ℹ️ 在 `.env` 中配置以启用。",
+      "menu_buttons": {
+        "refresh": "🔄 刷新",
+        "config": "⚙️ 配置"
+      },
+      "config": {
+        "toggle_instructions": "⚙️ **字幕配置**\n\n要修改字幕设置，请更新 .env 文件：\n\n• `SUBTITLE_ENABLED=true/false`\n• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n• `SUBTITLE_LANGUAGES=it,en`\n\n重启机器人以应用更改。",
+        "auto_instructions": "⚙️ **自动字幕下载**\n\n要启用/禁用自动下载，请在 .env 文件中修改 `SUBTITLE_AUTO_DOWNLOAD=true/false`\n\n重启机器人以应用更改。",
+        "full_instructions": "⚙️ **字幕配置**\n\n要修改设置，请编辑 .env 文件：\n\n• `SUBTITLE_ENABLED=true/false`\n• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n• `SUBTITLE_LANGUAGES=it,en,es`\n• `OPENSUBTITLES_USERNAME=username`\n• `OPENSUBTITLES_PASSWORD=password`\n\n重启机器人以应用更改。"
+      }
+    },
+    "language": {
+      "title": "🌍 **语言选择**\n\n选择您的首选语言：",
+      "current": "当前语言：{language}",
+      "changed": "✅ 语言已更改为 **{language}**！"
+    }
+  },
+  "buttons": {
+    "back": "🔙 返回",
+    "menu": "📱 菜单",
+    "refresh": "🔄 刷新",
+    "confirm": "✅ 确认",
+    "cancel": "❌ 取消",
+    "yes": "✅ 是",
+    "no": "❌ 否"
+  },
+  "messages": {
+    "unauthorized": "❌ 您无权使用此机器人。",
+    "admin_only": "❌ 只有管理员可以执行此命令。",
+    "admin_only_action": "❌ 仅限管理员",
+    "tmdb_active": "TMDB 已启用",
+    "tmdb_disabled": "TMDB 未配置",
+    "send_video": "📤 开始使用：发送视频文件"
+  },
+  "confirmations": {
+    "cancel_all": {
+      "title": "❌ **确认取消**",
+      "message": "⚠️ 您要取消 **所有** 下载吗？\n\n• {active} 个活跃下载\n• {queued} 个队列文件\n\n此操作无法撤销！",
+      "no_downloads": "✅ 没有要取消的下载。"
+    },
+    "stop_bot": {
+      "title": "🛑 **确认停止机器人**",
+      "message": "⚠️ 此操作将：\n• 取消所有下载\n• 停止机器人\n• 需要手动重启\n\n确认吗？",
+      "button_confirm": "✅ 确认停止"
+    }
+  },
+  "errors": {
+    "generic": "❌ 发生错误。",
+    "not_found": "❌ 未找到。",
+    "unauthorized": "❌ 未授权。",
+    "invalid_command": "❌ 无效命令。",
+    "file_too_large": "❌ 文件过大（最大 {max_size} GB）。",
+    "no_space": "❌ 空间不足。",
+    "download_failed": "❌ 下载失败：{error}"
+  },
+  "success": {
+    "download_started": "✅ 下载已开始：`{filename}`",
+    "download_completed": "✅ 下载已完成：`{filename}`",
+    "download_cancelled": "✅ 下载已取消：`{filename}`", 
+    "all_downloads_cancelled": "✅ 所有下载已被取消。",
+    "bot_stopping": "🛑 机器人正在停止...",
+    "settings_updated": "✅ 设置已更新。"
+  },
+  "time": {
+    "seconds": "{count}秒",
+    "minutes": "{count}分",
+    "hours": "{count}小时",
+    "days": "{count}天",
+    "unknown": "未知"
+  }
+}
