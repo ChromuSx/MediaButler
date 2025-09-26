@@ -507,7 +507,6 @@ class CommandHandlers:
         
         return t("commands.start.welcome", user_id,
                role=role,
-               user_id=user_id,
                total_free=f"{total_free:.1f}",
                active=active,
                queued=queued,

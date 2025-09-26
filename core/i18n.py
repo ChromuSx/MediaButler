@@ -113,6 +113,8 @@ class I18nManager:
         Returns:
             Testo tradotto
         """
+        if user_id is not None and not kwargs.get('user_id'):
+            kwargs['user_id'] = user_id  # Assicurati che user_id sia sempre passato per l'interpolazione
         locale = self.get_user_locale(user_id) if user_id else self.current_locale
         return self._get_translation(key, locale, **kwargs)
     
@@ -128,6 +130,7 @@ class I18nManager:
         Returns:
             Testo tradotto
         """
+        
         # Cerca nella lingua richiesta
         translation = self._find_nested_key(self.translations.get(locale, {}), key)
         
@@ -146,7 +149,7 @@ class I18nManager:
             try:
                 translation = translation.format(**kwargs)
             except (KeyError, ValueError):
-                pass  # Ignora errori di formattazione
+                print(f"Errore interpolazione per chiave: {key} con params: {kwargs}")
         
         return translation
     
