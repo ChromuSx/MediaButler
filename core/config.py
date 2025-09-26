@@ -95,6 +95,17 @@ class SubtitleConfig:
         return bool(self.opensubtitles_username and self.opensubtitles_password)
 
 
+@dataclass
+class I18nConfig:
+    """Configurazione internazionalizzazione"""
+    default_language: str = 'it'
+    supported_languages: List[str] = None
+    
+    def __post_init__(self):
+        if self.supported_languages is None:
+            self.supported_languages = ['it', 'en', 'es', 'fr', 'de', 'pt', 'ru', 'zh', 'ja', 'ar']
+
+
 class Config:
     """Configurazione principale MediaButler"""
     
@@ -105,6 +116,7 @@ class Config:
         self.limits = self._load_limits_config()
         self.auth = self._load_auth_config()
         self.subtitles = self._load_subtitle_config()
+        self.i18n = self._load_i18n_config()
         self.logger = self._setup_logging()
         
         # Validazione
@@ -189,6 +201,12 @@ class Config:
             preferred_format=os.getenv('SUBTITLE_FORMAT', 'srt')
         )
     
+    def _load_i18n_config(self) -> I18nConfig:
+        """Carica configurazione internazionalizzazione"""
+        return I18nConfig(
+            default_language=os.getenv('DEFAULT_LANGUAGE', 'it')
+        )
+    
     def _setup_logging(self) -> logging.Logger:
         """Configura logging"""
         logging.basicConfig(
@@ -220,6 +238,8 @@ class Config:
         self.logger.info(f"Subtitle auto-download: {self.subtitles.auto_download}")
         self.logger.info(f"Max concurrent downloads: {self.limits.max_concurrent_downloads}")
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
+        self.logger.info(f"Default language: {self.i18n.default_language}")
+        self.logger.info(f"Supported languages: {len(self.i18n.supported_languages)}")
 
 
 # Singleton per configurazione globale

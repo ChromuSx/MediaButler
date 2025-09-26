@@ -15,6 +15,10 @@
   <strong>Modular Telegram bot for automatic organization of your media library</strong>
 </p>
 
+<p align="center">
+  <b>🇺🇸 English</b> | <a href="README_CN.md">🇨🇳 简体中文</a>
+</p>
+
 ## ✨ Features
 
 - 🎬 **Smart Organization** - Automatically creates folders for movies and TV series
