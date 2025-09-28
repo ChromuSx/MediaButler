@@ -182,29 +182,41 @@ class FileHandlers:
         """Processa file senza TMDB"""
         # Info base
         info_text = self._format_file_info(download_info)
-        
+
         # Avviso spazio
         space_warning = self._get_space_warning(download_info)
-        
-        # Bottoni
-        buttons = [
-            [
-                Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
-                Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
-            ],
-            [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
-        ]
-        
+
+        # Se è stata rilevata stagione/episodio, è sicuramente una serie TV
+        if download_info.series_info.season:
+            buttons = [
+                [
+                    Button.inline("✅ Conferma Serie TV", f"tv_{download_info.message_id}"),
+                    Button.inline("🎬 È un Film", f"movie_{download_info.message_id}")
+                ],
+                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+            ]
+            question = "**Confermi che è una serie TV?**"
+        else:
+            # Non è stato rilevato pattern serie TV, chiedi tipo
+            buttons = [
+                [
+                    Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
+                    Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
+                ],
+                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+            ]
+            question = "**È un film o una serie TV?**"
+
         msg = await event.reply(
             f"📁 **File ricevuto:**\n"
             f"`{download_info.filename}`\n"
             f"📏 Dimensione: **{download_info.size_mb:.1f} MB** ({download_info.size_gb:.1f} GB)"
             f"{info_text}\n"
             f"{space_warning}\n\n"
-            f"**È un film o una serie TV?**",
+            f"{question}",
             buttons=buttons
         )
-        
+
         download_info.progress_msg = msg
     
     async def _show_high_confidence_match(
@@ -294,25 +306,38 @@ class FileHandlers:
     ):
         """Mostra selezione manuale"""
         info_text = self._format_file_info(download_info)
-        
+
         if self.tmdb:
             info_text += "\n\n⚠️ Nessuna corrispondenza TMDB trovata - uso info dal nome file"
-        
-        buttons = [
-            [
-                Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
-                Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
-            ],
-            [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
-        ]
-        
+
+        # Se è stata rilevata stagione/episodio, è sicuramente una serie TV
+        if download_info.series_info.season:
+            buttons = [
+                [
+                    Button.inline("✅ Conferma Serie TV", f"tv_{download_info.message_id}"),
+                    Button.inline("🎬 È un Film", f"movie_{download_info.message_id}")
+                ],
+                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+            ]
+            question = "**Confermi che è una serie TV?**"
+        else:
+            # Non è stato rilevato pattern serie TV, chiedi tipo
+            buttons = [
+                [
+                    Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
+                    Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
+                ],
+                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+            ]
+            question = "**È un film o una serie TV?**"
+
         await msg.edit(
             f"📁 **File ricevuto:**\n"
             f"`{download_info.filename}`\n"
             f"📏 Dimensione: **{download_info.size_mb:.1f} MB** ({download_info.size_gb:.1f} GB)"
             f"{info_text}\n"
             f"{space_warning}\n\n"
-            f"**È un film o una serie TV?**",
+            f"{question}",
             buttons=buttons
         )
     
