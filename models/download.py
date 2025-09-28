@@ -136,6 +136,7 @@ class DownloadInfo:
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     error_message: Optional[str] = None
+    waiting_for_season: bool = False  # True quando attende input manuale stagione
     
     @property
     def size_gb(self) -> float:

@@ -47,6 +47,8 @@ class CallbackHandlers:
             await self._handle_search_again(event, data)
         elif data.startswith('season_'):
             await self._handle_season_selection(event, data)
+        elif data.startswith('manual_season_'):
+            await self._handle_manual_season(event, data)
         elif data.startswith('cancel_'):
             await self._handle_cancel(event, data)
         elif data.startswith('movie_'):
@@ -170,7 +172,33 @@ class CallbackHandlers:
             f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
             f"📊 Posizione in coda: #{position}"
         )
-    
+
+    async def _handle_manual_season(self, event, data: str):
+        """Gestisce inserimento manuale numero stagione"""
+        msg_id = int(data.split('_')[2])
+
+        download_info = self.downloads.get_download_info(msg_id)
+        if not download_info:
+            await event.answer("❌ Download scaduto o già completato")
+            return
+
+        # Nome serie
+        series_name = download_info.series_info.series_name if download_info.series_info else "Serie"
+        if download_info.selected_tmdb:
+            series_name = download_info.selected_tmdb.title
+
+        # Salva l'ID del messaggio nel download_info per riferimento futuro
+        download_info.waiting_for_season = True
+
+        await event.edit(
+            f"📺 **Serie TV selezionata**\n\n"
+            f"📁 Serie: `{series_name}`\n"
+            f"📄 File: `{download_info.filename}`\n\n"
+            f"**Scrivi il numero della stagione** (es: `12`)\n"
+            f"_Risponderò con un messaggio qui sotto_",
+            buttons=[[Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]]
+        )
+
     async def _handle_cancel(self, event, data: str):
         """Gestisce cancellazione"""
         msg_id = int(data.split('_')[1])
@@ -285,6 +313,9 @@ class CallbackHandlers:
                 )
             
             season_buttons.append([
+                Button.inline("✏️ Inserisci numero", f"manual_season_{download_info.message_id}")
+            ])
+            season_buttons.append([
                 Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")
             ])
             
@@ -297,7 +328,8 @@ class CallbackHandlers:
                 f"📺 **Serie TV selezionata**\n\n"
                 f"📁 Serie: `{series_name}`\n"
                 f"📄 File: `{download_info.filename}`\n\n"
-                f"**Quale stagione?**",
+                f"**Quale stagione?**\n"
+                f"_Usa ✏️ Inserisci numero per stagioni oltre la 10_",
                 buttons=season_buttons
             )
             return

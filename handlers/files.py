@@ -36,6 +36,7 @@ class FileHandlers:
     def register(self):
         """Registra handler file"""
         self.client.on(events.NewMessage(func=lambda e: e.file))(self.file_handler)
+        self.client.on(events.NewMessage(func=lambda e: e.text and not e.text.startswith('/')))(self.text_handler)
         self.logger.info("Handler file registrati")
     
     async def file_handler(self, event: events.NewMessage.Event):
@@ -379,3 +380,67 @@ class FileHandlers:
             )
         
         return ""
+
+    async def text_handler(self, event: events.NewMessage.Event):
+        """Handler per messaggi di testo (per inserimento manuale stagione)"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        # Cerca download in attesa di stagione per questo utente
+        waiting_download = None
+        for download_info in self.downloads.active_downloads.values():
+            if (download_info.user_id == event.sender_id and
+                hasattr(download_info, 'waiting_for_season') and
+                download_info.waiting_for_season):
+                waiting_download = download_info
+                break
+
+        if not waiting_download:
+            return  # Non c'è nessun download in attesa
+
+        # Prova a parsare il numero stagione
+        try:
+            season_text = event.text.strip()
+            season_num = int(season_text)
+
+            if season_num < 1 or season_num > 50:
+                await event.reply("❌ Numero stagione non valido. Inserisci un numero tra 1 e 50.")
+                return
+
+            # Resetta il flag di attesa
+            waiting_download.waiting_for_season = False
+            waiting_download.selected_season = season_num
+
+            # Verifica spazio e procedi con download
+            size_gb = waiting_download.size_gb
+            space_ok, free_gb = self.space.check_space_available(
+                waiting_download.dest_path,
+                size_gb
+            )
+
+            if not space_ok:
+                # Metti in coda spazio
+                position = self.downloads.queue_for_space(waiting_download)
+                await event.reply(
+                    f"📺 **Serie TV** - Stagione {season_num}\n\n"
+                    + self.space.format_space_warning(waiting_download.dest_path, size_gb)
+                    + f"\nPosizione in coda spazio: #{position}"
+                )
+                return
+
+            # Metti in coda download
+            position = await self.downloads.queue_download(waiting_download)
+
+            await event.reply(
+                f"📺 **Serie TV** - Stagione {season_num}\n\n"
+                f"📥 **Preparazione download...**\n"
+                f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
+                f"📊 Posizione in coda: #{position}"
+            )
+
+        except ValueError:
+            await event.reply("❌ Inserisci solo il numero della stagione (es: 12)")
+        except Exception as e:
+            self.logger.error(f"Errore gestione stagione manuale: {e}")
+            await event.reply("❌ Errore durante la selezione. Riprova.")
+            waiting_download.waiting_for_season = False
