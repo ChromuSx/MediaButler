@@ -128,7 +128,16 @@ class FileNameParser:
 
                 if total_confidence > best_confidence:
                     best_confidence = total_confidence
-                    series_name = filename[:match.start()].strip()
+
+                    # Estrai solo la parte del nome serie (prima del pattern SE)
+                    series_name_raw = filename[:match.start()].strip()
+
+                    # Rimuovi separatori finali comuni (./-/_)
+                    series_name_raw = re.sub(r'[\.\-_\s]+$', '', series_name_raw)
+
+                    # Se il nome sembra contenere ancora info extra (anni, qualità, ecc),
+                    # prova a pulirlo ulteriormente
+                    series_name = cls._extract_clean_series_name(series_name_raw)
 
                     # Estrai titolo episodio se possibile
                     episode_title = cls._extract_episode_title(filename, match)
@@ -416,6 +425,46 @@ class FileNameParser:
                 bonus -= 10
 
         return max(0, min(20, bonus))  # Limita tra 0 e 20
+
+    @classmethod
+    def _extract_clean_series_name(cls, raw_name: str) -> str:
+        """
+        Estrae il nome serie pulito rimuovendo tag extra
+
+        Args:
+            raw_name: Nome serie grezzo
+
+        Returns:
+            Nome serie pulito
+        """
+        # Lista di separatori che potrebbero indicare inizio di metadati extra
+        separators = ['.', '-', '_', ' ']
+
+        # Prova a trovare un punto naturale di taglio
+        # Prima cerca pattern comuni che indicano fine del titolo
+        end_patterns = [
+            r'(?i)\b(?:' + '|'.join(cls.QUALITY_TAGS) + r')\b',  # Tag qualità
+            r'\b\d{4}\b',  # Anno
+            r'\b(?:season|s)\d+\b',  # Stagione
+            r'\b(?:complete|completa)\b',  # Serie completa
+            r'\b(?:multi|dual)\b',  # Audio multi
+        ]
+
+        clean_name = raw_name
+
+        for pattern in end_patterns:
+            match = re.search(pattern, clean_name)
+            if match:
+                # Taglia al primo match e pulisci
+                clean_name = clean_name[:match.start()].strip()
+                clean_name = re.sub(r'[\.\-_\s]+$', '', clean_name)
+                break
+
+        # Se il nome è ancora vuoto o troppo corto, usa l'originale
+        if len(clean_name.strip()) < 3:
+            clean_name = raw_name
+
+        return clean_name
 
     @classmethod
     def _extract_episode_title(cls, filename: str, match) -> Optional[str]:
