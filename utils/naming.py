@@ -19,6 +19,7 @@ class FileNameParser:
         (r'Season\s*(\d{1,2})\s*Episode\s*(\d{1,3})', 'verbose', 90),  # Season 1 Episode 1
 
         # Pattern media confidenza (70-89)
+        (r'(\d{1,2})\s+x\s+(\d{1,3})', 'x_format_spaced', 88),        # 12 x 5
         (r'(\d{1,2})x(\d{1,3})', 'x_format', 85),                      # 1x01
         (r'[\.\s\-_](\d{1,2})x(\d{1,3})', 'x_format_sep', 80),        # .1x01
         (r'[Ss](\d{1,2})[Ee](\d{1,3})-[Ee](\d{1,3})', 'multi_episode', 75), # S01E01-E03
