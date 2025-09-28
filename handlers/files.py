@@ -85,8 +85,11 @@ class FileHandlers:
         # Estrai info dal nome
         movie_name, year = FileNameParser.extract_movie_info(filename)
         series_info = FileNameParser.extract_series_info(filename)
-        
-        download_info.movie_folder = FileNameParser.create_folder_name(movie_name, year)
+
+        # Imposta movie_folder solo se NON è una serie TV riconosciuta
+        if series_info.season is None:
+            download_info.movie_folder = FileNameParser.create_folder_name(movie_name, year)
+
         download_info.series_info = series_info
         
         # Aggiungi al manager
@@ -145,7 +148,7 @@ class FileHandlers:
         
         # Cerca su TMDB
         tmdb_result, confidence = await self.tmdb.search_with_confidence(
-            download_info.filename,
+            search_query,
             media_hint
         )
         
