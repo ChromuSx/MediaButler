@@ -37,22 +37,32 @@ class FileHelpers:
     def safe_move(source: Path, destination: Path) -> bool:
         """
         Sposta file in modo sicuro
-        
+
         Args:
             source: File sorgente
             destination: Destinazione
-            
+
         Returns:
             True se successo
         """
         try:
             # Crea directory destinazione se non esiste
             destination.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Sposta file
-            source.rename(destination)
-            return True
-            
+
+            # Prova prima con rename (più veloce)
+            try:
+                source.rename(destination)
+                return True
+            except OSError as e:
+                # Se errore cross-device link, usa copy + delete
+                if e.errno == 18:  # EXDEV: Invalid cross-device link
+                    import shutil
+                    shutil.copy2(source, destination)
+                    source.unlink()
+                    return True
+                else:
+                    raise
+
         except Exception as e:
             print(f"Errore spostamento file: {e}")
             return False
