@@ -1,0 +1,195 @@
+{
+  "app": {
+    "name": "MediaButler",
+    "description": "Organizzatore Media",
+    "tagline": "Bot Telegram per organizzazione media"
+  },
+  "commands": {
+    "start": {
+      "welcome": "🎬 **MediaButler - Organizzatore Media**\n\nBenvenuto! {role}\nID: `{user_id}`\n\n**📊 Stato Sistema:**\n• 💾 Spazio: {total_free} GB liberi\n• 📥 Attivi: {active} download\n• ⏳ In coda: {queued} file\n• {tmdb_emoji} {tmdb_status}\n\n**📤 Per iniziare:** Invia un file video\n\n{commands_list}\n\n**💡 Usa il menu sotto per navigare facilmente!**",
+      "role_admin": "👑 Amministratore",
+      "role_user": "👤 Utente",
+      "commands_rapid": "**📝 Comandi rapidi:**\n`/status` - Stato sistema\n`/downloads` - Download attivi\n`/space` - Spazio disco\n`/menu` - Menu completo\n`/help` - Aiuto",
+      "commands_admin": "\n`/users` - Gestione utenti\n`/stop` - Arresta bot"
+    },
+    "menu": {
+      "title": "🎬 **MediaButler - Menu Principale**\n\nSeleziona un'opzione:",
+      "main_buttons": {
+        "status": "📊 Stato",
+        "space": "💾 Spazio", 
+        "downloads": "📥 Downloads",
+        "waiting": "⏳ In Attesa",
+        "subtitles": "📝 Sottotitoli",
+        "settings": "⚙️ Impostazioni",
+        "help": "❓ Aiuto",
+        "cancel_all": "❌ Cancella Tutto",
+        "users": "👥 Utenti",
+        "stop": "🛑 Stop Bot",
+        "language": "🌍 Lingua"
+      },
+      "quick_buttons": {
+        "status": "📊 Stato",
+        "downloads": "📥 Downloads", 
+        "full_menu": "📱 Menu Completo"
+      }
+    },
+    "status": {
+      "title": "📊 **Stato Sistema**",
+      "downloads_active": "**📥 Download attivi ({count}):**",
+      "downloads_none": "📭 Nessun download attivo",
+      "downloads_more": "  ...e altri {count}",
+      "queue_pending": "⏳ **In coda:** {count} file",
+      "queue_waiting_space": "⏸️ **In attesa spazio:** {count} file",
+      "disk_space": "💾 **Spazio:**"
+    },
+    "downloads": {
+      "title": "📥 **Download Attivi**",
+      "none": "📭 Nessun download attivo al momento.",
+      "active_count": "**Attivi ({count}):**",
+      "item": "• `{filename}`\n  {progress}% - {speed} MB/s - ETA: {eta}",
+      "item_simple": "• `{filename}`\n  {progress}% - {speed} MB/s"
+    },
+    "waiting": {
+      "title": "⏳ **File in attesa di spazio**",
+      "none": "✅ **Nessun file in attesa**\n\nTutti i download hanno spazio sufficiente.",
+      "space_waiting": "**💾 In attesa spazio ({count}):**",
+      "queue_pending": "**⏳ In coda ({count}):**",
+      "item": "• `{filename}` ({size})",
+      "note": "\n💡 I file riprenderanno automaticamente quando possibile.",
+      "more": "...e altri {count} file"
+    },
+    "space": {
+      "title": "💾 **Spazio Disco**",
+      "status_ok": "✅",
+      "status_warning": "⚠️", 
+      "status_critical": "🔴",
+      "item": "{emoji} {name}: {free} GB liberi ({used} GB usati / {total} GB totali)"
+    },
+    "settings": {
+      "title": "⚙️ **Impostazioni Correnti**",
+      "downloads": "**Download:**",
+      "concurrent": "• Simultanei: {count}",
+      "max_size": "• Max dimensione: {size} GB",
+      "space_section": "**Spazio:**",
+      "min_free": "• Minimo riservato: {size} GB",
+      "warning_threshold": "• Soglia avviso: {size} GB",
+      "check_interval": "• Controllo ogni: {seconds}s",
+      "tmdb_section": "**TMDB:**",
+      "tmdb_status_active": "✅ Attivo",
+      "tmdb_status_disabled": "❌ Non configurato",
+      "tmdb_language": "• Lingua: {language}",
+      "paths_section": "**Percorsi:**",
+      "path_movies": "• Film: `{path}`",
+      "path_tv": "• Serie: `{path}`",
+      "path_temp": "• Temp: `{path}`",
+      "note": "ℹ️ Modifica `.env` per cambiare."
+    },
+    "help": {
+      "title": "❓ **Guida MediaButler**",
+      "usage": "**📥 Come usare:**",
+      "step1": "1️⃣ Invia un file video",
+      "step2": "2️⃣ Il bot riconosce il contenuto", 
+      "step3": "3️⃣ Conferma o scegli tipo",
+      "step4": "4️⃣ Download automatico",
+      "commands": "**📝 Comandi principali:**",
+      "cmd_menu": "• `/menu` - Menu interattivo",
+      "cmd_status": "• `/status` - Stato rapido",
+      "cmd_downloads": "• `/downloads` - Download attivi",
+      "cmd_space": "• `/space` - Spazio disco",
+      "cmd_cancel": "• `/cancel` - Cancella download",
+      "cmd_help": "• `/help` - Questo aiuto",
+      "organization": "**📁 Organizzazione:**",
+      "org_movies": "• Film: `/movies/Nome (Anno)/`",
+      "org_tv": "• Serie: `/tv/Serie/Season XX/`",
+      "tips": "**💡 Suggerimenti:**",
+      "tip1": "• Nomi descrittivi = migliori risultati",
+      "tip2": "• Max 10GB per file",
+      "tip3": "• I download riprendono dopo riavvio",
+      "support": "Per assistenza, contatta l'admin."
+    },
+    "users": {
+      "title": "👥 **Utenti Autorizzati ({count})**",
+      "admin_marker": " 👑 Admin",
+      "modify_instructions": "📝 **Per modificare:**\n1. Modifica `AUTHORIZED_USERS` in `.env`\n2. Riavvia il bot\n\nIl primo utente è sempre admin."
+    },
+    "subtitles": {
+      "title": "📝 **Sistema Sottotitoli**",
+      "status_enabled": "✅ Abilitato",
+      "status_disabled": "❌ Disabilitato", 
+      "auto_enabled": "✅ Download automatico attivo",
+      "auto_disabled": "❌ Download automatico disattivo",
+      "languages": "• Lingue: {languages}",
+      "format": "• Formato preferito: {format}",
+      "opensubtitles_configured": "✅ OpenSubtitles configurato",
+      "opensubtitles_missing": "⚠️ OpenSubtitles non configurato",
+      "note": "ℹ️ Configura in `.env` per abilitare.",
+      "menu_buttons": {
+        "refresh": "🔄 Aggiorna",
+        "config": "⚙️ Configurazione"
+      },
+      "config": {
+        "toggle_instructions": "⚙️ **Configurazione Sottotitoli**\n\nPer modificare le impostazioni sottotitoli, aggiorna il file .env:\n\n• `SUBTITLE_ENABLED=true/false`\n• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n• `SUBTITLE_LANGUAGES=it,en`\n\nRiavvia il bot per applicare le modifiche.",
+        "auto_instructions": "⚙️ **Download Automatico Sottotitoli**\n\nPer abilitare/disabilitare il download automatico, modifica `SUBTITLE_AUTO_DOWNLOAD=true/false` nel file .env\n\nRiavvia il bot per applicare le modifiche.",
+        "full_instructions": "⚙️ **Configurazione Sottotitoli**\n\nPer modificare le impostazioni, edita il file .env:\n\n• `SUBTITLE_ENABLED=true/false`\n• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n• `SUBTITLE_LANGUAGES=it,en,es`\n• `OPENSUBTITLES_USERNAME=username`\n• `OPENSUBTITLES_PASSWORD=password`\n\nRiavvia il bot per applicare le modifiche."
+      }
+    },
+    "language": {
+      "title": "🌍 **Selezione Lingua**\n\nScegli la tua lingua preferita:",
+      "current": "Lingua corrente: {language}",
+      "changed": "✅ Lingua cambiata in **{language}**!"
+    }
+  },
+  "buttons": {
+    "back": "🔙 Indietro",
+    "menu": "📱 Menu",
+    "refresh": "🔄 Aggiorna",
+    "confirm": "✅ Conferma",
+    "cancel": "❌ Annulla",
+    "yes": "✅ Sì",
+    "no": "❌ No"
+  },
+  "messages": {
+    "unauthorized": "❌ Non sei autorizzato ad usare questo bot.",
+    "admin_only": "❌ Solo amministratori possono eseguire questo comando.",
+    "admin_only_action": "❌ Solo amministratori",
+    "tmdb_active": "TMDB Attivo",
+    "tmdb_disabled": "TMDB Non configurato",
+    "send_video": "📤 Per iniziare: Invia un file video"
+  },
+  "confirmations": {
+    "cancel_all": {
+      "title": "❌ **Conferma Cancellazione**",
+      "message": "⚠️ Vuoi cancellare **TUTTI** i download?\n\n• {active} download attivi\n• {queued} file in coda\n\nQuesta azione non può essere annullata!",
+      "no_downloads": "✅ Nessun download da cancellare."
+    },
+    "stop_bot": {
+      "title": "🛑 **Conferma Arresto Bot**",
+      "message": "⚠️ Questa azione:\n• Cancellerà tutti i download\n• Fermerà il bot\n• Richiederà riavvio manuale\n\nConfermi?",
+      "button_confirm": "✅ Conferma Arresto"
+    }
+  },
+  "errors": {
+    "generic": "❌ Si è verificato un errore.",
+    "not_found": "❌ Non trovato.",
+    "unauthorized": "❌ Non autorizzato.",
+    "invalid_command": "❌ Comando non valido.",
+    "file_too_large": "❌ File troppo grande (max {max_size} GB).",
+    "no_space": "❌ Spazio insufficiente.",
+    "download_failed": "❌ Download fallito: {error}"
+  },
+  "success": {
+    "download_started": "✅ Download avviato: `{filename}`",
+    "download_completed": "✅ Download completato: `{filename}`",
+    "download_cancelled": "✅ Download cancellato: `{filename}`", 
+    "all_downloads_cancelled": "✅ Tutti i download sono stati cancellati.",
+    "bot_stopping": "🛑 Bot in arresto...",
+    "settings_updated": "✅ Impostazioni aggiornate."
+  },
+  "time": {
+    "seconds": "{count}s",
+    "minutes": "{count}m",
+    "hours": "{count}h",
+    "days": "{count}g",
+    "unknown": "N/D"
+  }
+}
