@@ -1,5 +1,5 @@
 """
-Gestione autenticazione e autorizzazioni
+Authentication and authorization management
 """
 from typing import Optional, List
 from telethon import events
@@ -7,7 +7,7 @@ from core.config import get_config
 
 
 class AuthManager:
-    """Gestore autenticazione utenti"""
+    """User authentication manager"""
     
     def __init__(self):
         self.config = get_config()
@@ -16,28 +16,28 @@ class AuthManager:
         
     async def check_authorized(self, event: events.NewMessage.Event) -> bool:
         """
-        Verifica se l'utente è autorizzato
-        
+        Check if user is authorized
+
         Args:
-            event: Evento Telegram
-            
+            event: Telegram event
+
         Returns:
-            True se autorizzato, False altrimenti
+            True if authorized, False otherwise
         """
         user_id = event.sender_id
         user = await event.get_sender()
         username = user.username or "NoUsername"
         
-        # Modalità admin: primo utente diventa admin
+        # Admin mode: first user becomes admin
         if self.admin_mode and len(self.authorized_users) == 0:
             self.authorized_users.append(user_id)
             self.config.logger.info(f"First user added as admin: {username} (ID: {user_id})")
             
             await event.reply(
-                f"🔐 **Primo Accesso - Modalità Admin**\n\n"
-                f"Sei stato aggiunto come amministratore!\n"
-                f"Il tuo ID: `{user_id}`\n\n"
-                f"Aggiungi `AUTHORIZED_USERS={user_id}` al file .env per renderlo permanente."
+                f"🔐 **First Access - Admin Mode**\n\n"
+                f"You have been added as administrator!\n"
+                f"Your ID: `{user_id}`\n\n"
+                f"Add `AUTHORIZED_USERS={user_id}` to the .env file to make it permanent."
             )
             return True
         
@@ -48,10 +48,10 @@ class AuthManager:
             )
             
             await event.reply(
-                f"❌ **Accesso Negato**\n\n"
-                f"Non sei autorizzato ad usare questo bot.\n"
-                f"Il tuo ID: `{user_id}`\n\n"
-                f"Contatta l'amministratore per essere aggiunto."
+                f"❌ **Access Denied**\n\n"
+                f"You are not authorized to use this bot.\n"
+                f"Your ID: `{user_id}`\n\n"
+                f"Contact the administrator to be added."
             )
             return False
         
@@ -62,28 +62,28 @@ class AuthManager:
         event: events.CallbackQuery.Event
     ) -> bool:
         """
-        Verifica autorizzazione per callback
-        
+        Check authorization for callback
+
         Args:
-            event: Evento callback
-            
+            event: Callback event
+
         Returns:
-            True se autorizzato, False altrimenti
+            True if authorized, False otherwise
         """
         if event.sender_id not in self.authorized_users:
-            await event.answer("❌ Non autorizzato", alert=True)
+            await event.answer("❌ Not authorized", alert=True)
             return False
         return True
     
     def is_admin(self, user_id: int) -> bool:
         """
-        Verifica se l'utente è admin
-        
+        Check if user is admin
+
         Args:
-            user_id: ID utente Telegram
-            
+            user_id: Telegram user ID
+
         Returns:
-            True se è admin (primo utente)
+            True if admin (first user)
         """
         if not self.authorized_users:
             return False
@@ -91,25 +91,25 @@ class AuthManager:
     
     def is_authorized(self, user_id: int) -> bool:
         """
-        Verifica se l'utente è autorizzato
-        
+        Check if user is authorized
+
         Args:
-            user_id: ID utente Telegram
-            
+            user_id: Telegram user ID
+
         Returns:
-            True se autorizzato
+            True if authorized
         """
         return user_id in self.authorized_users
     
     def add_user(self, user_id: int) -> bool:
         """
-        Aggiunge un utente autorizzato
-        
+        Add an authorized user
+
         Args:
-            user_id: ID utente da aggiungere
-            
+            user_id: User ID to add
+
         Returns:
-            True se aggiunto, False se già presente
+            True if added, False if already present
         """
         if user_id not in self.authorized_users:
             self.authorized_users.append(user_id)
@@ -118,13 +118,13 @@ class AuthManager:
     
     def remove_user(self, user_id: int) -> bool:
         """
-        Rimuove un utente autorizzato
-        
+        Remove an authorized user
+
         Args:
-            user_id: ID utente da rimuovere
-            
+            user_id: User ID to remove
+
         Returns:
-            True se rimosso, False se non presente
+            True if removed, False if not present
         """
         if user_id in self.authorized_users and user_id != self.authorized_users[0]:
             self.authorized_users.remove(user_id)
@@ -133,19 +133,19 @@ class AuthManager:
     
     def get_authorized_users(self) -> List[int]:
         """
-        Ottieni lista utenti autorizzati
-        
+        Get list of authorized users
+
         Returns:
-            Lista ID utenti autorizzati
+            List of authorized user IDs
         """
         return self.authorized_users.copy()
     
     def get_admin_id(self) -> Optional[int]:
         """
-        Ottieni ID dell'admin
-        
+        Get admin ID
+
         Returns:
-            ID admin o None
+            Admin ID or None
         """
         return self.authorized_users[0] if self.authorized_users else None
     
@@ -154,18 +154,18 @@ class AuthManager:
         event: events.NewMessage.Event
     ) -> bool:
         """
-        Richiede privilegi admin
-        
+        Require admin privileges
+
         Args:
-            event: Evento Telegram
-            
+            event: Telegram event
+
         Returns:
-            True se è admin, False altrimenti
+            True if admin, False otherwise
         """
         user_id = event.sender_id
         
         if not self.is_admin(user_id):
-            await event.reply("❌ Solo l'amministratore può eseguire questo comando")
+            await event.reply("❌ Only the administrator can execute this command")
             return False
         
         return True
@@ -176,13 +176,13 @@ class AuthManager:
         download_user_id: int
     ) -> bool:
         """
-        Verifica se un utente può gestire un download
-        
+        Check if a user can manage a download
+
         Args:
-            user_id: ID utente che vuole gestire
-            download_user_id: ID utente proprietario del download
-            
+            user_id: ID of user who wants to manage
+            download_user_id: ID of download owner
+
         Returns:
-            True se può gestire (proprietario o admin)
+            True if can manage (owner or admin)
         """
         return user_id == download_user_id or self.is_admin(user_id)

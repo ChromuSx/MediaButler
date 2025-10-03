@@ -123,9 +123,21 @@ Environment variables are loaded via python-dotenv, with fallback defaults.
 
 ## Important Notes
 
-- The project uses Italian comments and logging messages
+- **All code, comments, strings, and user-facing messages must be in English**
+- Previously used Italian but has been fully translated to English for international accessibility
 - Main entry point is `main.py`, not `mediabutler.py` (Dockerfile needs updating)
 - Session files are stored in configurable location for persistence
 - All handlers use auth checks before processing
 - Download manager uses retry logic with exponential backoff
 - Space management includes automatic queue processing when space becomes available
+
+## Code Language Standards
+
+- **Comments**: All code comments must be in English
+- **Docstrings**: All class and method documentation must be in English
+- **User Interface**: All user-facing messages, buttons, and menu text must be in English
+- **Log Messages**: All logging messages must be in English
+- **Variable Names**: Use English variable and function names
+- **Error Messages**: All error and status messages must be in English
+
+When adding new code or modifying existing code, ensure all text follows English-only standards for consistency and international accessibility.

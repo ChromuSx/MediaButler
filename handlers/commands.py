@@ -1,5 +1,5 @@
 """
-Handler per comandi Telegram con menu interattivo inline
+Telegram command handlers with interactive inline menu
 """
 import sys
 import asyncio
@@ -12,7 +12,7 @@ from utils.helpers import human_readable_size, FileHelpers
 
 
 class CommandHandlers:
-    """Gestione comandi bot con menu interattivo"""
+    """Bot command management with interactive menu"""
     
     def __init__(
         self,
@@ -29,8 +29,8 @@ class CommandHandlers:
         self.logger = self.config.logger
     
     def register(self):
-        """Registra tutti gli handler comandi"""
-        # Comandi principali
+        """Register all command handlers"""
+        # Main commands
         self.client.on(events.NewMessage(pattern='/start'))(self.start_handler)
         self.client.on(events.NewMessage(pattern='/menu'))(self.menu_handler)
         self.client.on(events.NewMessage(pattern='/status'))(self.status_handler)
@@ -47,50 +47,50 @@ class CommandHandlers:
         self.client.on(events.NewMessage(pattern='/sub_toggle'))(self.subtitle_toggle_handler)
         self.client.on(events.NewMessage(pattern='/sub_auto'))(self.subtitle_auto_handler)
 
-        # Callback handler per bottoni
+        # Callback handler for buttons
         self.client.on(events.CallbackQuery(pattern='menu_'))(self.menu_callback_handler)
         self.client.on(events.CallbackQuery(pattern='cancel_'))(self.cancel_callback_handler)
         self.client.on(events.CallbackQuery(pattern='stop_'))(self.stop_callback_handler)
         self.client.on(events.CallbackQuery(pattern='sub_'))(self.subtitle_callback_handler)
         
-        self.logger.info("Handler comandi registrati con menu inline")
+        self.logger.info("Command handlers registered with inline menu")
     
     def _create_main_menu(self, is_admin: bool = False):
-        """Crea menu principale con bottoni inline"""
+        """Create main menu with inline buttons"""
         buttons = [
             [
-                Button.inline("📊 Stato", "menu_status"),
-                Button.inline("💾 Spazio", "menu_space"),
+                Button.inline("📊 Status", "menu_status"),
+                Button.inline("💾 Space", "menu_space"),
                 Button.inline("📥 Downloads", "menu_downloads")
             ],
             [
-                Button.inline("⏳ In Attesa", "menu_waiting"),
-                Button.inline("📝 Sottotitoli", "menu_subtitles"),
-                Button.inline("⚙️ Impostazioni", "menu_settings")
+                Button.inline("⏳ Waiting", "menu_waiting"),
+                Button.inline("📝 Subtitles", "menu_subtitles"),
+                Button.inline("⚙️ Settings", "menu_settings")
             ],
             [
-                Button.inline("❓ Aiuto", "menu_help"),
-                Button.inline("❌ Cancella Tutto", "menu_cancel_all")
+                Button.inline("❓ Help", "menu_help"),
+                Button.inline("❌ Cancel All", "menu_cancel_all")
             ]
         ]
         
         if is_admin:
             buttons.append([
-                Button.inline("👥 Utenti", "menu_users"),
+                Button.inline("👥 Users", "menu_users"),
                 Button.inline("🛑 Stop Bot", "menu_stop")
             ])
         
         return buttons
     
     def _create_quick_menu(self):
-        """Crea menu rapido con azioni principali"""
+        """Create quick menu with main actions"""
         return [
             [
-                Button.inline("📊 Stato", "menu_status"),
+                Button.inline("📊 Status", "menu_status"),
                 Button.inline("📥 Downloads", "menu_downloads")
             ],
             [
-                Button.inline("📱 Menu Completo", "menu_full")
+                Button.inline("📱 Full Menu", "menu_full")
             ]
         ]
     
@@ -104,10 +104,10 @@ class CommandHandlers:
         
         is_admin = self.auth.is_admin(user.id)
         
-        # Messaggio di benvenuto
+        # Welcome message
         welcome_text = self._format_welcome_message(user.id, is_admin)
         
-        # Invia con menu inline
+        # Send with inline menu
         await event.reply(
             welcome_text,
             buttons=self._create_main_menu(is_admin),
@@ -122,8 +122,8 @@ class CommandHandlers:
         is_admin = self.auth.is_admin(event.sender_id)
         
         await event.reply(
-            "🎬 **MediaButler - Menu Principale**\n\n"
-            "Seleziona un'opzione:",
+            "🎬 **MediaButler - Main Menu**\n\n"
+            "Select an option:",
             buttons=self._create_main_menu(is_admin)
         )
     
@@ -136,7 +136,7 @@ class CommandHandlers:
         
         buttons = [
             [
-                Button.inline("🔄 Aggiorna", "menu_status"),
+                Button.inline("🔄 Refresh", "menu_status"),
                 Button.inline("📱 Menu", "menu_back")
             ]
         ]
@@ -152,7 +152,7 @@ class CommandHandlers:
         
         buttons = [
             [
-                Button.inline("🔄 Aggiorna", "menu_space"),
+                Button.inline("🔄 Refresh", "menu_space"),
                 Button.inline("📱 Menu", "menu_back")
             ]
         ]
@@ -168,8 +168,8 @@ class CommandHandlers:
         
         buttons = [
             [
-                Button.inline("🔄 Aggiorna", "menu_downloads"),
-                Button.inline("❌ Cancella Tutti", "menu_cancel_all")
+                Button.inline("🔄 Refresh", "menu_downloads"),
+                Button.inline("❌ Cancel All", "menu_cancel_all")
             ],
             [Button.inline("📱 Menu", "menu_back")]
         ]
@@ -185,7 +185,7 @@ class CommandHandlers:
         
         buttons = [
             [
-                Button.inline("🔄 Aggiorna", "menu_waiting"),
+                Button.inline("🔄 Refresh", "menu_waiting"),
                 Button.inline("📱 Menu", "menu_back")
             ]
         ]
@@ -201,7 +201,7 @@ class CommandHandlers:
         
         if not active:
             await event.reply(
-                "📭 **Nessun download attivo da cancellare**",
+                "📭 **No active downloads to cancel**",
                 buttons=[[Button.inline("📱 Menu", "menu_back")]]
             )
             return
@@ -215,11 +215,11 @@ class CommandHandlers:
             text += f"   {info.progress:.1f}% - {info.size_gb:.1f} GB\n\n"
             
             buttons.append([
-                Button.inline(f"❌ Cancella #{idx}", f"cancel_{info.message_id}")
+                Button.inline(f"❌ Cancel #{idx}", f"cancel_{info.message_id}")
             ])
         
         buttons.append([
-            Button.inline("❌ Cancella Tutti", "menu_cancel_all"),
+            Button.inline("❌ Cancel All", "menu_cancel_all"),
             Button.inline("📱 Menu", "menu_back")
         ])
         
@@ -237,26 +237,26 @@ class CommandHandlers:
         
         if total == 0:
             await event.reply(
-                "✅ **Nessun download da cancellare**",
+                "✅ **No downloads to cancel**",
                 buttons=[[Button.inline("📱 Menu", "menu_back")]]
             )
             return
         
         buttons = [
             [
-                Button.inline("✅ Conferma", "cancel_confirm"),
-                Button.inline("❌ Annulla", "menu_back")
+                Button.inline("✅ Confirm", "cancel_confirm"),
+                Button.inline("❌ Cancel", "menu_back")
             ]
         ]
         
         await event.reply(
-            f"⚠️ **Conferma cancellazione**\n\n"
+            f"⚠️ **Confirm cancellation**\n\n"
             f"Stai per cancellare:\n"
             f"• Download attivi: {active}\n"
             f"• In coda: {queued}\n"
-            f"• In attesa: {waiting}\n\n"
-            f"**Totale: {total} operazioni**\n\n"
-            f"Confermi?",
+            f"• Waiting: {waiting}\n\n"
+            f"**Totale: {total} operations**\n\n"
+            f"Confirm?",
             buttons=buttons
         )
     
@@ -307,23 +307,23 @@ class CommandHandlers:
         
         buttons = [
             [
-                Button.inline("✅ Conferma Arresto", "stop_confirm"),
-                Button.inline("❌ Annulla", "menu_back")
+                Button.inline("✅ Confirm Stop", "stop_confirm"),
+                Button.inline("❌ Cancel", "menu_back")
             ]
         ]
         
         await event.reply(
-            "🛑 **Conferma Arresto Bot**\n\n"
-            "⚠️ Questa azione:\n"
-            "• Cancellerà tutti i download\n"
-            "• Fermerà il bot\n"
-            "• Richiederà riavvio manuale\n\n"
-            "Confermi?",
+            "🛑 **Confirm Bot Stop**\n\n"
+            "⚠️ This action:\n"
+            "• Will cancel all downloads\n"
+            "• Will stop the bot\n"
+            "• Will require manual restart\n\n"
+            "Confirm?",
             buttons=buttons
         )
     
     async def menu_callback_handler(self, event: events.CallbackQuery.Event):
-        """Handler per callback menu"""
+        """Handler for menu callbacks"""
         if not await self.auth.check_callback_authorized(event):
             return
         
@@ -333,40 +333,40 @@ class CommandHandlers:
         if action == 'back' or action == 'full':
             is_admin = self.auth.is_admin(event.sender_id)
             await event.edit(
-                "🎬 **MediaButler - Menu Principale**\n\n"
-                "Seleziona un'opzione:",
+                "🎬 **MediaButler - Main Menu**\n\n"
+                "Select an option:",
                 buttons=self._create_main_menu(is_admin)
             )
         elif action == 'refresh':
             is_admin = self.auth.is_admin(event.sender_id)
             await event.edit(
-                "🎬 **MediaButler - Menu Principale**\n\n"
-                "Seleziona un'opzione:",
+                "🎬 **MediaButler - Main Menu**\n\n"
+                "Select an option:",
                 buttons=self._create_main_menu(is_admin)
             )
-            await event.answer("✅ Menu aggiornato")
+            await event.answer("✅ Menu updated")
         else:
             await self._handle_menu_action(event, action)
     
     async def cancel_callback_handler(self, event: events.CallbackQuery.Event):
-        """Handler per cancellazioni"""
+        """Handler for cancellations"""
         data = event.data.decode('utf-8')
         
         if data == 'cancel_confirm':
             total_cancelled = self.downloads.cancel_all_downloads()
             
             await event.edit(
-                f"✅ **Cancellazione Completata**\n\n"
-                f"Sono state cancellate {total_cancelled} operazioni.",
+                f"✅ **Cancellation Completed**\n\n"
+                f"Cancelled {total_cancelled} operations.",
                 buttons=[[Button.inline("📱 Menu", "menu_back")]]
             )
         else:
             # Cancella singolo download
             msg_id = int(data.replace('cancel_', ''))
             if self.downloads.cancel_download(msg_id):
-                await event.answer("✅ Download cancellato")
+                await event.answer("✅ Download canceled")
                 
-                # Aggiorna lista
+                # Update list
                 downloads_text = self._get_downloads_detailed()
                 buttons = [
                     [
@@ -377,18 +377,18 @@ class CommandHandlers:
                 
                 await event.edit(downloads_text, buttons=buttons)
             else:
-                await event.answer("❌ Download non trovato", alert=True)
+                await event.answer("❌ Download not found", alert=True)
     
     async def stop_callback_handler(self, event: events.CallbackQuery.Event):
-        """Handler per stop bot"""
+        """Handler for bot stop"""
         if event.data.decode('utf-8') == 'stop_confirm':
             if not self.auth.is_admin(event.sender_id):
-                await event.answer("❌ Solo amministratori", alert=True)
+                await event.answer("❌ Administrators only", alert=True)
                 return
             
-            await event.edit("🛑 **Arresto in corso...**")
+            await event.edit("🛑 **Stopping...**")
             
-            self.logger.info("Arresto richiesto dall'amministratore")
+            self.logger.info("Stop requested by administrator")
             self.downloads.cancel_all_downloads()
             
             await asyncio.sleep(2)
@@ -396,7 +396,7 @@ class CommandHandlers:
             sys.exit(0)
     
     async def _handle_menu_action(self, event, action: str):
-        """Gestisce azioni menu"""
+        """Handles menu actions"""
         content_map = {
             'status': self._get_status_text,
             'space': self.space.format_disk_status,
@@ -414,10 +414,10 @@ class CommandHandlers:
             
             buttons = []
             
-            # Bottoni specifici per ogni azione
+            # Specific buttons for each action
             if action in ['status', 'space', 'downloads', 'waiting']:
                 buttons.append([
-                    Button.inline("🔄 Aggiorna", f"menu_{action}"),
+                    Button.inline("🔄 Refresh", f"menu_{action}"),
                     Button.inline("📱 Menu", "menu_back")
                 ])
             elif action == 'subtitles':
@@ -431,28 +431,28 @@ class CommandHandlers:
                 ]
             elif action == 'users':
                 if not self.auth.is_admin(event.sender_id):
-                    await event.answer("❌ Solo amministratori", alert=True)
+                    await event.answer("❌ Administrators only", alert=True)
                     return
                 buttons = [[Button.inline("📱 Menu", "menu_back")]]
             elif action == 'stop':
                 if not self.auth.is_admin(event.sender_id):
-                    await event.answer("❌ Solo amministratori", alert=True)
+                    await event.answer("❌ Administrators only", alert=True)
                     return
                 buttons = [
                     [
-                        Button.inline("✅ Conferma Arresto", "stop_confirm"),
+                        Button.inline("✅ Confirm Stop", "stop_confirm"),
                         Button.inline("❌ Annulla", "menu_back")
                     ]
                 ]
-                content = "🛑 **Conferma Arresto Bot**\n\n⚠️ Questa azione:\n• Cancellerà tutti i download\n• Fermerà il bot\n• Richiederà riavvio manuale\n\nConfermi?"
+                content = "🛑 **Confirm Bot Stop**\n\n⚠️ This action:\n• Will cancel all downloads\n• Will stop the bot\n• Will require manual restart\n\nConfirm?"
             else:
                 buttons = [[Button.inline("📱 Menu", "menu_back")]]
             
             await event.edit(content, buttons=buttons)
     
-    # Funzioni helper per generare contenuti
+    # Helper functions to generate content
     def _format_welcome_message(self, user_id: int, is_admin: bool) -> str:
-        """Messaggio di benvenuto formattato"""
+        """Formatted welcome message"""
         disk_usage = self.space.get_all_disk_usage()
         total_free = sum(usage.free_gb for usage in disk_usage.values())
         
@@ -460,81 +460,81 @@ class CommandHandlers:
         queued = self.downloads.get_queued_count()
         
         tmdb_emoji = "🎯" if self.config.tmdb.is_enabled else "⚠️"
-        tmdb_status = "TMDB Attivo" if self.config.tmdb.is_enabled else "TMDB Non configurato"
+        tmdb_status = "TMDB Active" if self.config.tmdb.is_enabled else "TMDB Not configured"
         
-        role = "👑 Amministratore" if is_admin else "👤 Utente"
+        role = "👑 Administrator" if is_admin else "👤 User"
         
-        # Lista comandi per accesso rapido
+        # Quick access command list
         commands_list = (
-            "**📝 Comandi rapidi:**\n"
-            "`/status` - Stato sistema\n"
-            "`/downloads` - Download attivi\n"
-            "`/space` - Spazio disco\n"
-            "`/menu` - Menu completo\n"
-            "`/help` - Aiuto"
+            "**📝 Quick commands:**\n"
+            "`/status` - System status\n"
+            "`/downloads` - Active downloads\n"
+            "`/space` - Disk space\n"
+            "`/menu` - Full menu\n"
+            "`/help` - Help"
         )
         
         if is_admin:
-            commands_list += "\n`/users` - Gestione utenti\n`/stop` - Arresta bot"
+            commands_list += "\n`/users` - User management\n`/stop` - Stop bot"
         
         return (
-            f"🎬 **MediaButler - Organizzatore Media**\n\n"
-            f"Benvenuto! {role}\n"
+            f"🎬 **MediaButler - Media Organizer**\n\n"
+            f"Welcome! {role}\n"
             f"ID: `{user_id}`\n\n"
-            f"**📊 Stato Sistema:**\n"
-            f"• 💾 Spazio: {total_free:.1f} GB liberi\n"
-            f"• 📥 Attivi: {active} download\n"
-            f"• ⏳ In coda: {queued} file\n"
+            f"**📊 System Status:**\n"
+            f"• 💾 Space: {total_free:.1f} GB free\n"
+            f"• 📥 Active: {active} downloads\n"
+            f"• ⏳ Queued: {queued} files\n"
             f"• {tmdb_emoji} {tmdb_status}\n\n"
-            f"**📤 Per iniziare:** Invia un file video\n\n"
+            f"**📤 To start:** Send a video file\n\n"
             f"{commands_list}\n\n"
-            f"**💡 Usa il menu sotto per navigare facilmente!**"
+            f"**💡 Use the menu below to navigate easily!**"
         )
     
     def _get_status_text(self) -> str:
-        """Genera testo stato sistema"""
-        status_text = "📊 **Stato Sistema**\n\n"
+        """Generate system status text"""
+        status_text = "📊 **System Status**\n\n"
         
         active = self.downloads.get_active_downloads()
         if active:
-            status_text += f"**📥 Download attivi ({len(active)}):**\n"
+            status_text += f"**📥 Active downloads ({len(active)}):**\n"
             for info in active[:5]:
                 status_text += f"• `{info.filename[:30]}{'...' if len(info.filename) > 30 else ''}`\n"
                 if info.progress > 0:
                     status_text += f"  {info.progress:.1f}% - {info.speed_mbps:.1f} MB/s\n"
             if len(active) > 5:
-                status_text += f"  ...e altri {len(active) - 5}\n"
+                status_text += f"  ...and {len(active) - 5} more\n"
             status_text += "\n"
         else:
-            status_text += "📭 Nessun download attivo\n\n"
+            status_text += "📭 No active downloads\n\n"
         
         queue_count = self.downloads.get_queued_count()
         space_waiting = self.downloads.get_space_waiting_count()
         
         if queue_count > 0:
-            status_text += f"⏳ **In coda:** {queue_count} file\n"
+            status_text += f"⏳ **Queued:** {queue_count} files\n"
         if space_waiting > 0:
-            status_text += f"⏸️ **In attesa spazio:** {space_waiting} file\n"
+            status_text += f"⏸️ **Waiting for space:** {space_waiting} files\n"
         
-        status_text += "\n💾 **Spazio:**\n"
+        status_text += "\n💾 **Space:**\n"
         disk_usage = self.space.get_all_disk_usage()
         
         for name, usage in disk_usage.items():
-            status_text += f"{usage.status_emoji} {name.capitalize()}: {usage.free_gb:.1f} GB liberi\n"
+            status_text += f"{usage.status_emoji} {name.capitalize()}: {usage.free_gb:.1f} GB free\n"
         
         return status_text
     
     def _get_downloads_detailed(self) -> str:
-        """Dettagli download attivi"""
+        """Active downloads details"""
         active = self.downloads.get_active_downloads()
         
         if not active:
             return (
-                "📭 **Nessun download attivo**\n\n"
-                "Invia un file video per iniziare."
+                "📭 **No active downloads**\n\n"
+                "Send a video file to start."
             )
         
-        text = f"📥 **Download Attivi ({len(active)})**\n\n"
+        text = f"📥 **Active Downloads ({len(active)})**\n\n"
         
         for idx, info in enumerate(active, 1):
             text += f"**{idx}. {info.filename[:35]}{'...' if len(info.filename) > 35 else ''}**\n"
@@ -551,7 +551,7 @@ class CommandHandlers:
                 
                 if info.eta_seconds:
                     eta_min = info.eta_seconds // 60
-                    text += f" | ⏱ {eta_min}m rimanenti"
+                    text += f" | ⏱ {eta_min}m remaining"
                 
                 text += "\n"
             
@@ -560,16 +560,16 @@ class CommandHandlers:
         return text
     
     def _get_waiting_text(self) -> str:
-        """Testo file in attesa"""
+        """Waiting files text"""
         waiting_count = self.downloads.get_space_waiting_count()
         
         if waiting_count == 0:
             return (
-                "✅ **Nessun file in attesa**\n\n"
-                "Tutti i download hanno spazio sufficiente."
+                "✅ **No files waiting**\n\n"
+                "All downloads have sufficient space."
             )
         
-        text = f"⏳ **File in attesa di spazio ({waiting_count})**\n\n"
+        text = f"⏳ **Files waiting for space ({waiting_count})**\n\n"
         
         for idx, item in enumerate(self.downloads.space_waiting_queue[:10], 1):
             info = item.download_info
@@ -582,18 +582,18 @@ class CommandHandlers:
         return text
     
     def _get_settings_text(self) -> str:
-        """Testo impostazioni"""
-        tmdb_status = "✅ Attivo" if self.config.tmdb.is_enabled else "❌ Non configurato"
+        """Settings text"""
+        tmdb_status = "✅ Active" if self.config.tmdb.is_enabled else "❌ Not configured"
         
         return (
-            "⚙️ **Impostazioni Correnti**\n\n"
+            "⚙️ **Current Settings**\n\n"
             f"**Download:**\n"
-            f"• Simultanei: {self.config.limits.max_concurrent_downloads}\n"
-            f"• Max dimensione: {self.config.limits.max_file_size_gb} GB\n\n"
+            f"• Concurrent: {self.config.limits.max_concurrent_downloads}\n"
+            f"• Max size: {self.config.limits.max_file_size_gb} GB\n\n"
             f"**Spazio:**\n"
-            f"• Minimo riservato: {self.config.limits.min_free_space_gb} GB\n"
-            f"• Soglia avviso: {self.config.limits.warning_threshold_gb} GB\n"
-            f"• Controllo ogni: {self.config.limits.space_check_interval}s\n\n"
+            f"• Minimum reserved: {self.config.limits.min_free_space_gb} GB\n"
+            f"• Warning threshold: {self.config.limits.warning_threshold_gb} GB\n"
+            f"• Check every: {self.config.limits.space_check_interval}s\n\n"
             f"**TMDB:**\n"
             f"• Stato: {tmdb_status}\n"
             f"• Lingua: {self.config.tmdb.language}\n\n"
@@ -605,73 +605,73 @@ class CommandHandlers:
         )
     
     def _get_help_text(self) -> str:
-        """Testo aiuto"""
+        """Help text"""
         return (
-            "❓ **Guida MediaButler**\n\n"
-            "**📥 Come usare:**\n"
-            "1️⃣ Invia un file video\n"
-            "2️⃣ Il bot riconosce il contenuto\n"
-            "3️⃣ Conferma o scegli tipo\n"
-            "4️⃣ Download automatico\n\n"
-            "**📝 Comandi principali:**\n"
-            "• `/menu` - Menu interattivo\n"
-            "• `/status` - Stato rapido\n"
-            "• `/downloads` - Download attivi\n"
-            "• `/space` - Spazio disco\n"
-            "• `/cancel` - Cancella download\n"
-            "• `/help` - Questo aiuto\n\n"
-            "**📁 Organizzazione:**\n"
-            "• Film: `/movies/Nome (Anno)/`\n"
-            "• Serie: `/tv/Serie/Season XX/`\n\n"
-            "**💡 Suggerimenti:**\n"
-            "• Nomi descrittivi = migliori risultati\n"
+            "❓ **MediaButler Guide**\n\n"
+            "**📥 How to use:**\n"
+            "1️⃣ Send a video file\n"
+            "2️⃣ Bot recognizes the content\n"
+            "3️⃣ Confirm or choose type\n"
+            "4️⃣ Automatic download\n\n"
+            "**📝 Main commands:**\n"
+            "• `/menu` - Interactive menu\n"
+            "• `/status` - Quick status\n"
+            "• `/downloads` - Active downloads\n"
+            "• `/space` - Disk space\n"
+            "• `/cancel` - Cancel download\n"
+            "• `/help` - This help\n\n"
+            "**📁 Organization:**\n"
+            "• Movies: `/movies/Name (Year)/`\n"
+            "• Series: `/tv/Series/Season XX/`\n\n"
+            "**💡 Tips:**\n"
+            "• Descriptive names = better results\n"
             "• Max 10GB per file\n"
-            "• I download riprendono dopo riavvio\n\n"
-            "Per assistenza, contatta l'admin."
+            "• Downloads resume after restart\n\n"
+            "For assistance, contact the admin."
         )
     
     def _get_users_text(self) -> str:
-        """Testo gestione utenti"""
+        """User management text"""
         users = self.auth.get_authorized_users()
         admin_id = self.auth.get_admin_id()
         
-        text = f"👥 **Utenti Autorizzati ({len(users)})**\n\n"
+        text = f"👥 **Authorized Users ({len(users)})**\n\n"
         
         for idx, user_id in enumerate(users, 1):
             is_admin = " 👑 Admin" if user_id == admin_id else ""
             text += f"**{idx}.** `{user_id}`{is_admin}\n"
         
         text += (
-            "\n📝 **Per modificare:**\n"
+            "\n📝 **To modify:**\n"
             "1. Modifica `AUTHORIZED_USERS` in `.env`\n"
-            "2. Riavvia il bot\n\n"
-            "Il primo utente è sempre admin."
+            "2. Restart the bot\n\n"
+            "The first user is always admin."
         )
         
         return text
     
     def _get_cancel_confirmation(self) -> str:
-        """Testo conferma cancellazione"""
+        """Cancellation confirmation text"""
         active = len(self.downloads.get_active_downloads())
         queued = self.downloads.get_queued_count()
         waiting = self.downloads.get_space_waiting_count()
         total = active + queued + waiting
         
         if total == 0:
-            return "✅ **Nessun download da cancellare**"
+            return "✅ **No downloads to cancel**"
         
         return (
             f"⚠️ **Conferma Cancellazione**\n\n"
             f"Stai per cancellare:\n"
             f"• Download attivi: {active}\n"
             f"• In coda: {queued}\n"
-            f"• In attesa: {waiting}\n\n"
-            f"**Totale: {total} operazioni**\n\n"
+            f"• Waiting: {waiting}\n\n"
+            f"**Totale: {total} operations**\n\n"
             f"Sei sicuro?"
         )
 
     async def subtitles_handler(self, event):
-        """Handler comando /subtitles"""
+        """Handler for /subtitles command"""
         if not await self.auth.check_authorized(event):
             return
 
@@ -681,7 +681,7 @@ class CommandHandlers:
         )
 
     async def subtitle_toggle_handler(self, event):
-        """Handler comando /sub_toggle - abilita/disabilita sottotitoli"""
+        """Handler for /sub_toggle command - enable/disable subtitles"""
         if not await self.auth.check_authorized(event):
             return
 
@@ -691,11 +691,11 @@ class CommandHandlers:
             "• `SUBTITLE_ENABLED=true/false`\n"
             "• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n"
             "• `SUBTITLE_LANGUAGES=it,en`\n\n"
-            "Riavvia il bot per applicare le modifiche."
+            "Restart the bot per applicare le modifiche."
         )
 
     async def subtitle_auto_handler(self, event):
-        """Handler comando /sub_auto - toggle download automatico"""
+        """Handler for /sub_auto command - toggle automatic download"""
         if not await self.auth.check_authorized(event):
             return
 
@@ -703,11 +703,11 @@ class CommandHandlers:
             "⚙️ **Download Automatico Sottotitoli**\n\n"
             "Per abilitare/disabilitare il download automatico, "
             "modifica `SUBTITLE_AUTO_DOWNLOAD=true/false` nel file .env\n\n"
-            "Riavvia il bot per applicare le modifiche."
+            "Restart the bot per applicare le modifiche."
         )
 
     async def subtitle_callback_handler(self, event):
-        """Handler callback bottoni sottotitoli"""
+        """Handler for subtitle button callbacks"""
         if not await self.auth.check_authorized(event):
             await event.answer("❌ Non autorizzato")
             return
@@ -730,27 +730,27 @@ class CommandHandlers:
                     "• `SUBTITLE_LANGUAGES=it,en,es`\n"
                     "• `OPENSUBTITLES_USERNAME=username`\n"
                     "• `OPENSUBTITLES_PASSWORD=password`\n\n"
-                    "Riavvia il bot per applicare le modifiche.",
-                    buttons=[[Button.inline("🔙 Indietro", "sub_status")]]
+                    "Restart the bot per applicare le modifiche.",
+                    buttons=[[Button.inline("🔙 Back", "sub_status")]]
                 )
 
             elif data == "sub_back_main":
                 user_id = event.sender_id
                 is_admin = self.auth.is_admin(user_id)
                 await event.edit(
-                    "🎬 **MediaButler - Menu Principale**\n\n"
-                    "Seleziona un'opzione:",
+                    "🎬 **MediaButler - Main Menu**\n\n"
+                    "Select an option:",
                     buttons=self._create_main_menu(is_admin)
                 )
 
             await event.answer()
 
         except Exception as e:
-            self.logger.error(f"Errore callback sottotitoli: {e}")
+            self.logger.error(f"Subtitle callback error: {e}")
             await event.answer("❌ Errore")
 
     def _get_subtitle_status(self) -> str:
-        """Ottieni stato sistema sottotitoli"""
+        """Get subtitle system status"""
         config = self.config.subtitles
 
         status_icon = "✅" if config.enabled else "❌"
@@ -768,14 +768,14 @@ class CommandHandlers:
         )
 
     def _create_subtitle_menu(self):
-        """Crea menu sottotitoli"""
+        """Create subtitle menu"""
         return [
             [
-                Button.inline("🔄 Aggiorna", "sub_status"),
-                Button.inline("⚙️ Configurazione", "sub_config")
+                Button.inline("🔄 Refresh", "sub_status"),
+                Button.inline("⚙️ Configuration", "sub_config")
             ],
             [
-                Button.inline("🔙 Menu Principale", "sub_back_main")
+                Button.inline("🔙 Main Menu", "sub_back_main")
             ]
         ]
     

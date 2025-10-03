@@ -1,5 +1,5 @@
 """
-Handler per callback (bottoni) Telegram
+Telegram callback (buttons) handlers
 """
 from telethon import TelegramClient, events, Button
 from core.auth import AuthManager
@@ -10,7 +10,7 @@ from utils.naming import FileNameParser
 
 
 class CallbackHandlers:
-    """Gestione callback bottoni"""
+    """Button callback management"""
     
     def __init__(
         self,
@@ -27,18 +27,18 @@ class CallbackHandlers:
         self.logger = self.config.logger
     
     def register(self):
-        """Registra handler callback"""
+        """Register callback handlers"""
         self.client.on(events.CallbackQuery)(self.callback_handler)
-        self.logger.info("Handler callback registrati")
+        self.logger.info("Callback handlers registered")
     
     async def callback_handler(self, event: events.CallbackQuery.Event):
-        """Handler principale callback"""
+        """Main callback handler"""
         if not await self.auth.check_callback_authorized(event):
             return
         
         data = event.data.decode('utf-8')
         
-        # Route callback appropriato
+        # Route appropriate callback
         if data.startswith('tmdb_'):
             await self._handle_tmdb_selection(event, data)
         elif data.startswith('confirm_'):
@@ -59,19 +59,19 @@ class CallbackHandlers:
             await event.answer("⚠️ Azione non riconosciuta")
     
     async def _handle_tmdb_selection(self, event, data: str):
-        """Gestisce selezione risultato TMDB"""
+        """Handles TMDB result selection"""
         parts = data.split('_')
         result_idx = int(parts[1]) - 1
         msg_id = int(parts[2])
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
         
-        # Verifica proprietà
+        # Check ownership
         if not self.auth.can_manage_download(event.sender_id, download_info.user_id):
-            await event.answer("❌ Puoi gestire solo i tuoi download", alert=True)
+            await event.answer("❌ You can only manage your own downloads", alert=True)
             return
         
         # Seleziona risultato TMDB
@@ -86,15 +86,15 @@ class CallbackHandlers:
                 await self._process_movie_selection(event, download_info)
     
     async def _handle_confirm(self, event, data: str):
-        """Gestisce conferma match TMDB"""
+        """Handles TMDB match confirmation"""
         msg_id = int(data.split('_')[1])
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
         
-        # Auto-rileva tipo da TMDB
+        # Auto-detect type from TMDB
         if download_info.selected_tmdb:
             if download_info.selected_tmdb.is_tv_show:
                 await self._process_tv_selection(event, download_info)
@@ -102,19 +102,19 @@ class CallbackHandlers:
                 await self._process_movie_selection(event, download_info)
     
     async def _handle_search_again(self, event, data: str):
-        """Gestisce nuova ricerca"""
+        """Handles new search"""
         msg_id = int(data.split('_')[1])
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
         
         # Reset TMDB
         download_info.selected_tmdb = None
         download_info.tmdb_confidence = 0
         
-        # Mostra selezione manuale
+        # Show manual selection
         buttons = [
             [
                 Button.inline("🎬 Film", f"movie_{msg_id}"),
@@ -131,19 +131,19 @@ class CallbackHandlers:
         )
     
     async def _handle_season_selection(self, event, data: str):
-        """Gestisce selezione stagione"""
+        """Handles season selection"""
         parts = data.split('_')
         season_num = int(parts[1])
         msg_id = int(parts[2])
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
         
         download_info.selected_season = season_num
         
-        # Verifica spazio
+        # Check space
         size_gb = download_info.size_gb
         space_ok, free_gb = self.space.check_space_available(
             download_info.dest_path,
@@ -151,18 +151,18 @@ class CallbackHandlers:
         )
         
         if not space_ok:
-            # Metti in coda spazio
+            # Put in space queue
             position = self.downloads.queue_for_space(download_info)
             
             await event.edit(
                 f"{download_info.emoji} **{download_info.media_type}**\n"
                 f"📅 Stagione {season_num}\n\n"
                 + self.space.format_space_warning(download_info.dest_path, size_gb)
-                + f"\nPosizione in coda spazio: #{position}"
+                + f"\nPosition in space queue: #{position}"
             )
             return
         
-        # Metti in coda download
+        # Put in download queue
         position = await self.downloads.queue_download(download_info)
         
         await event.edit(
@@ -170,24 +170,24 @@ class CallbackHandlers:
             f"📅 Stagione {season_num}\n\n"
             f"📥 **Preparazione download...**\n"
             f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
-            f"📊 Posizione in coda: #{position}"
+            f"📊 Position in queue: #{position}"
         )
 
     async def _handle_manual_season(self, event, data: str):
-        """Gestisce inserimento manuale numero stagione"""
+        """Handles manual season number input"""
         msg_id = int(data.split('_')[2])
 
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
 
-        # Nome serie
+        # Series name
         series_name = download_info.series_info.series_name if download_info.series_info else "Serie"
         if download_info.selected_tmdb:
             series_name = download_info.selected_tmdb.title
 
-        # Salva l'ID del messaggio nel download_info per riferimento futuro
+        # Save message ID in download_info for future reference
         download_info.waiting_for_season = True
 
         await event.edit(
@@ -200,7 +200,7 @@ class CallbackHandlers:
         )
 
     async def _handle_cancel(self, event, data: str):
-        """Gestisce cancellazione"""
+        """Handles cancellation"""
         msg_id = int(data.split('_')[1])
         
         download_info = self.downloads.get_download_info(msg_id)
@@ -208,47 +208,47 @@ class CallbackHandlers:
             await event.answer("❌ Download già completato o cancellato")
             return
         
-        # Verifica proprietà
+        # Check ownership
         if not self.auth.can_manage_download(event.sender_id, download_info.user_id):
             await event.answer("❌ Puoi cancellare solo i tuoi download", alert=True)
             return
         
-        # Cancella
+        # Cancel
         self.downloads.cancel_download(msg_id)
         
         await event.edit("❌ Download cancellato")
     
     async def _handle_movie_selection(self, event, data: str):
-        """Gestisce selezione film"""
+        """Handles movie selection"""
         msg_id = int(data.split('_')[1])
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
         
         await self._process_movie_selection(event, download_info)
     
     async def _handle_tv_selection(self, event, data: str):
-        """Gestisce selezione serie TV"""
+        """Handles TV series selection"""
         msg_id = int(data.split('_')[1])
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download scaduto o già completato")
+            await event.answer("❌ Download expired or already completed")
             return
         
         await self._process_tv_selection(event, download_info)
     
     async def _process_movie_selection(self, event, download_info):
-        """Processa selezione film"""
+        """Processes movie selection"""
         download_info.media_type = MediaType.MOVIE
         download_info.is_movie = True
         download_info.dest_path = self.config.paths.movies
         download_info.emoji = "🎬"
         download_info.event = event
         
-        # Verifica spazio
+        # Check space
         size_gb = download_info.size_gb
         space_ok, free_gb = self.space.check_space_available(
             download_info.dest_path,
@@ -261,7 +261,7 @@ class CallbackHandlers:
             await event.edit(
                 f"🎬 **Film** selezionato\n\n"
                 + self.space.format_space_warning(download_info.dest_path, size_gb)
-                + f"\nPosizione in coda spazio: #{position}"
+                + f"\nPosition in space queue: #{position}"
             )
             return
         
@@ -319,7 +319,7 @@ class CallbackHandlers:
                 Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")
             ])
             
-            # Nome serie
+            # Series name
             series_name = download_info.series_info.series_name if download_info.series_info else "Serie"
             if download_info.selected_tmdb:
                 series_name = download_info.selected_tmdb.title
@@ -337,7 +337,7 @@ class CallbackHandlers:
         # Ha già info stagione
         download_info.selected_season = download_info.series_info.season
         
-        # Verifica spazio
+        # Check space
         size_gb = download_info.size_gb
         space_ok, free_gb = self.space.check_space_available(
             download_info.dest_path,
@@ -350,7 +350,7 @@ class CallbackHandlers:
             await event.edit(
                 f"📺 **Serie TV** selezionata\n\n"
                 + self.space.format_space_warning(download_info.dest_path, size_gb)
-                + f"\nPosizione in coda spazio: #{position}"
+                + f"\nPosition in space queue: #{position}"
             )
             return
         
@@ -363,5 +363,5 @@ class CallbackHandlers:
             f"📅 Stagione {download_info.selected_season}\n\n"
             f"📥 **Preparazione download...**\n"
             f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
-            f"📊 Posizione in coda: #{position}"
+            f"📊 Position in queue: #{position}"
         )

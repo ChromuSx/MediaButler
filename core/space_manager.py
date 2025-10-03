@@ -34,13 +34,13 @@ class DiskUsage:
             return "🔴"
     
     def can_download(self, size_gb: float) -> bool:
-        """Verifica se c'è spazio per un download"""
+        """Check if there's space for a download"""
         config = get_config()
         return self.free_gb >= (size_gb + config.limits.min_free_space_gb)
 
 
 class SpaceManager:
-    """Gestore spazio disco"""
+    """Disk space manager"""
     
     def __init__(self):
         self.config = get_config()
@@ -182,12 +182,12 @@ class SpaceManager:
         missing = total_required - usage.free_gb
         
         return (
-            f"⏸️ **In attesa di spazio**\n\n"
-            f"❌ Spazio insufficiente!\n"
-            f"📊 Richiesti: {required_gb:.1f} GB (+ {self.config.limits.min_free_space_gb} GB riservati)\n"
-            f"💾 Disponibili: {usage.free_gb:.1f} GB\n"
-            f"🎯 Mancano: {missing:.1f} GB\n\n"
-            f"Il download partirà automaticamente quando ci sarà spazio."
+            f"⏸️ **Waiting for space**\n\n"
+            f"❌ Insufficient space!\n"
+            f"📊 Required: {required_gb:.1f} GB (+ {self.config.limits.min_free_space_gb} GB reserved)\n"
+            f"💾 Available: {usage.free_gb:.1f} GB\n"
+            f"🎯 Missing: {missing:.1f} GB\n\n"
+            f"The download will start automatically when there's space."
         )
     
     def cleanup_empty_folders(self, folder_path: Path) -> bool:

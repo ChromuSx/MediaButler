@@ -287,14 +287,14 @@ class DownloadManager:
                         size_gb
                     )
                     
-                    # Se c'è spazio e slot libero, sposta in coda download
+                    # If there's space and free slot, move to download queue
                     if space_ok and len(self.download_tasks) < self.config.limits.max_concurrent_downloads:
                         await self.download_queue.put(queue_item)
                         processed.append(queue_item)
                         
                         self.logger.info(
-                            f"Spazio disponibile per {download_info.filename}, "
-                            f"spostato in coda download"
+                            f"Space available for {download_info.filename}, "
+                            f"moved to download queue"
                         )
                         
                         # Notifica utente
@@ -323,7 +323,7 @@ class DownloadManager:
         try:
             # Verifica cancellazione
             if msg_id in self.cancelled_downloads:
-                self.logger.info(f"Download già cancellato: {download_info.filename}")
+                self.logger.info(f"Download already cancelled: {download_info.filename}")
                 return
             
             # Aggiorna stato
@@ -334,17 +334,17 @@ class DownloadManager:
             filepath = self._prepare_file_path(download_info)
             download_info.final_path = filepath
             
-            # Controlla se file già esiste (evita duplicati)
+            # Check if file already exists (avoid duplicates)
             if filepath.exists():
                 existing_hash = FileHelpers.get_file_hash(filepath)
-                self.logger.warning(f"File già esistente: {filepath} (hash: {existing_hash})")
+                self.logger.warning(f"File already exists: {filepath} (hash: {existing_hash})")
                 
                 # Notifica utente
                 if download_info.event:
                     await download_info.event.edit(
-                        f"⚠️ **File già presente**\n\n"
-                        f"Il file `{filepath.name}` esiste già nella destinazione.\n"
-                        f"Download annullato per evitare duplicati."
+                        f"⚠️ **File already exists**\n\n"
+                        f"The file `{filepath.name}` already exists in the destination.\n"
+                        f"Download cancelled to avoid duplicates."
                     )
                 return
             
@@ -380,11 +380,11 @@ class DownloadManager:
                 last_update = now
                 await self._update_progress(download_info, current, total, path_info)
             
-            # Download in temp prima, poi sposta (più sicuro)
+            # Download to temp first, then move (safer)
             temp_path = self.config.paths.temp / f"{msg_id}_{filepath.name}"
             temp_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # Scarica con retry automatico
+            # Download with automatic retry
             @RetryHelpers.async_retry(max_attempts=3, delay=2, exceptions=(Exception,))
             async def download_with_retry():
                 return await self.client.download_media(
@@ -538,7 +538,7 @@ class DownloadManager:
         current_mb = current / (1024 * 1024)
         total_mb = total / (1024 * 1024)
         
-        # Calcola velocità ed ETA
+        # Calculate speed and ETA
         elapsed = time.time() - download_info.start_time
         speed = (current / (1024 * 1024)) / elapsed if elapsed > 0 else 0
         download_info.speed_mbps = speed
@@ -623,7 +623,7 @@ class DownloadManager:
             episode = None
             imdb_id = getattr(download_info, 'imdb_id', None)
 
-            # Se è una serie TV, estrai stagione/episodio
+            # If it's a TV series, extract season/episode
             if not download_info.is_movie and hasattr(download_info, 'season') and hasattr(download_info, 'episode'):
                 season = download_info.season
                 episode = download_info.episode

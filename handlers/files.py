@@ -1,5 +1,5 @@
 """
-Handler per file ricevuti via Telegram
+Handlers for files received via Telegram
 """
 import os
 from datetime import datetime
@@ -15,7 +15,7 @@ from utils.helpers import ValidationHelpers, FileHelpers
 
 
 class FileHandlers:
-    """Gestione file ricevuti"""
+    """Received file management"""
     
     def __init__(
         self,
@@ -34,22 +34,22 @@ class FileHandlers:
         self.logger = self.config.logger
     
     def register(self):
-        """Registra handler file"""
+        """Register file handlers"""
         self.client.on(events.NewMessage(func=lambda e: e.file))(self.file_handler)
         self.client.on(events.NewMessage(func=lambda e: e.text and not e.text.startswith('/')))(self.text_handler)
-        self.logger.info("Handler file registrati")
+        self.logger.info("File handlers registered")
     
     async def file_handler(self, event: events.NewMessage.Event):
-        """Handler principale per file ricevuti"""
+        """Main handler for received files"""
         if not await self.auth.check_authorized(event):
             return
         
         self.logger.info(
-            f"File ricevuto da utente {event.sender_id}, "
-            f"dimensione: {event.file.size / (1024*1024):.1f} MB"
+            f"File received from user {event.sender_id}, "
+            f"size: {event.file.size / (1024*1024):.1f} MB"
         )
         
-        # Valida dimensione file
+        # Validate file size
         size_valid, error_msg = ValidationHelpers.validate_file_size(
             event.file.size,
             min_size=1024 * 100,  # 100 KB minimo
@@ -60,19 +60,19 @@ class FileHandlers:
             await event.reply(f"⚠️ {error_msg}")
             return
         
-        # Estrai nome file
+        # Extract filename
         filename = self._extract_filename(event)
         
-        # Verifica che sia un file video
+        # Verify it's a video file
         if not FileHelpers.is_video_file(filename):
             await event.reply(
-                f"⚠️ **File non supportato**\n\n"
+                f"⚠️ **Unsupported file**\n\n"
                 f"Il file `{filename}` non sembra essere un video.\n"
                 f"Formati supportati: {', '.join(FileHelpers.get_video_extensions())}"
             )
             return
         
-        # Crea DownloadInfo
+        # Create DownloadInfo
         download_info = DownloadInfo(
             message_id=event.message.id,
             user_id=event.sender_id,
@@ -82,63 +82,63 @@ class FileHandlers:
             message=event.message
         )
         
-        # Estrai info dal nome
+        # Extract info from name
         movie_name, year = FileNameParser.extract_movie_info(filename)
         series_info = FileNameParser.extract_series_info(filename)
 
-        # Imposta movie_folder solo se NON è una serie TV riconosciuta
+        # Set movie_folder only if NOT a recognized TV series
         if series_info.season is None:
             download_info.movie_folder = FileNameParser.create_folder_name(movie_name, year)
 
         download_info.series_info = series_info
         
-        # Aggiungi al manager
+        # Add to manager
         if not self.downloads.add_download(download_info):
-            await event.reply("⚠️ Download già in elaborazione per questo file")
+            await event.reply("⚠️ Download already processing for this file")
             return
         
-        # Processa con TMDB se disponibile
+        # Process with TMDB if available
         if self.tmdb:
             await self._process_with_tmdb(event, download_info)
         else:
             await self._process_without_tmdb(event, download_info)
     
     def _extract_filename(self, event) -> str:
-        """Estrai nome file dal messaggio"""
+        """Extract filename from message"""
         filename = "unknown"
         
-        # Prova dal file
+        # Try from file
         if hasattr(event.file, 'name') and event.file.name:
             filename = event.file.name
-        # Prova dagli attributi documento
+        # Try from document attributes
         elif event.document:
             for attr in event.document.attributes:
                 if isinstance(attr, DocumentAttributeFilename):
                     filename = attr.file_name
                     break
         
-        # Se ancora unknown, genera nome
+        # If still unknown, generate name
         if not filename or filename == "unknown":
             filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
         
-        # Controlla se c'è testo nel messaggio (per file inoltrati)
+        # Check if there's text in the message (for forwarded files)
         message_text = event.message.message if event.message.message else ""
         if message_text and (filename.startswith("video_") or filename == "unknown"):
             detected_name = message_text.strip()
             if not any(detected_name.endswith(ext) for ext in ['.mp4', '.mkv', '.avi', '.mov']):
                 ext = os.path.splitext(filename)[1] or '.mp4'
                 detected_name += ext
-            self.logger.info(f"Nome rilevato dal testo: {detected_name}")
+            self.logger.info(f"Name detected from text: {detected_name}")
             return detected_name
         
         return filename
     
     async def _process_with_tmdb(self, event, download_info: DownloadInfo):
-        """Processa file con ricerca TMDB"""
-        initial_msg = await event.reply("🔍 **Ricerca nel database TMDB...**")
+        """Process file with TMDB search"""
+        initial_msg = await event.reply("🔍 **Searching TMDB database...**")
         download_info.progress_msg = initial_msg
         
-        # Determina tipo ricerca
+        # Determine search type
         if download_info.series_info.season:
             search_query = download_info.series_info.series_name
             media_hint = 'tv'
@@ -146,7 +146,7 @@ class FileHandlers:
             search_query = download_info.movie_folder
             media_hint = None
         
-        # Cerca su TMDB
+        # Search on TMDB
         tmdb_result, confidence = await self.tmdb.search_with_confidence(
             search_query,
             media_hint
@@ -157,7 +157,7 @@ class FileHandlers:
             download_info.selected_tmdb = tmdb_result
             download_info.tmdb_confidence = confidence
         
-        # Prepara avviso spazio
+        # Prepare space warning
         space_warning = self._get_space_warning(download_info)
         
         # Mostra risultati
@@ -190,29 +190,29 @@ class FileHandlers:
         # Avviso spazio
         space_warning = self._get_space_warning(download_info)
 
-        # Se è stata rilevata stagione/episodio, è sicuramente una serie TV
+        # If season/episode was detected, it's definitely a TV series
         if download_info.series_info.season:
             buttons = [
                 [
-                    Button.inline("✅ Conferma Serie TV", f"tv_{download_info.message_id}"),
-                    Button.inline("🎬 È un Film", f"movie_{download_info.message_id}")
+                    Button.inline("✅ Confirm TV Series", f"tv_{download_info.message_id}"),
+                    Button.inline("🎬 It's a Movie", f"movie_{download_info.message_id}")
                 ],
-                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
             ]
-            question = "**Confermi che è una serie TV?**"
+            question = "**Confirm it's a TV series?**"
         else:
-            # Non è stato rilevato pattern serie TV, chiedi tipo
+            # No TV series pattern detected, ask for type
             buttons = [
                 [
                     Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
                     Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
                 ],
-                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
             ]
             question = "**È un film o una serie TV?**"
 
         msg = await event.reply(
-            f"📁 **File ricevuto:**\n"
+            f"📁 **File received:**\n"
             f"`{download_info.filename}`\n"
             f"📏 Dimensione: **{download_info.size_mb:.1f} MB** ({download_info.size_gb:.1f} GB)"
             f"{info_text}\n"
@@ -255,7 +255,7 @@ class FileHandlers:
                 Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
                 Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
             ],
-            [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+            [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
         ]
         
         await msg.edit(info_text + space_warning, buttons=buttons, link_preview=True)
@@ -298,7 +298,7 @@ class FileHandlers:
             Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
             Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
         ])
-        buttons.append([Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")])
+        buttons.append([Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")])
         
         await msg.edit(info_text + space_warning, buttons=buttons)
     
@@ -314,29 +314,29 @@ class FileHandlers:
         if self.tmdb:
             info_text += "\n\n⚠️ Nessuna corrispondenza TMDB trovata - uso info dal nome file"
 
-        # Se è stata rilevata stagione/episodio, è sicuramente una serie TV
+        # If season/episode was detected, it's definitely a TV series
         if download_info.series_info.season:
             buttons = [
                 [
-                    Button.inline("✅ Conferma Serie TV", f"tv_{download_info.message_id}"),
-                    Button.inline("🎬 È un Film", f"movie_{download_info.message_id}")
+                    Button.inline("✅ Confirm TV Series", f"tv_{download_info.message_id}"),
+                    Button.inline("🎬 It's a Movie", f"movie_{download_info.message_id}")
                 ],
-                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
             ]
-            question = "**Confermi che è una serie TV?**"
+            question = "**Confirm it's a TV series?**"
         else:
-            # Non è stato rilevato pattern serie TV, chiedi tipo
+            # No TV series pattern detected, ask for type
             buttons = [
                 [
                     Button.inline("🎬 Film", f"movie_{download_info.message_id}"),
                     Button.inline("📺 Serie TV", f"tv_{download_info.message_id}")
                 ],
-                [Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]
+                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
             ]
             question = "**È un film o una serie TV?**"
 
         await msg.edit(
-            f"📁 **File ricevuto:**\n"
+            f"📁 **File received:**\n"
             f"`{download_info.filename}`\n"
             f"📏 Dimensione: **{download_info.size_mb:.1f} MB** ({download_info.size_gb:.1f} GB)"
             f"{info_text}\n"
