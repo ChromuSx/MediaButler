@@ -79,7 +79,8 @@ class MediaButler:
             auth_manager=self.auth_manager,
             download_manager=self.download_manager,
             tmdb_client=self.tmdb_client,
-            space_manager=self.space_manager
+            space_manager=self.space_manager,
+            database_manager=self.database_manager
         )
         
     async def start(self):

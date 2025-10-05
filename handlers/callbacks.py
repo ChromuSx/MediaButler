@@ -55,6 +55,8 @@ class CallbackHandlers:
             await self._handle_movie_selection(event, data)
         elif data.startswith('tv_'):
             await self._handle_tv_selection(event, data)
+        elif data.startswith('dup_'):
+            await self._handle_duplicate_action(event, data)
         else:
             await event.answer("⚠️ Azione non riconosciuta")
     
@@ -365,3 +367,82 @@ class CallbackHandlers:
             f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
             f"📊 Position in queue: #{position}"
         )
+
+    async def _handle_duplicate_action(self, event, data: str):
+        """Handles duplicate file actions"""
+        # Parse: dup_action_msgid
+        parts = data.split('_')
+        action = parts[1]
+        msg_id = int(parts[2])
+
+        download_info = self.downloads.get_download_info(msg_id)
+        if not download_info:
+            await event.answer("❌ Download expired or already completed")
+            return
+
+        # Check ownership
+        if not self.auth.can_manage_download(event.sender_id, download_info.user_id):
+            await event.answer("❌ You can only manage your own downloads", alert=True)
+            return
+
+        if action == 'skip':
+            # Skip download - just cancel it
+            self.downloads.cancel_download(msg_id)
+            await event.edit(
+                f"⏭️ **Download skipped**\n\n"
+                f"📁 File: `{download_info.filename}`\n"
+                f"✅ File already exists in library"
+            )
+
+        elif action == 'download':
+            # Download again - proceed with normal flow
+            await event.edit(
+                f"📥 **Downloading duplicate file**\n\n"
+                f"📁 File: `{download_info.filename}`\n"
+                f"⏳ Processing..."
+            )
+
+            # Determine media type and proceed
+            if download_info.selected_tmdb:
+                if download_info.selected_tmdb.is_tv_show:
+                    await self._process_tv_selection(event, download_info)
+                else:
+                    await self._process_movie_selection(event, download_info)
+            elif download_info.is_movie is not None:
+                if download_info.is_movie:
+                    await self._process_movie_selection(event, download_info)
+                else:
+                    await self._process_tv_selection(event, download_info)
+            else:
+                # Show manual type selection
+                buttons = [
+                    [
+                        Button.inline("🎬 Movie", f"movie_{msg_id}"),
+                        Button.inline("📺 TV Series", f"tv_{msg_id}")
+                    ],
+                    [Button.inline("❌ Cancel", f"cancel_{msg_id}")]
+                ]
+
+                await event.edit(
+                    f"📁 **File:** `{download_info.filename}`\n"
+                    f"📏 **Size:** {download_info.size_gb:.1f} GB\n\n"
+                    f"**Select media type:**",
+                    buttons=buttons
+                )
+
+        elif action == 'rename':
+            # Mark for rename and prompt user
+            download_info.rename_requested = True
+
+            await event.edit(
+                f"✏️ **Rename file**\n\n"
+                f"📁 Original: `{download_info.filename}`\n\n"
+                f"**Send the new filename** (with extension)\n"
+                f"_I'll respond below_",
+                buttons=[[Button.inline("❌ Cancel", f"cancel_{msg_id}")]]
+            )
+
+        elif action == 'cancel':
+            # Cancel download
+            self.downloads.cancel_download(msg_id)
+            await event.edit("❌ Download cancelled")

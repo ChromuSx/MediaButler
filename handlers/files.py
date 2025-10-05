@@ -9,6 +9,7 @@ from core.auth import AuthManager
 from core.downloader import DownloadManager, get_user_config_for_download
 from core.tmdb_client import TMDBClient
 from core.space_manager import SpaceManager
+from core.database import DatabaseManager
 from models.download import DownloadInfo, MediaType
 from utils.naming import FileNameParser
 from utils.helpers import ValidationHelpers, FileHelpers
@@ -23,13 +24,15 @@ class FileHandlers:
         auth_manager: AuthManager,
         download_manager: DownloadManager,
         tmdb_client: TMDBClient,
-        space_manager: SpaceManager
+        space_manager: SpaceManager,
+        database_manager: DatabaseManager = None
     ):
         self.client = client
         self.auth = auth_manager
         self.downloads = download_manager
         self.tmdb = tmdb_client
         self.space = space_manager
+        self.database = database_manager
         self.config = download_manager.config
         self.logger = self.config.logger
     
@@ -91,12 +94,23 @@ class FileHandlers:
             download_info.movie_folder = FileNameParser.create_folder_name(movie_name, year)
 
         download_info.series_info = series_info
-        
+
+        # Check for duplicates
+        if self.database:
+            duplicate = await self.database.check_duplicate_file(
+                filename,
+                event.sender_id
+            )
+
+            if duplicate:
+                await self._show_duplicate_warning(event, download_info, duplicate)
+                return
+
         # Add to manager
         if not self.downloads.add_download(download_info):
             await event.reply("⚠️ Download already processing for this file")
             return
-        
+
         # Process with TMDB if available
         if self.tmdb:
             await self._process_with_tmdb(event, download_info)
@@ -503,11 +517,24 @@ class FileHandlers:
         return ""
 
     async def text_handler(self, event: events.NewMessage.Event):
-        """Handler per messaggi di testo (per inserimento manuale stagione)"""
+        """Handler for text messages (manual season/rename input)"""
         if not await self.auth.check_authorized(event):
             return
 
-        # Cerca download in attesa di stagione per questo utente
+        # Check for download waiting for rename
+        rename_download = None
+        for download_info in self.downloads.active_downloads.values():
+            if (download_info.user_id == event.sender_id and
+                hasattr(download_info, 'rename_requested') and
+                download_info.rename_requested):
+                rename_download = download_info
+                break
+
+        if rename_download:
+            await self._handle_rename_input(event, rename_download)
+            return
+
+        # Check for download waiting for season
         waiting_download = None
         for download_info in self.downloads.active_downloads.values():
             if (download_info.user_id == event.sender_id and
@@ -517,7 +544,7 @@ class FileHandlers:
                 break
 
         if not waiting_download:
-            return  # Non c'è nessun download in attesa
+            return  # No download waiting
 
         # Prova a parsare il numero stagione
         try:
@@ -565,3 +592,192 @@ class FileHandlers:
             self.logger.error(f"Errore gestione stagione manuale: {e}")
             await event.reply("❌ Errore durante la selezione. Riprova.")
             waiting_download.waiting_for_season = False
+
+    async def _show_duplicate_warning(
+        self,
+        event,
+        download_info: DownloadInfo,
+        duplicate: dict
+    ):
+        """Show duplicate file warning with options"""
+        # Format duplicate info
+        downloaded_date = duplicate['created_at'][:16] if duplicate['created_at'] else 'Unknown'
+        size_gb = duplicate['size_bytes'] / (1024**3) if duplicate['size_bytes'] else 0
+        status = duplicate['status']
+
+        # Build warning message
+        text = (
+            f"⚠️ **Duplicate File Detected!**\n\n"
+            f"📁 **File:** `{download_info.filename}`\n"
+            f"📏 **Size:** {download_info.size_gb:.2f} GB\n\n"
+            f"🔍 **Previously downloaded:**\n"
+            f"• Date: {downloaded_date}\n"
+            f"• Size: {size_gb:.2f} GB\n"
+            f"• Status: {status}\n"
+        )
+
+        if duplicate.get('final_path'):
+            text += f"• Location: `{duplicate['final_path']}`\n"
+
+        if duplicate.get('movie_title'):
+            text += f"• Title: {duplicate['movie_title']}\n"
+        elif duplicate.get('series_name'):
+            text += f"• Series: {duplicate['series_name']}"
+            if duplicate.get('season') and duplicate.get('episode'):
+                text += f" S{duplicate['season']:02d}E{duplicate['episode']:02d}"
+            text += "\n"
+
+        text += (
+            f"\n**What would you like to do?**"
+        )
+
+        # Create buttons
+        buttons = [
+            [
+                Button.inline("⏭️ Skip (Don't Download)", f"dup_skip_{download_info.message_id}"),
+            ],
+            [
+                Button.inline("📥 Download Again", f"dup_download_{download_info.message_id}"),
+            ],
+            [
+                Button.inline("✏️ Rename & Download", f"dup_rename_{download_info.message_id}")
+            ],
+            [
+                Button.inline("❌ Cancel", f"dup_cancel_{download_info.message_id}")
+            ]
+        ]
+
+        await event.reply(text, buttons=buttons)
+
+    async def _handle_rename_input(self, event: events.NewMessage.Event, download_info: DownloadInfo):
+        """Handle rename filename input from user"""
+        new_filename = event.text.strip()
+
+        # Validate filename
+        if not new_filename:
+            await event.reply("❌ Filename cannot be empty. Please try again.")
+            return
+
+        # Check if filename has extension
+        if '.' not in new_filename:
+            await event.reply("❌ Filename must include an extension (e.g., .mkv, .mp4). Please try again.")
+            return
+
+        # Update filename
+        old_filename = download_info.filename
+        download_info.filename = new_filename
+        download_info.rename_requested = False
+
+        await event.reply(
+            f"✅ **Filename renamed**\n\n"
+            f"📁 From: `{old_filename}`\n"
+            f"📁 To: `{new_filename}`\n\n"
+            f"⏳ Processing download..."
+        )
+
+        # Proceed with download - determine media type
+        if download_info.selected_tmdb:
+            if download_info.selected_tmdb.is_tv_show:
+                # Need to handle TV selection
+                download_info.media_type = MediaType.TV_SHOW
+                download_info.is_movie = False
+                download_info.dest_path = self.config.paths.tv
+                download_info.emoji = "📺"
+
+                # Check if season info exists
+                if not download_info.series_info or not download_info.series_info.season:
+                    # Need season selection - create a temporary event for callback handler
+                    from handlers.callbacks import CallbackHandlers
+
+                    # Get callback handler instance
+                    callback_handler = None
+                    for handler in self.client.list_event_handlers():
+                        if isinstance(handler[0].__self__, CallbackHandlers):
+                            callback_handler = handler[0].__self__
+                            break
+
+                    if callback_handler:
+                        await callback_handler._process_tv_selection(event, download_info)
+                    else:
+                        self.logger.error("Could not find CallbackHandlers instance")
+                        await event.reply("❌ Error processing TV series. Please try again.")
+                else:
+                    # Has season info, proceed
+                    download_info.selected_season = download_info.series_info.season
+                    await self._queue_for_download(event, download_info)
+            else:
+                # Movie
+                download_info.media_type = MediaType.MOVIE
+                download_info.is_movie = True
+                download_info.dest_path = self.config.paths.movies
+                download_info.emoji = "🎬"
+                await self._queue_for_download(event, download_info)
+        elif download_info.is_movie is not None:
+            if download_info.is_movie:
+                download_info.media_type = MediaType.MOVIE
+                download_info.dest_path = self.config.paths.movies
+                download_info.emoji = "🎬"
+                await self._queue_for_download(event, download_info)
+            else:
+                download_info.media_type = MediaType.TV_SHOW
+                download_info.dest_path = self.config.paths.tv
+                download_info.emoji = "📺"
+                # Need season info
+                if not download_info.series_info or not download_info.series_info.season:
+                    from handlers.callbacks import CallbackHandlers
+
+                    callback_handler = None
+                    for handler in self.client.list_event_handlers():
+                        if isinstance(handler[0].__self__, CallbackHandlers):
+                            callback_handler = handler[0].__self__
+                            break
+
+                    if callback_handler:
+                        await callback_handler._process_tv_selection(event, download_info)
+                else:
+                    download_info.selected_season = download_info.series_info.season
+                    await self._queue_for_download(event, download_info)
+        else:
+            # Show type selection
+            buttons = [
+                [
+                    Button.inline("🎬 Movie", f"movie_{download_info.message_id}"),
+                    Button.inline("📺 TV Series", f"tv_{download_info.message_id}")
+                ],
+                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
+            ]
+
+            await event.reply(
+                f"📁 **File:** `{download_info.filename}`\n"
+                f"📏 **Size:** {download_info.size_gb:.1f} GB\n\n"
+                f"**Select media type:**",
+                buttons=buttons
+            )
+
+    async def _queue_for_download(self, event, download_info: DownloadInfo):
+        """Queue download after all info is ready"""
+        # Check space
+        size_gb = download_info.size_gb
+        space_ok, free_gb = self.space.check_space_available(
+            download_info.dest_path,
+            size_gb
+        )
+
+        if not space_ok:
+            position = self.downloads.queue_for_space(download_info)
+            await event.reply(
+                f"{download_info.emoji} **{download_info.media_type}**\n\n"
+                + self.space.format_space_warning(download_info.dest_path, size_gb)
+                + f"\nPosition in space queue: #{position}"
+            )
+            return
+
+        # Queue download
+        position = await self.downloads.queue_download(download_info)
+
+        await event.reply(
+            f"{download_info.emoji} **{download_info.media_type}**\n\n"
+            f"📥 **Preparing download...**\n"
+            f"✅ Available space: {free_gb:.1f} GB\n"
+            f"📊 Queue position: #{position}"
+        )
