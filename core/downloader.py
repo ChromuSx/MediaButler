@@ -11,9 +11,27 @@ from core.config import get_config
 from core.space_manager import SpaceManager
 from core.tmdb_client import TMDBClient
 from core.subtitle_manager import SubtitleManager
+from core.user_config import UserConfig
 from models.download import DownloadInfo, DownloadStatus, QueueItem
 from utils.helpers import RetryHelpers, FileHelpers, AsyncHelpers
 from utils.naming import FileNameParser
+
+
+# Database import - will be set by main.py
+_database_manager = None
+
+
+def set_database_manager(db_manager):
+    """Set database manager instance"""
+    global _database_manager
+    _database_manager = db_manager
+
+
+async def get_user_config_for_download(user_id: int) -> UserConfig:
+    """Get user configuration for download operations"""
+    if _database_manager:
+        return UserConfig(user_id, _database_manager)
+    return None
 
 
 class DownloadManager:
@@ -329,7 +347,18 @@ class DownloadManager:
             # Aggiorna stato
             download_info.status = DownloadStatus.DOWNLOADING
             download_info.start_time = time.time()
-            
+
+            # Add to database
+            if _database_manager:
+                try:
+                    await _database_manager.add_download(download_info)
+                    await _database_manager.update_download_status(
+                        download_info.message_id,
+                        DownloadStatus.DOWNLOADING
+                    )
+                except Exception as e:
+                    self.logger.error(f"Error adding download to database: {e}")
+
             # Prepara percorsi
             filepath = self._prepare_file_path(download_info)
             download_info.final_path = filepath
@@ -408,7 +437,7 @@ class DownloadManager:
             # Completato
             download_info.status = DownloadStatus.COMPLETED
             download_info.end_time = time.time()
-            
+
             # Calcola hash per deduplicazione futura
             file_hash = await AsyncHelpers.run_with_timeout(
                 asyncio.to_thread(FileHelpers.get_file_hash, filepath),
@@ -416,6 +445,20 @@ class DownloadManager:
                 default="unknown"
             )
             self.logger.info(f"File completato: {filepath} (hash: {file_hash})")
+
+            # Save to database
+            if _database_manager:
+                try:
+                    duration = int(download_info.end_time - download_info.start_time) if download_info.start_time else 0
+                    await _database_manager.complete_download(
+                        download_info.message_id,
+                        str(filepath),
+                        duration,
+                        download_info.speed_mbps
+                    )
+                    await _database_manager.update_user_stats(download_info.user_id, download_info)
+                except Exception as e:
+                    self.logger.error(f"Error saving to database: {e}")
 
             # Download sottotitoli se configurato
             await self._handle_subtitles_download(download_info, filepath)
@@ -426,18 +469,29 @@ class DownloadManager:
         except asyncio.CancelledError:
             self.logger.info(f"Download cancellato: {download_info.filename}")
             download_info.status = DownloadStatus.CANCELLED
-            
+
+            # Save cancellation to database
+            if _database_manager:
+                try:
+                    await _database_manager.update_download_status(
+                        download_info.message_id,
+                        DownloadStatus.CANCELLED
+                    )
+                    await _database_manager.increment_cancelled_downloads(download_info.user_id)
+                except Exception as e:
+                    self.logger.error(f"Error saving cancellation to database: {e}")
+
             # Pulizia file temporaneo
             if 'temp_path' in locals() and temp_path.exists():
                 temp_path.unlink()
-            
+
             # Pulizia file finale e cartelle
             if download_info.final_path and download_info.final_path.exists():
                 self.space_manager.smart_cleanup(
                     download_info.final_path,
                     download_info.is_movie
                 )
-            
+
             # Notifica cancellazione
             if download_info.event:
                 try:
@@ -447,24 +501,49 @@ class DownloadManager:
                     )
                 except:
                     pass
-            
+
         except Exception as e:
             self.logger.error(f"Errore download: {e}", exc_info=True)
             download_info.status = DownloadStatus.FAILED
             download_info.error_message = str(e)
-            
+
+            # Save failure to database
+            if _database_manager:
+                try:
+                    await _database_manager.update_download_status(
+                        download_info.message_id,
+                        DownloadStatus.FAILED,
+                        error_message=str(e)
+                    )
+                    await _database_manager.increment_failed_downloads(download_info.user_id)
+                except Exception as db_err:
+                    self.logger.error(f"Error saving failure to database: {db_err}")
+
             # Pulizia file temporaneo se esiste
             if 'temp_path' in locals() and temp_path.exists():
                 temp_path.unlink()
-            
-            # Notifica errore
-            if download_info.event:
+
+            # Notifica errore (rispettando preferenze utente)
+            user_config = await get_user_config_for_download(download_info.user_id)
+            notify_failed = True  # Default
+            compact_messages = False
+
+            if user_config:
+                notify_failed = await user_config.get_notify_download_failed()
+                compact_messages = await user_config.get_compact_messages()
+
+            if notify_failed and download_info.event:
                 try:
-                    await download_info.event.edit(
-                        f"❌ **Errore durante il download**\n\n"
-                        f"File: `{download_info.filename}`\n"
-                        f"Errore: `{str(e)}`"
-                    )
+                    if compact_messages:
+                        await download_info.event.edit(
+                            f"❌ **Failed**\n`{download_info.filename}`"
+                        )
+                    else:
+                        await download_info.event.edit(
+                            f"❌ **Errore durante il download**\n\n"
+                            f"File: `{download_info.filename}`\n"
+                            f"Errore: `{str(e)}`"
+                        )
                 except:
                     pass
                     
@@ -581,8 +660,22 @@ class DownloadManager:
     
     async def _notify_completion(self, download_info: DownloadInfo, filepath: Path):
         """Notifica completamento download"""
+        # Check user notification preferences
+        user_config = await get_user_config_for_download(download_info.user_id)
+
+        if user_config:
+            notify_complete = await user_config.get_notify_download_complete()
+            compact_messages = await user_config.get_compact_messages()
+        else:
+            notify_complete = True  # Default to enabled
+            compact_messages = False
+
+        if not notify_complete:
+            self.logger.info(f"Download completato (notifica disabilitata): {filepath}")
+            return
+
         final_free_gb = self.space_manager.get_free_space_gb(download_info.dest_path)
-        
+
         # Percorso relativo per display
         if download_info.is_movie:
             display_path = f"{filepath.parent.name}/{filepath.name}"
@@ -590,28 +683,50 @@ class DownloadManager:
             season_folder = filepath.parent
             series_folder = season_folder.parent
             display_path = f"{series_folder.name}/{season_folder.name}/{filepath.name}"
-        
+
         if download_info.event:
             try:
-                await download_info.event.edit(
-                    f"✅ **Download completato!**\n\n"
-                    f"{download_info.emoji} Tipo: **{download_info.media_type}**\n"
-                    f"📁 File: `{filepath.name}`\n"
-                    f"📂 Percorso: `{display_path}`\n"
-                    f"💾 Spazio rimanente: **{final_free_gb:.1f} GB**\n\n"
-                    f"🎬 Disponibile sul tuo media server!"
-                )
+                if compact_messages:
+                    # Compact notification
+                    await download_info.event.edit(
+                        f"✅ **Completed**\n"
+                        f"`{filepath.name}`\n"
+                        f"💾 {final_free_gb:.1f} GB free"
+                    )
+                else:
+                    # Detailed notification
+                    await download_info.event.edit(
+                        f"✅ **Download completato!**\n\n"
+                        f"{download_info.emoji} Tipo: **{download_info.media_type}**\n"
+                        f"📁 File: `{filepath.name}`\n"
+                        f"📂 Percorso: `{display_path}`\n"
+                        f"💾 Spazio rimanente: **{final_free_gb:.1f} GB**\n\n"
+                        f"🎬 Disponibile sul tuo media server!"
+                    )
             except:
                 pass
-        
+
         self.logger.info(f"Download completato: {filepath}")
 
     async def _handle_subtitles_download(self, download_info: DownloadInfo, filepath: Path):
         """Gestisce download sottotitoli dopo completamento video"""
-        if not self.config.subtitles.enabled:
+        # Get user-specific configuration
+        user_config = await get_user_config_for_download(download_info.user_id)
+
+        if user_config:
+            subtitle_enabled = await user_config.get_subtitle_enabled()
+            auto_download = await user_config.get_subtitle_auto_download()
+            languages = await user_config.get_subtitle_languages()
+        else:
+            # Fallback to global config
+            subtitle_enabled = self.config.subtitles.enabled
+            auto_download = self.config.subtitles.auto_download
+            languages = self.config.subtitles.languages
+
+        if not subtitle_enabled:
             return
 
-        if not self.config.subtitles.auto_download:
+        if not auto_download:
             self.logger.debug("Download automatico sottotitoli disabilitato")
             return
 
@@ -634,7 +749,7 @@ class DownloadManager:
                 imdb_id=imdb_id,
                 season=season,
                 episode=episode,
-                languages=self.config.subtitles.languages,
+                languages=languages,  # Use user-specific languages
                 force=False
             )
 

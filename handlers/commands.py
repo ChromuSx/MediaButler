@@ -8,6 +8,8 @@ from core.auth import AuthManager
 from core.space_manager import SpaceManager
 from core.downloader import DownloadManager
 from core.config import get_config
+from core.database import DatabaseManager
+from core.user_config import UserConfig
 from utils.helpers import human_readable_size, FileHelpers
 
 
@@ -19,12 +21,14 @@ class CommandHandlers:
             client: TelegramClient,
         auth_manager: AuthManager,
         space_manager: SpaceManager,
-        download_manager: DownloadManager
+        download_manager: DownloadManager,
+        database_manager: DatabaseManager = None
     ):
         self.client = client
         self.auth = auth_manager
         self.space = space_manager
         self.downloads = download_manager
+        self.database = database_manager
         self.config = get_config()
         self.logger = self.config.logger
     
@@ -46,12 +50,17 @@ class CommandHandlers:
         self.client.on(events.NewMessage(pattern='/subtitles'))(self.subtitles_handler)
         self.client.on(events.NewMessage(pattern='/sub_toggle'))(self.subtitle_toggle_handler)
         self.client.on(events.NewMessage(pattern='/sub_auto'))(self.subtitle_auto_handler)
+        self.client.on(events.NewMessage(pattern='/stats'))(self.stats_handler)
+        self.client.on(events.NewMessage(pattern='/history'))(self.history_handler)
+        self.client.on(events.NewMessage(pattern='/mysettings'))(self.mysettings_handler)
 
         # Callback handler for buttons
         self.client.on(events.CallbackQuery(pattern='menu_'))(self.menu_callback_handler)
         self.client.on(events.CallbackQuery(pattern='cancel_'))(self.cancel_callback_handler)
         self.client.on(events.CallbackQuery(pattern='stop_'))(self.stop_callback_handler)
         self.client.on(events.CallbackQuery(pattern='sub_'))(self.subtitle_callback_handler)
+        self.client.on(events.CallbackQuery(pattern='stats_'))(self.stats_callback_handler)
+        self.client.on(events.CallbackQuery(pattern='userset_'))(self.user_settings_callback_handler)
         
         self.logger.info("Command handlers registered with inline menu")
     
@@ -66,20 +75,24 @@ class CommandHandlers:
             [
                 Button.inline("⏳ Waiting", "menu_waiting"),
                 Button.inline("📝 Subtitles", "menu_subtitles"),
-                Button.inline("⚙️ Settings", "menu_settings")
+                Button.inline("⚙️ Global Settings", "menu_settings")
             ],
             [
-                Button.inline("❓ Help", "menu_help"),
+                Button.inline("👤 My Settings", "userset_main"),
+                Button.inline("📈 Stats", "stats_refresh"),
+                Button.inline("❓ Help", "menu_help")
+            ],
+            [
                 Button.inline("❌ Cancel All", "menu_cancel_all")
             ]
         ]
-        
+
         if is_admin:
             buttons.append([
                 Button.inline("👥 Users", "menu_users"),
                 Button.inline("🛑 Stop Bot", "menu_stop")
             ])
-        
+
         return buttons
     
     def _create_quick_menu(self):
@@ -778,4 +791,643 @@ class CommandHandlers:
                 Button.inline("🔙 Main Menu", "sub_back_main")
             ]
         ]
-    
+
+    async def stats_handler(self, event):
+        """Handler for /stats command - show download statistics"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        if not self.database:
+            await event.reply("❌ **Database not enabled**\n\nEnable database in .env to use statistics.")
+            return
+
+        try:
+            user_id = event.sender_id
+            user_stats = await self.database.get_user_stats(user_id)
+            global_stats = await self.database.get_all_stats()
+
+            text = await self._format_stats_message(user_stats, global_stats, user_id)
+
+            buttons = [
+                [
+                    Button.inline("🔄 Refresh", "stats_refresh"),
+                    Button.inline("📊 Global Stats", "stats_global")
+                ],
+                [
+                    Button.inline("📝 My History", f"stats_history_{user_id}"),
+                    Button.inline("📱 Menu", "menu_back")
+                ]
+            ]
+
+            await event.reply(text, buttons=buttons)
+
+        except Exception as e:
+            self.logger.error(f"Error in stats handler: {e}", exc_info=True)
+            await event.reply(f"❌ Error retrieving statistics: {str(e)}")
+
+    async def history_handler(self, event):
+        """Handler for /history command - show download history"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        if not self.database:
+            await event.reply("❌ **Database not enabled**\n\nEnable database in .env to use history.")
+            return
+
+        try:
+            user_id = event.sender_id
+            downloads = await self.database.get_user_downloads(user_id, limit=20)
+
+            if not downloads:
+                await event.reply(
+                    "📭 **No download history**\n\nYou haven't downloaded any files yet.",
+                    buttons=[[Button.inline("📱 Menu", "menu_back")]]
+                )
+                return
+
+            text = self._format_history_message(downloads)
+
+            buttons = [
+                [
+                    Button.inline("🔄 Refresh", f"stats_history_{user_id}"),
+                    Button.inline("📱 Menu", "menu_back")
+                ]
+            ]
+
+            await event.reply(text, buttons=buttons)
+
+        except Exception as e:
+            self.logger.error(f"Error in history handler: {e}", exc_info=True)
+            await event.reply(f"❌ Error retrieving history: {str(e)}")
+
+    async def stats_callback_handler(self, event):
+        """Handler for statistics button callbacks"""
+        if not await self.auth.check_authorized(event):
+            await event.answer("❌ Not authorized")
+            return
+
+        if not self.database:
+            await event.answer("❌ Database not enabled")
+            return
+
+        try:
+            data = event.data.decode('utf-8')
+
+            if data == "stats_refresh":
+                user_id = event.sender_id
+                user_stats = await self.database.get_user_stats(user_id)
+                global_stats = await self.database.get_all_stats()
+
+                text = await self._format_stats_message(user_stats, global_stats, user_id)
+
+                buttons = [
+                    [
+                        Button.inline("🔄 Refresh", "stats_refresh"),
+                        Button.inline("📊 Global Stats", "stats_global")
+                    ],
+                    [
+                        Button.inline("📝 My History", f"stats_history_{user_id}"),
+                        Button.inline("📱 Menu", "menu_back")
+                    ]
+                ]
+
+                await event.edit(text, buttons=buttons)
+
+            elif data == "stats_global":
+                global_stats = await self.database.get_all_stats()
+                text = self._format_global_stats(global_stats)
+
+                buttons = [
+                    [
+                        Button.inline("👤 My Stats", "stats_refresh"),
+                        Button.inline("📱 Menu", "menu_back")
+                    ]
+                ]
+
+                await event.edit(text, buttons=buttons)
+
+            elif data.startswith("stats_history_"):
+                user_id = int(data.split('_')[2])
+                downloads = await self.database.get_user_downloads(user_id, limit=20)
+
+                text = self._format_history_message(downloads)
+
+                buttons = [
+                    [
+                        Button.inline("🔄 Refresh", f"stats_history_{user_id}"),
+                        Button.inline("📱 Menu", "menu_back")
+                    ]
+                ]
+
+                await event.edit(text, buttons=buttons)
+
+            await event.answer()
+
+        except Exception as e:
+            self.logger.error(f"Stats callback error: {e}", exc_info=True)
+            await event.answer("❌ Error")
+
+    async def _format_stats_message(self, user_stats, global_stats, user_id):
+        """Format statistics message"""
+        if not user_stats:
+            return (
+                f"📊 **Your Statistics**\n\n"
+                f"👤 User ID: `{user_id}`\n\n"
+                f"No downloads yet. Send a file to get started!"
+            )
+
+        total_gb = user_stats['total_bytes'] / (1024**3) if user_stats['total_bytes'] else 0
+        success_rate = (user_stats['successful_downloads'] / user_stats['total_downloads'] * 100) if user_stats['total_downloads'] > 0 else 0
+
+        text = (
+            f"📊 **Your Statistics**\n\n"
+            f"👤 User ID: `{user_id}`\n\n"
+            f"**📥 Downloads:**\n"
+            f"• Total: **{user_stats['total_downloads']}**\n"
+            f"• Successful: **{user_stats['successful_downloads']}** ✅\n"
+            f"• Failed: **{user_stats['failed_downloads']}** ❌\n"
+            f"• Cancelled: **{user_stats['cancelled_downloads']}** 🚫\n"
+            f"• Success rate: **{success_rate:.1f}%**\n\n"
+            f"**💾 Data:**\n"
+            f"• Total downloaded: **{total_gb:.2f} GB**\n\n"
+            f"**📅 Activity:**\n"
+            f"• First download: {user_stats['first_download'][:16] if user_stats['first_download'] else 'N/A'}\n"
+            f"• Last download: {user_stats['last_download'][:16] if user_stats['last_download'] else 'N/A'}\n\n"
+            f"**🌍 Global rank:**\n"
+        )
+
+        # Add user rank
+        top_users = global_stats.get('top_users', [])
+        user_rank = next((i+1 for i, u in enumerate(top_users) if u['user_id'] == user_id), None)
+
+        if user_rank:
+            text += f"• Position: **#{user_rank}** of {len(top_users)} users\n"
+        else:
+            text += f"• Not in top {len(top_users)}\n"
+
+        return text
+
+    def _format_global_stats(self, stats):
+        """Format global statistics message"""
+        total_gb = stats.get('total_gb', 0)
+
+        text = (
+            f"🌍 **Global Statistics**\n\n"
+            f"**📊 Overall:**\n"
+            f"• Total downloads: **{stats.get('total_downloads', 0)}**\n"
+            f"• Total data: **{total_gb:.2f} GB**\n"
+            f"• Last 24h: **{stats.get('recent_24h', 0)}** downloads\n\n"
+            f"**📈 By Status:**\n"
+        )
+
+        status_counts = stats.get('status_counts', {})
+        for status, count in status_counts.items():
+            emoji = {
+                'completed': '✅',
+                'failed': '❌',
+                'cancelled': '🚫',
+                'downloading': '⬇️',
+                'queued': '⏳'
+            }.get(status, '📄')
+            text += f"• {emoji} {status.capitalize()}: **{count}**\n"
+
+        text += "\n**👥 Top Users:**\n"
+        top_users = stats.get('top_users', [])
+        for i, user in enumerate(top_users[:5], 1):
+            user_gb = user['total_bytes'] / (1024**3) if user['total_bytes'] else 0
+            text += f"{i}. User `{user['user_id']}` - **{user['total_downloads']}** downloads ({user_gb:.1f} GB)\n"
+
+        text += "\n**📺 Top Series:**\n"
+        top_series = stats.get('top_series', [])
+        for i, series in enumerate(top_series[:5], 1):
+            text += f"{i}. {series['series_name']} - **{series['count']}** episodes\n"
+
+        return text
+
+    def _format_history_message(self, downloads):
+        """Format download history message"""
+        if not downloads:
+            return "📭 **No download history**"
+
+        text = f"📝 **Download History** (last {len(downloads)})\n\n"
+
+        for i, dl in enumerate(downloads[:10], 1):
+            status_emoji = {
+                'completed': '✅',
+                'failed': '❌',
+                'cancelled': '🚫',
+                'downloading': '⬇️'
+            }.get(dl['status'], '❓')
+
+            size_gb = dl['size_bytes'] / (1024**3) if dl['size_bytes'] else 0
+            filename = dl['filename'][:30] + '...' if len(dl['filename']) > 30 else dl['filename']
+
+            text += f"**{i}.** {status_emoji} `{filename}`\n"
+            text += f"    📏 {size_gb:.2f} GB"
+
+            if dl['media_type'] == 'tv' and dl['series_name']:
+                text += f" | 📺 {dl['series_name']}"
+                if dl['season'] and dl['episode']:
+                    text += f" S{dl['season']:02d}E{dl['episode']:02d}"
+            elif dl['media_type'] == 'movie' and dl['movie_title']:
+                text += f" | 🎬 {dl['movie_title']}"
+
+            text += f"\n    📅 {dl['created_at'][:16]}\n\n"
+
+        if len(downloads) > 10:
+            text += f"_...and {len(downloads) - 10} more_"
+
+        return text
+
+    async def mysettings_handler(self, event):
+        """Handler for /mysettings command - manage personal settings"""
+        if not await self.auth.check_authorized(event):
+            return
+
+        if not self.database:
+            await event.reply("❌ **Database not enabled**\n\nUser settings require database to be enabled.")
+            return
+
+        try:
+            user_id = event.sender_id
+            user_config = UserConfig(user_id, self.database)
+
+            text = await self._format_my_settings_message(user_config)
+            buttons = self._create_my_settings_menu()
+
+            await event.reply(text, buttons=buttons)
+
+        except Exception as e:
+            self.logger.error(f"Error in mysettings handler: {e}", exc_info=True)
+            await event.reply(f"❌ Error loading settings: {str(e)}")
+
+    def _create_my_settings_menu(self):
+        """Create user settings menu"""
+        return [
+            [
+                Button.inline("📁 Paths", "userset_paths"),
+                Button.inline("📥 Downloads", "userset_downloads")
+            ],
+            [
+                Button.inline("📝 Subtitles", "userset_subtitles"),
+                Button.inline("🔔 Notifications", "userset_notifications")
+            ],
+            [
+                Button.inline("🎨 Interface", "userset_interface"),
+                Button.inline("🔄 Reset All", "userset_reset_confirm")
+            ],
+            [
+                Button.inline("📱 Main Menu", "menu_back")
+            ]
+        ]
+
+    async def user_settings_callback_handler(self, event):
+        """Handler for user settings callbacks"""
+        if not await self.auth.check_authorized(event):
+            await event.answer("❌ Not authorized")
+            return
+
+        if not self.database:
+            await event.answer("❌ Database not enabled")
+            return
+
+        try:
+            data = event.data.decode('utf-8')
+            user_id = event.sender_id
+            user_config = UserConfig(user_id, self.database)
+
+            if data == "userset_main":
+                # Return to main settings
+                text = await self._format_my_settings_message(user_config)
+                buttons = self._create_my_settings_menu()
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_paths":
+                text = await self._format_paths_settings(user_config)
+                buttons = [[Button.inline("🔙 Back", "userset_main")]]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_downloads":
+                text = await self._format_downloads_settings(user_config)
+                buttons = [
+                    [
+                        Button.inline("Auto-confirm: ON" if await user_config.get_auto_confirm_threshold() < 100 else "Auto-confirm: OFF", "userset_toggle_autoconfirm")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_subtitles":
+                text = await self._format_subtitles_settings(user_config)
+                sub_enabled = await user_config.get_subtitle_enabled()
+                auto_dl = await user_config.get_subtitle_auto_download()
+
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if sub_enabled else '❌'} Subtitles", "userset_toggle_sub_enabled"),
+                        Button.inline(f"{'✅' if auto_dl else '❌'} Auto-DL", "userset_toggle_sub_auto")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_notifications":
+                text = await self._format_notifications_settings(user_config)
+                notify_complete = await user_config.get_notify_download_complete()
+                notify_failed = await user_config.get_notify_download_failed()
+                notify_space = await user_config.get_notify_low_space()
+
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if notify_complete else '❌'} Complete", "userset_toggle_notify_complete"),
+                        Button.inline(f"{'✅' if notify_failed else '❌'} Failed", "userset_toggle_notify_failed")
+                    ],
+                    [
+                        Button.inline(f"{'✅' if notify_space else '❌'} Low Space", "userset_toggle_notify_space")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_interface":
+                text = await self._format_interface_settings(user_config)
+                compact = await user_config.get_compact_messages()
+
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if compact else '❌'} Compact Mode", "userset_toggle_compact")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            # Toggle handlers
+            elif data == "userset_toggle_sub_enabled":
+                current = await user_config.get_subtitle_enabled()
+                await user_config.set_subtitle_enabled(not current)
+                await event.answer(f"✅ Subtitles {'enabled' if not current else 'disabled'}")
+                # Refresh subtitle view
+                text = await self._format_subtitles_settings(user_config)
+                sub_enabled = await user_config.get_subtitle_enabled()
+                auto_dl = await user_config.get_subtitle_auto_download()
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if sub_enabled else '❌'} Subtitles", "userset_toggle_sub_enabled"),
+                        Button.inline(f"{'✅' if auto_dl else '❌'} Auto-DL", "userset_toggle_sub_auto")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_toggle_sub_auto":
+                current = await user_config.get_subtitle_auto_download()
+                await user_config.set_subtitle_auto_download(not current)
+                await event.answer(f"✅ Auto-download {'enabled' if not current else 'disabled'}")
+                # Refresh subtitle view
+                text = await self._format_subtitles_settings(user_config)
+                sub_enabled = await user_config.get_subtitle_enabled()
+                auto_dl = await user_config.get_subtitle_auto_download()
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if sub_enabled else '❌'} Subtitles", "userset_toggle_sub_enabled"),
+                        Button.inline(f"{'✅' if auto_dl else '❌'} Auto-DL", "userset_toggle_sub_auto")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_toggle_notify_complete":
+                current = await user_config.get_notify_download_complete()
+                await user_config.set_notify_download_complete(not current)
+                await event.answer(f"✅ Notification {'enabled' if not current else 'disabled'}")
+                # Refresh notifications view
+                text = await self._format_notifications_settings(user_config)
+                notify_complete = await user_config.get_notify_download_complete()
+                notify_failed = await user_config.get_notify_download_failed()
+                notify_space = await user_config.get_notify_low_space()
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if notify_complete else '❌'} Complete", "userset_toggle_notify_complete"),
+                        Button.inline(f"{'✅' if notify_failed else '❌'} Failed", "userset_toggle_notify_failed")
+                    ],
+                    [
+                        Button.inline(f"{'✅' if notify_space else '❌'} Low Space", "userset_toggle_notify_space")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_toggle_notify_failed":
+                current = await user_config.get_notify_download_failed()
+                await user_config.set_notify_download_failed(not current)
+                await event.answer(f"✅ Notification {'enabled' if not current else 'disabled'}")
+                # Refresh notifications view
+                text = await self._format_notifications_settings(user_config)
+                notify_complete = await user_config.get_notify_download_complete()
+                notify_failed = await user_config.get_notify_download_failed()
+                notify_space = await user_config.get_notify_low_space()
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if notify_complete else '❌'} Complete", "userset_toggle_notify_complete"),
+                        Button.inline(f"{'✅' if notify_failed else '❌'} Failed", "userset_toggle_notify_failed")
+                    ],
+                    [
+                        Button.inline(f"{'✅' if notify_space else '❌'} Low Space", "userset_toggle_notify_space")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_toggle_notify_space":
+                current = await user_config.get_notify_low_space()
+                await user_config.set_notify_low_space(not current)
+                await event.answer(f"✅ Notification {'enabled' if not current else 'disabled'}")
+                # Refresh notifications view
+                text = await self._format_notifications_settings(user_config)
+                notify_complete = await user_config.get_notify_download_complete()
+                notify_failed = await user_config.get_notify_download_failed()
+                notify_space = await user_config.get_notify_low_space()
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if notify_complete else '❌'} Complete", "userset_toggle_notify_complete"),
+                        Button.inline(f"{'✅' if notify_failed else '❌'} Failed", "userset_toggle_notify_failed")
+                    ],
+                    [
+                        Button.inline(f"{'✅' if notify_space else '❌'} Low Space", "userset_toggle_notify_space")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_toggle_compact":
+                current = await user_config.get_compact_messages()
+                await user_config.set_compact_messages(not current)
+                await event.answer(f"✅ Compact mode {'enabled' if not current else 'disabled'}")
+                # Refresh interface view
+                text = await self._format_interface_settings(user_config)
+                compact = await user_config.get_compact_messages()
+                buttons = [
+                    [
+                        Button.inline(f"{'✅' if compact else '❌'} Compact Mode", "userset_toggle_compact")
+                    ],
+                    [
+                        Button.inline("🔙 Back", "userset_main")
+                    ]
+                ]
+                await event.edit(text, buttons=buttons)
+
+            elif data == "userset_reset_confirm":
+                buttons = [
+                    [
+                        Button.inline("✅ Yes, Reset", "userset_reset_confirmed"),
+                        Button.inline("❌ Cancel", "userset_main")
+                    ]
+                ]
+                await event.edit(
+                    "⚠️ **Reset All Settings?**\n\n"
+                    "This will reset all your personal settings to global defaults.\n\n"
+                    "Are you sure?",
+                    buttons=buttons
+                )
+
+            elif data == "userset_reset_confirmed":
+                await user_config.reset_to_defaults()
+                await event.answer("✅ Settings reset to defaults")
+                text = await self._format_my_settings_message(user_config)
+                buttons = self._create_my_settings_menu()
+                await event.edit(text, buttons=buttons)
+
+            else:
+                # Unknown callback, just acknowledge
+                await event.answer()
+
+        except Exception as e:
+            self.logger.error(f"User settings callback error: {e}", exc_info=True)
+            await event.answer("❌ Error")
+
+    async def _format_my_settings_message(self, user_config: UserConfig):
+        """Format main settings overview"""
+        settings = await user_config.get_all_settings()
+
+        return (
+            f"⚙️ **My Personal Settings**\n\n"
+            f"These are your personal preferences.\n"
+            f"They override global defaults.\n\n"
+            f"**📁 Paths:**\n"
+            f"• Movies: `{settings['movies_path']}`\n"
+            f"• TV Shows: `{settings['tv_path']}`\n\n"
+            f"**📥 Downloads:**\n"
+            f"• Max concurrent: {settings['max_concurrent_downloads']}\n"
+            f"• Auto-confirm threshold: {settings['auto_confirm_threshold']}%\n\n"
+            f"**📝 Subtitles:**\n"
+            f"• Enabled: {'✅ Yes' if settings['subtitle_enabled'] else '❌ No'}\n"
+            f"• Languages: {', '.join(settings['subtitle_languages'])}\n"
+            f"• Auto-download: {'✅ Yes' if settings['subtitle_auto_download'] else '❌ No'}\n\n"
+            f"**🔔 Notifications:**\n"
+            f"• Complete: {'✅' if settings['notify_download_complete'] else '❌'} "
+            f"Failed: {'✅' if settings['notify_download_failed'] else '❌'} "
+            f"Low space: {'✅' if settings['notify_low_space'] else '❌'}\n\n"
+            f"**💡 Tap a category to customize**"
+        )
+
+    async def _format_paths_settings(self, user_config: UserConfig):
+        """Format paths settings"""
+        movies = await user_config.get_movies_path()
+        tv = await user_config.get_tv_path()
+
+        return (
+            f"📁 **Path Settings**\n\n"
+            f"**Movies:**\n"
+            f"`{movies}`\n\n"
+            f"**TV Shows:**\n"
+            f"`{tv}`\n\n"
+            f"ℹ️ Contact admin to change paths"
+        )
+
+    async def _format_downloads_settings(self, user_config: UserConfig):
+        """Format download settings"""
+        max_concurrent = await user_config.get_max_concurrent_downloads()
+        threshold = await user_config.get_auto_confirm_threshold()
+        tmdb_lang = await user_config.get_tmdb_language()
+
+        return (
+            f"📥 **Download Settings**\n\n"
+            f"**Max Concurrent Downloads:**\n"
+            f"{max_concurrent} at a time\n\n"
+            f"**Auto-Confirm Threshold:**\n"
+            f"{threshold}% (TMDB confidence)\n"
+            f"_Skip confirmation if match >= {threshold}%_\n\n"
+            f"**TMDB Language:**\n"
+            f"{tmdb_lang}\n\n"
+            f"ℹ️ Contact admin to adjust limits"
+        )
+
+    async def _format_subtitles_settings(self, user_config: UserConfig):
+        """Format subtitle settings"""
+        enabled = await user_config.get_subtitle_enabled()
+        languages = await user_config.get_subtitle_languages()
+        auto_dl = await user_config.get_subtitle_auto_download()
+        format = await user_config.get_subtitle_format()
+
+        return (
+            f"📝 **Subtitle Settings**\n\n"
+            f"**System Enabled:**\n"
+            f"{'✅ Yes' if enabled else '❌ No'}\n\n"
+            f"**Languages:**\n"
+            f"{', '.join(languages)}\n\n"
+            f"**Auto-Download:**\n"
+            f"{'✅ Yes' if auto_dl else '❌ No'}\n\n"
+            f"**Format:**\n"
+            f"{format}\n\n"
+            f"💡 Toggle settings with buttons below"
+        )
+
+    async def _format_notifications_settings(self, user_config: UserConfig):
+        """Format notification settings"""
+        complete = await user_config.get_notify_download_complete()
+        failed = await user_config.get_notify_download_failed()
+        space = await user_config.get_notify_low_space()
+
+        return (
+            f"🔔 **Notification Settings**\n\n"
+            f"Choose which events trigger notifications:\n\n"
+            f"**Download Complete:**\n"
+            f"{'✅ Enabled' if complete else '❌ Disabled'}\n\n"
+            f"**Download Failed:**\n"
+            f"{'✅ Enabled' if failed else '❌ Disabled'}\n\n"
+            f"**Low Space Warning:**\n"
+            f"{'✅ Enabled' if space else '❌ Disabled'}\n\n"
+            f"💡 Toggle with buttons below"
+        )
+
+    async def _format_interface_settings(self, user_config: UserConfig):
+        """Format interface settings"""
+        ui_lang = await user_config.get_ui_language()
+        compact = await user_config.get_compact_messages()
+
+        return (
+            f"🎨 **Interface Settings**\n\n"
+            f"**UI Language:**\n"
+            f"{ui_lang.upper()}\n\n"
+            f"**Compact Messages:**\n"
+            f"{'✅ Enabled - Concise messages' if compact else '❌ Disabled - Detailed messages'}\n\n"
+            f"💡 Customize your experience"
+        )

@@ -6,7 +6,7 @@ from datetime import datetime
 from telethon import TelegramClient, events, Button
 from telethon.tl.types import DocumentAttributeFilename
 from core.auth import AuthManager
-from core.downloader import DownloadManager
+from core.downloader import DownloadManager, get_user_config_for_download
 from core.tmdb_client import TMDBClient
 from core.space_manager import SpaceManager
 from models.download import DownloadInfo, MediaType
@@ -137,7 +137,14 @@ class FileHandlers:
         """Process file with TMDB search"""
         initial_msg = await event.reply("🔍 **Searching TMDB database...**")
         download_info.progress_msg = initial_msg
-        
+
+        # Get user auto-confirm threshold
+        user_config = await get_user_config_for_download(download_info.user_id)
+        auto_confirm_threshold = 70  # Default
+
+        if user_config:
+            auto_confirm_threshold = await user_config.get_auto_confirm_threshold()
+
         # Determine search type
         if download_info.series_info.season:
             search_query = download_info.series_info.series_name
@@ -145,31 +152,42 @@ class FileHandlers:
         else:
             search_query = download_info.movie_folder
             media_hint = None
-        
+
         # Search on TMDB
         tmdb_result, confidence = await self.tmdb.search_with_confidence(
             search_query,
             media_hint
         )
-        
+
         if tmdb_result:
             download_info.tmdb_results = [tmdb_result]
             download_info.selected_tmdb = tmdb_result
             download_info.tmdb_confidence = confidence
-        
+
         # Prepare space warning
         space_warning = self._get_space_warning(download_info)
-        
-        # Mostra risultati
-        if tmdb_result and confidence >= 80:
-            await self._show_high_confidence_match(
-                initial_msg, 
-                download_info, 
-                tmdb_result, 
-                confidence, 
+
+        # Check if auto-confirm is enabled and confidence is high enough
+        if tmdb_result and confidence >= auto_confirm_threshold:
+            # Auto-confirm download
+            download_info.event = initial_msg
+            await self._auto_confirm_download(
+                initial_msg,
+                download_info,
+                tmdb_result,
+                confidence,
                 space_warning
             )
+        # Mostra risultati per conferma manuale
         elif tmdb_result and confidence >= 60:
+            await self._show_high_confidence_match(
+                initial_msg,
+                download_info,
+                tmdb_result,
+                confidence,
+                space_warning
+            )
+        elif tmdb_result and confidence >= 40:
             await self._show_medium_confidence_match(
                 initial_msg,
                 download_info,
@@ -182,6 +200,106 @@ class FileHandlers:
                 space_warning
             )
     
+    async def _auto_confirm_download(
+        self,
+        msg,
+        download_info,
+        tmdb_result,
+        confidence,
+        space_warning
+    ):
+        """Auto-confirm download when confidence >= threshold"""
+        # Update message to show auto-confirmation
+        text, poster_url = self.tmdb.format_result(
+            tmdb_result,
+            download_info.series_info
+        )
+
+        info_text = f"📁 **File:** `{download_info.filename}`\n"
+        info_text += f"📏 **Dimensione:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        info_text += f"⚡ **Auto-confirmed** (confidence {confidence}%)\n\n"
+        info_text += text
+
+        if poster_url:
+            info_text = f"[​]({poster_url})" + info_text
+
+        await msg.edit(info_text + space_warning, link_preview=True)
+
+        # Auto-detect type from TMDB and proceed with download
+        if download_info.selected_tmdb.is_tv_show:
+            # TV Show - need to determine season
+            download_info.media_type = MediaType.TV_SHOW
+            download_info.is_movie = False
+            download_info.dest_path = self.space.paths.tv
+            download_info.emoji = "📺"
+
+            # If season is detected from filename, proceed
+            if download_info.series_info and download_info.series_info.season:
+                download_info.selected_season = download_info.series_info.season
+
+                # Check space and proceed
+                size_gb = download_info.size_gb
+                space_ok, free_gb = self.space.check_space_available(
+                    download_info.dest_path,
+                    size_gb
+                )
+
+                if not space_ok:
+                    position = self.downloads.queue_for_space(download_info)
+                    await msg.edit(
+                        f"{download_info.emoji} **{download_info.media_type}**\n"
+                        f"📅 Stagione {download_info.selected_season}\n\n"
+                        + self.space.format_space_warning(download_info.dest_path, size_gb)
+                        + f"\nPosition in space queue: #{position}"
+                    )
+                    return
+
+                # Queue download
+                position = await self.downloads.queue_download(download_info)
+
+                await msg.edit(
+                    f"{download_info.emoji} **{download_info.media_type}**\n"
+                    f"📅 Stagione {download_info.selected_season}\n\n"
+                    f"📥 **Preparazione download...**\n"
+                    f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
+                    f"📊 Position in queue: #{position}"
+                )
+        else:
+            # Movie - proceed directly
+            download_info.media_type = MediaType.MOVIE
+            download_info.is_movie = True
+            download_info.dest_path = self.space.paths.movies
+            download_info.emoji = "🎬"
+
+            # Check space
+            size_gb = download_info.size_gb
+            space_ok, free_gb = self.space.check_space_available(
+                download_info.dest_path,
+                size_gb
+            )
+
+            if not space_ok:
+                position = self.downloads.queue_for_space(download_info)
+
+                await msg.edit(
+                    f"🎬 **Film** selezionato\n\n"
+                    + self.space.format_space_warning(download_info.dest_path, size_gb)
+                    + f"\nPosition in space queue: #{position}"
+                )
+                return
+
+            # Queue download
+            position = await self.downloads.queue_download(download_info)
+
+            active_downloads = len(self.downloads.get_active_downloads())
+
+            await msg.edit(
+                f"🎬 **Film** selezionato\n\n"
+                f"📥 **Preparazione download...**\n"
+                f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
+                f"📊 Position in queue: #{position}"
+            )
+
     async def _process_without_tmdb(self, event, download_info: DownloadInfo):
         """Processa file senza TMDB"""
         # Info base

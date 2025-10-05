@@ -95,6 +95,13 @@ class SubtitleConfig:
         return bool(self.opensubtitles_username and self.opensubtitles_password)
 
 
+@dataclass
+class DatabaseConfig:
+    """Database configuration"""
+    path: Path
+    enabled: bool = True
+
+
 class Config:
     """Configurazione principale MediaButler"""
     
@@ -105,18 +112,22 @@ class Config:
         self.limits = self._load_limits_config()
         self.auth = self._load_auth_config()
         self.subtitles = self._load_subtitle_config()
+        self.database = self._load_database_config()
         self.logger = self._setup_logging()
-        
+
         # Validazione
         self._validate_config()
-        
+
         # Crea directory necessarie
         self.paths.create_directories()
-        
+
         # Crea directory per sessione
         Path(os.path.dirname(self.telegram.session_path)).mkdir(
             parents=True, exist_ok=True
         )
+
+        # Crea directory per database
+        self.database.path.parent.mkdir(parents=True, exist_ok=True)
     
     def _load_telegram_config(self) -> TelegramConfig:
         """Carica configurazione Telegram"""
@@ -188,6 +199,16 @@ class Config:
             opensubtitles_password=os.getenv('OPENSUBTITLES_PASSWORD') or None,
             preferred_format=os.getenv('SUBTITLE_FORMAT', 'srt')
         )
+
+    def _load_database_config(self) -> DatabaseConfig:
+        """Load database configuration"""
+        db_path = os.getenv('DATABASE_PATH', 'data/mediabutler.db')
+        enabled = os.getenv('DATABASE_ENABLED', 'true').lower() == 'true'
+
+        return DatabaseConfig(
+            path=Path(db_path),
+            enabled=enabled
+        )
     
     def _setup_logging(self) -> logging.Logger:
         """Configura logging"""
@@ -218,6 +239,8 @@ class Config:
         self.logger.info(f"TMDB enabled: {self.tmdb.is_enabled}")
         self.logger.info(f"Subtitles enabled: {self.subtitles.enabled}")
         self.logger.info(f"Subtitle auto-download: {self.subtitles.auto_download}")
+        self.logger.info(f"Database enabled: {self.database.enabled}")
+        self.logger.info(f"Database path: {self.database.path}")
         self.logger.info(f"Max concurrent downloads: {self.limits.max_concurrent_downloads}")
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
 

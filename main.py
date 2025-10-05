@@ -15,7 +15,8 @@ from core.config import get_config
 from core.auth import AuthManager
 from core.space_manager import SpaceManager
 from core.tmdb_client import TMDBClient
-from core.downloader import DownloadManager
+from core.downloader import DownloadManager, set_database_manager
+from core.database import DatabaseManager
 from handlers.commands import CommandHandlers
 from handlers.callbacks import CallbackHandlers
 from handlers.files import FileHandlers
@@ -28,10 +29,10 @@ class MediaButler:
         """Inizializza il bot"""
         self.config = get_config()
         self.logger = self.config.logger
-        
+
         # Log configurazione
         self.config.log_config()
-        
+
         # Inizializza client Telegram
         self.client = TelegramClient(
             self.config.telegram.session_path,
@@ -41,7 +42,12 @@ class MediaButler:
             retry_delay=1,
             auto_reconnect=True
         )
-        
+
+        # Inizializza database (will be connected in start())
+        self.database_manager = None
+        if self.config.database.enabled:
+            self.database_manager = DatabaseManager(self.config.database.path)
+
         # Inizializza manager
         self.auth_manager = AuthManager()
         self.space_manager = SpaceManager()
@@ -57,7 +63,8 @@ class MediaButler:
             client=self.client,
             auth_manager=self.auth_manager,
             space_manager=self.space_manager,
-            download_manager=self.download_manager
+            download_manager=self.download_manager,
+            database_manager=self.database_manager
         )
         
         self.callback_handlers = CallbackHandlers(
@@ -78,24 +85,31 @@ class MediaButler:
     async def start(self):
         """Avvia il bot"""
         self.logger.info("=== MEDIABUTLER ENHANCED - STARTING ===")
-        
+
+        # Connect to database
+        if self.database_manager:
+            await self.database_manager.connect()
+            set_database_manager(self.database_manager)
+            self.logger.info("✅ Database initialized")
+
         # Avvia client Telegram
         await self.client.start(bot_token=self.config.telegram.bot_token)
-        
+
         # Registra handlers
         self.command_handlers.register()
         self.callback_handlers.register()
         self.file_handlers.register()
-        
+
         # Avvia workers
         await self.download_manager.start_workers()
-        
+
         self.logger.info("✅ Bot avviato e pronto!")
         self.logger.info(f"👥 Utenti autorizzati: {len(self.auth_manager.authorized_users)}")
         self.logger.info(f"🎯 TMDB: {'Attivo' if self.tmdb_client else 'Disattivato'}")
+        self.logger.info(f"💾 Database: {'Attivo' if self.database_manager else 'Disattivato'}")
         self.logger.info(f"📥 Download simultanei: max {self.config.limits.max_concurrent_downloads}")
         self.logger.info(f"💾 Spazio minimo riservato: {self.config.limits.min_free_space_gb} GB")
-        
+
         # Mantieni il bot in esecuzione
         try:
             await self.client.run_until_disconnected()
@@ -105,13 +119,18 @@ class MediaButler:
     async def stop(self):
         """Ferma il bot"""
         self.logger.info("Arresto bot in corso...")
-        
+
         # Ferma download manager
         await self.download_manager.stop()
-        
+
+        # Close database
+        if self.database_manager:
+            await self.database_manager.close()
+            self.logger.info("Database connection closed")
+
         # Disconnetti client
         await self.client.disconnect()
-        
+
         self.logger.info("Bot arrestato")
     
     def run(self):
