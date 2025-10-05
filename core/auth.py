@@ -44,7 +44,7 @@ class AuthManager:
         # Verifica autorizzazione
         if user_id not in self.authorized_users:
             self.config.logger.warning(
-                f"Tentativo di accesso non autorizzato da: {username} (ID: {user_id})"
+                f"Unauthorized access attempt from: {username} (ID: {user_id})"
             )
             
             await event.reply(

@@ -153,9 +153,9 @@ class SpaceManager:
             status += f"• Libero: {disk.free_gb:.1f} GB\n"
             status += f"• Disponibile per download: {disk.available_for_download:.1f} GB\n\n"
         
-        status += f"⚙️ **Soglie configurate:**\n"
-        status += f"• Spazio minimo: {self.config.limits.min_free_space_gb} GB\n"
-        status += f"• Avviso sotto: {self.config.limits.warning_threshold_gb} GB"
+        status += f"⚙️ **Configured thresholds:**\n"
+        status += f"• Minimum space: {self.config.limits.min_free_space_gb} GB\n"
+        status += f"• Warning below: {self.config.limits.warning_threshold_gb} GB"
         
         return status
     

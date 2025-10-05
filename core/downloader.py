@@ -62,7 +62,7 @@ class DownloadManager:
         self.space_monitor_task = None
         
     async def start_workers(self):
-        """Avvia workers per processare download"""
+        """Start workers to process downloads"""
         # Crea worker download
         for i in range(self.config.limits.max_concurrent_downloads):
             worker = asyncio.create_task(self._download_worker())
@@ -71,10 +71,10 @@ class DownloadManager:
         # Avvia monitor spazio
         self.space_monitor_task = asyncio.create_task(self._space_monitor_worker())
         
-        self.logger.info(f"Avviati {len(self.workers)} download workers")
+        self.logger.info(f"Started {len(self.workers)} download workers")
     
     async def stop(self):
-        """Ferma tutti i workers"""
+        """Stop all workers"""
         # Cancella tutti i download attivi
         for msg_id in list(self.active_downloads.keys()):
             self.cancelled_downloads.add(msg_id)
@@ -93,7 +93,7 @@ class DownloadManager:
         # Attendi chiusura
         await asyncio.gather(*self.workers, return_exceptions=True)
         
-        self.logger.info("Download manager fermato")
+        self.logger.info("Download manager stopped")
     
     def add_download(self, download_info: DownloadInfo) -> bool:
         """
@@ -377,7 +377,7 @@ class DownloadManager:
                     )
                 return
             
-            self.logger.info(f"Download avviato: {download_info.filename} -> {filepath}")
+            self.logger.info(f"Download started: {download_info.filename} -> {filepath}")
             
             # Info per display
             path_info = self._get_path_info(download_info, filepath)

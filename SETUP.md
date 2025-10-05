@@ -80,7 +80,7 @@ WARNING_THRESHOLD_GB=10
 SPACE_CHECK_INTERVAL=30
 ```
 
-2. For Docker Compose, add to your `docker-compose.yml`:
+2. For Docker Compose, add to your `docker compose.yml`:
 
 ```yaml
   telegram-media-bot:
@@ -115,7 +115,7 @@ SPACE_CHECK_INTERVAL=30
 
 ### With Docker:
 ```bash
-docker-compose up -d telegram-media-bot
+docker compose up -d telegram-media-bot
 ```
 
 ### Without Docker:

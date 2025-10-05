@@ -101,7 +101,7 @@ nano .env  # Enter your credentials
 
 3. **Start with Docker Compose**:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Manual Installation

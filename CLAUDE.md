@@ -14,7 +14,7 @@ MediaButler is a Python-based Telegram bot for automatic media library organizat
 python main.py
 
 # Run with Docker Compose (recommended)
-docker-compose up -d
+docker compose up -d
 
 # Build Docker image
 docker build -t mediabutler:latest .

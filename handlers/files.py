@@ -244,7 +244,7 @@ class FileHandlers:
             # TV Show - need to determine season
             download_info.media_type = MediaType.TV_SHOW
             download_info.is_movie = False
-            download_info.dest_path = self.space.paths.tv
+            download_info.dest_path = self.config.paths.tv
             download_info.emoji = "📺"
 
             # If season is detected from filename, proceed
@@ -282,7 +282,7 @@ class FileHandlers:
             # Movie - proceed directly
             download_info.media_type = MediaType.MOVIE
             download_info.is_movie = True
-            download_info.dest_path = self.space.paths.movies
+            download_info.dest_path = self.config.paths.movies
             download_info.emoji = "🎬"
 
             # Check space

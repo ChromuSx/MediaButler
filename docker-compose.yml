@@ -1,9 +1,10 @@
 version: '3.8'
 
 services:
-  mediabutler:
+  # Telegram Bot
+  mediabutler-bot:
     build: .
-    container_name: mediabutler
+    container_name: mediabutler-bot
     restart: unless-stopped
     environment:
       - TELEGRAM_API_ID=${TELEGRAM_API_ID}
@@ -18,6 +19,8 @@ services:
       - MIN_FREE_SPACE_GB=${MIN_FREE_SPACE_GB:-5}
       - WARNING_THRESHOLD_GB=${WARNING_THRESHOLD_GB:-10}
       - SPACE_CHECK_INTERVAL=${SPACE_CHECK_INTERVAL:-30}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - TMDB_LANGUAGE=${TMDB_LANGUAGE:-en-US}
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
       - TZ=${TZ:-UTC}
@@ -26,20 +29,90 @@ services:
       - ${MOVIES_PATH:-./media/movies}:/media/movies
       - ${TV_PATH:-./media/tv}:/media/tv
       - ${TEMP_PATH:-./media/temp}:/media/temp
-      # Session persistence
+      # Session and data persistence
       - ./session:/app/session
-    # Optional: if you need to access logs
+      - ./data:/app/data
+    networks:
+      - mediabutler-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Optional: logging
     # logging:
     #   driver: "json-file"
     #   options:
     #     max-size: "10m"
     #     max-file: "3"
-    
-    # Optional: add to existing network if integrating with other services
-    # networks:
-    #   - media_network
 
-# Optional: create network for integration with Jellyfin/Plex
+  # Web Dashboard Backend (FastAPI)
+  mediabutler-api:
+    build: .
+    container_name: mediabutler-api
+    restart: unless-stopped
+    command: ["python", "-m", "web.backend.main"]
+    environment:
+      - TELEGRAM_API_ID=${TELEGRAM_API_ID}
+      - TELEGRAM_API_HASH=${TELEGRAM_API_HASH}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - AUTHORIZED_USERS=${AUTHORIZED_USERS}
+      - MOVIES_PATH=/media/movies
+      - TV_PATH=/media/tv
+      - TEMP_PATH=/media/temp
+      - MAX_CONCURRENT_DOWNLOADS=${MAX_CONCURRENT_DOWNLOADS:-3}
+      - MIN_FREE_SPACE_GB=${MIN_FREE_SPACE_GB:-5}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - TMDB_LANGUAGE=${TMDB_LANGUAGE:-en-US}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-secret-key-in-production}
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRE_MINUTES=43200
+      - TZ=${TZ:-UTC}
+    volumes:
+      # Share same data directory with bot
+      - ./data:/app/data
+      - ${MOVIES_PATH:-./media/movies}:/media/movies
+      - ${TV_PATH:-./media/tv}:/media/tv
+      - ${TEMP_PATH:-./media/temp}:/media/temp
+    ports:
+      - "${API_PORT:-8000}:8000"
+    networks:
+      - mediabutler-network
+    depends_on:
+      - mediabutler-bot
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/auth/me"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Web Dashboard Frontend (React + Vite)
+  mediabutler-web:
+    image: node:18-alpine
+    container_name: mediabutler-web
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      - VITE_API_URL=http://mediabutler-api:8000
+      - NODE_ENV=development
+    volumes:
+      - ./web/frontend:/app
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    networks:
+      - mediabutler-network
+    depends_on:
+      - mediabutler-api
+
+networks:
+  mediabutler-network:
+    driver: bridge
+
+# Optional: add to existing network for integration with Jellyfin/Plex
 # networks:
+#   mediabutler-network:
+#     external: true
 #   media_network:
 #     external: true

@@ -133,30 +133,47 @@ class TMDBClient:
     def _clean_query(self, query: str) -> str:
         """
         Pulisce query di ricerca
-        
+
         Args:
             query: Query grezza
-            
+
         Returns:
             Query pulita
         """
         import re
-        
+
         # Rimuovi info episodio
         query = re.sub(r'[Ss]\d+[Ee]\d+.*', '', query).strip()
-        
+
+        # Rimuovi tag qualità tra parentesi quadre/tonde: [HD], [4K], etc.
+        query = re.sub(r'\[.*?\]', '', query).strip()
+        query = re.sub(r'\(.*?p\)', '', query).strip()
+
         # Rimuovi anno tra parentesi
         query = re.sub(r'\(\d{4}\)', '', query).strip()
-        
+
         # Rimuovi anno alla fine
         query = re.sub(r'\d{4}$', '', query).strip()
-        
+
+        # Rimuovi informazioni di qualità video comuni
+        quality_patterns = [
+            r'WEBDL', r'WEB-DL', r'WEBRip', r'WEB-Rip',
+            r'BluRay', r'BRRip', r'BDRip', r'DVDRip',
+            r'HDTV', r'HDRip', r'CAM', r'TS', r'TC',
+            r'\d{3,4}p', r'1080p', r'720p', r'2160p', r'4K',
+            r'x264', r'x265', r'h264', r'h265', r'HEVC',
+            r'AAC', r'AC3', r'DTS', r'DD5\.1',
+            r'ITA', r'ENG', r'SUB', r'Multi'
+        ]
+        for pattern in quality_patterns:
+            query = re.sub(pattern, '', query, flags=re.IGNORECASE).strip()
+
         # Sostituisci separatori
         query = re.sub(r'[\._]', ' ', query)
-        
+
         # Spazi multipli
         query = re.sub(r'\s+', ' ', query).strip()
-        
+
         return query
     
     def _parse_results(self, results: List[Dict]) -> List[TMDBResult]:

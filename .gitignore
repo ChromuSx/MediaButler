@@ -88,3 +88,5 @@ coverage.xml
 .pypirc
 deploy.bat
 data/mediabutler.db
+web/frontend/node_modules
+.claude
