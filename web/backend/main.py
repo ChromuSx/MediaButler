@@ -14,6 +14,7 @@ sys.path.insert(0, str(project_root))
 
 from core.config import Config
 from core.database import DatabaseManager
+from core.space_manager import SpaceManager
 from web.backend.routers import auth, stats, downloads, users, settings
 from web.backend import websocket
 
@@ -25,14 +26,21 @@ async def lifespan(app: FastAPI):
     # Startup
     print("Starting MediaButler Web Dashboard...")
 
-    # Initialize database
+    # Initialize config
     config = Config()
+
+    # Initialize database
     db = DatabaseManager(config.database.path)
     await db.connect()
+
+    # Initialize space manager
+    space_manager = SpaceManager()
 
     # Store in app state
     app.state.config = config
     app.state.database = db
+    app.state.space_manager = space_manager
+    app.state.download_manager = None  # Will be set when bot is running
 
     yield
 

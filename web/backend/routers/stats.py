@@ -23,6 +23,7 @@ def get_db(request: Request) -> DatabaseManager:
 
 @router.get("/overview", response_model=OverviewStats)
 async def get_overview_stats(
+    request: Request,
     db: DatabaseManager = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user)
 ):
@@ -30,14 +31,27 @@ async def get_overview_stats(
     # Get all stats from database
     all_stats = await db.get_all_stats()
 
-    # Get active downloads count (would need to integrate with actual bot state)
+    # Get active downloads count from bot state (if available)
     active_downloads = 0
-
-    # Get queue length (would need to integrate with actual bot state)
     queue_length = 0
+    available_space_gb = 0.0
 
-    # Get available space (would need to check actual filesystem)
-    available_space_gb = 100.0  # Placeholder
+    # Try to get space manager from app state
+    if hasattr(request.app.state, 'space_manager'):
+        space_manager = request.app.state.space_manager
+        if space_manager:
+            # Get disk usage for download path
+            config = request.app.state.config
+            usage = space_manager.get_disk_usage(config.paths.download)
+            if usage:
+                available_space_gb = usage.free_gb
+
+    # Try to get download manager from app state
+    if hasattr(request.app.state, 'download_manager'):
+        download_manager = request.app.state.download_manager
+        if download_manager:
+            active_downloads = len(download_manager.active_downloads)
+            queue_length = download_manager.download_queue.qsize()
 
     return OverviewStats(
         total_downloads=all_stats.get("total_downloads", 0),

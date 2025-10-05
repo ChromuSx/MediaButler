@@ -450,6 +450,12 @@ class DatabaseManager:
         )
         total_bytes = (await cursor.fetchone())['total_bytes'] or 0
 
+        # Total users
+        cursor = await self._connection.execute(
+            "SELECT COUNT(DISTINCT user_id) as total_users FROM user_stats"
+        )
+        total_users = (await cursor.fetchone())['total_users']
+
         # Top users
         cursor = await self._connection.execute("""
             SELECT user_id, total_downloads, total_bytes
@@ -479,15 +485,25 @@ class DatabaseManager:
         """, (DownloadStatus.COMPLETED.value,))
         top_series = [dict(row) for row in await cursor.fetchall()]
 
-        return {
+        # Calculate successful and failed downloads
+        successful_downloads = status_counts.get(DownloadStatus.COMPLETED.value, 0)
+        failed_downloads = status_counts.get(DownloadStatus.FAILED.value, 0)
+        total_size_gb = total_bytes / (1024**3) if total_bytes else 0.0
+
+        result = {
             'total_downloads': total,
+            'successful_downloads': successful_downloads,
+            'failed_downloads': failed_downloads,
             'status_counts': status_counts,
             'total_bytes': total_bytes,
-            'total_gb': total_bytes / (1024**3) if total_bytes else 0,
+            'total_size_gb': total_size_gb,
+            'total_users': total_users,
             'top_users': top_users,
             'recent_24h': recent_24h,
             'top_series': top_series
         }
+
+        return result
 
     # ==================== TMDB CACHE ====================
 
