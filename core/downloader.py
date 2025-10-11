@@ -569,26 +569,50 @@ class DownloadManager:
             # Usa naming base
             folder_name = download_info.movie_folder or download_info.display_name
             filename = download_info.filename
-        
+
         # Crea struttura cartelle
         if download_info.is_movie:
+            # Check for existing similar folder
+            similar_folder = FileNameParser.find_similar_folder(
+                folder_name,
+                download_info.dest_path,
+                threshold=0.75
+            )
+
+            if similar_folder:
+                self.logger.info(f"Found similar folder: '{similar_folder}' for '{folder_name}'")
+                folder_name = similar_folder
+
             folder_path = download_info.dest_path / folder_name
             folder_path.mkdir(parents=True, exist_ok=True)
-            download_info.created_folders.append(folder_path)
+
+            if not folder_path in download_info.created_folders:
+                download_info.created_folders.append(folder_path)
+
             filepath = folder_path / filename
         else:
-            # Serie TV
+            # Serie TV - check for existing similar series folder
+            similar_series = FileNameParser.find_similar_folder(
+                folder_name,
+                download_info.dest_path,
+                threshold=0.75
+            )
+
+            if similar_series:
+                self.logger.info(f"Found similar series folder: '{similar_series}' for '{folder_name}'")
+                folder_name = similar_series
+
             series_folder = download_info.dest_path / folder_name
             season_folder = series_folder / f"Season {download_info.selected_season:02d}"
             season_folder.mkdir(parents=True, exist_ok=True)
-            
-            if not series_folder.exists():
+
+            if not series_folder.exists() and series_folder not in download_info.created_folders:
                 download_info.created_folders.append(series_folder)
-            if not season_folder.exists():
+            if not season_folder.exists() and season_folder not in download_info.created_folders:
                 download_info.created_folders.append(season_folder)
-            
+
             filepath = season_folder / filename
-        
+
         return filepath
     
     def _get_path_info(self, download_info: DownloadInfo, filepath: Path) -> str:

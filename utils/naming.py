@@ -19,6 +19,7 @@ class FileNameParser:
         (r'Season\s*(\d{1,2})\s*Episode\s*(\d{1,3})', 'verbose', 90),  # Season 1 Episode 1
 
         # Pattern media confidenza (70-89)
+        (r'^(\d{1,2})x(\d{1,3})', 'x_format_leading', 92),            # 12x06 at start of filename
         (r'(\d{1,2})\s+x\s+(\d{1,3})', 'x_format_spaced', 88),        # 12 x 5
         (r'(\d{1,2})x(\d{1,3})', 'x_format', 85),                      # 1x01
         (r'[\.\s\-_](\d{1,2})x(\d{1,3})', 'x_format_sep', 80),        # .1x01
@@ -76,6 +77,105 @@ class FileNameParser:
         return filename
     
     @classmethod
+    def find_similar_folder(cls, target_name: str, search_path: Path, threshold: float = 0.7) -> Optional[str]:
+        """
+        Find existing folder with similar name using fuzzy matching
+
+        Args:
+            target_name: Name to search for
+            search_path: Directory to search in
+            threshold: Similarity threshold (0.0-1.0)
+
+        Returns:
+            Name of similar folder if found, None otherwise
+        """
+        if not search_path.exists():
+            return None
+
+        target_clean = cls._normalize_for_comparison(target_name)
+        best_match = None
+        best_score = 0.0
+
+        try:
+            for folder in search_path.iterdir():
+                if not folder.is_dir():
+                    continue
+
+                folder_clean = cls._normalize_for_comparison(folder.name)
+                score = cls._calculate_similarity(target_clean, folder_clean)
+
+                if score > best_score and score >= threshold:
+                    best_score = score
+                    best_match = folder.name
+        except Exception:
+            pass
+
+        return best_match
+
+    @classmethod
+    def _normalize_for_comparison(cls, text: str) -> str:
+        """
+        Normalize text for comparison (lowercase, remove special chars, etc.)
+
+        Args:
+            text: Text to normalize
+
+        Returns:
+            Normalized text
+        """
+        # Convert to lowercase
+        text = text.lower()
+
+        # Remove year and brackets
+        text = re.sub(r'\s*[\(\[]?\d{4}[\)\]]?', '', text)
+
+        # Remove language tags
+        text = re.sub(r'\s*\[(?:ita|eng|multi)\]', '', text, flags=re.IGNORECASE)
+
+        # Remove special characters and separators
+        text = re.sub(r'[._\-@]', ' ', text)
+
+        # Remove extra spaces
+        text = re.sub(r'\s+', ' ', text).strip()
+
+        return text
+
+    @classmethod
+    def _calculate_similarity(cls, str1: str, str2: str) -> float:
+        """
+        Calculate similarity score between two strings
+        Uses simple token-based matching
+
+        Args:
+            str1: First string
+            str2: Second string
+
+        Returns:
+            Similarity score (0.0-1.0)
+        """
+        # Split into tokens
+        tokens1 = set(str1.split())
+        tokens2 = set(str2.split())
+
+        if not tokens1 or not tokens2:
+            return 0.0
+
+        # Calculate Jaccard similarity
+        intersection = len(tokens1 & tokens2)
+        union = len(tokens1 | tokens2)
+
+        if union == 0:
+            return 0.0
+
+        # Also check if one is substring of the other (boost score)
+        substring_bonus = 0.0
+        if str1 in str2 or str2 in str1:
+            substring_bonus = 0.3
+
+        jaccard = intersection / union
+        return min(1.0, jaccard + substring_bonus)
+
+    @classmethod
     def extract_series_info(cls, filename: str) -> SeriesInfo:
         """
         Estrae informazioni serie TV dal nome file con confidence scoring
@@ -89,9 +189,12 @@ class FileNameParser:
         best_match = None
         best_confidence = 0
 
+        # Remove extension first to avoid including it in series name
+        filename_no_ext = os.path.splitext(filename)[0]
+
         # Prova tutti i pattern con scoring
         for pattern, pattern_type, confidence in cls.TV_PATTERNS:
-            match = re.search(pattern, filename, re.IGNORECASE)
+            match = re.search(pattern, filename_no_ext, re.IGNORECASE)
 
             if match:
                 season = None
@@ -125,13 +228,20 @@ class FileNameParser:
                 total_confidence = confidence
 
                 # Bonus per context
-                total_confidence += cls._calculate_context_bonus(filename, match, pattern_type)
+                total_confidence += cls._calculate_context_bonus(filename_no_ext, match, pattern_type)
 
                 if total_confidence > best_confidence:
                     best_confidence = total_confidence
 
-                    # Estrai solo la parte del nome serie (prima del pattern SE)
-                    series_name_raw = filename[:match.start()].strip()
+                    # Special handling for pattern at start of filename (12x06 American Horror Story)
+                    if pattern_type == 'x_format_leading' and match.start() == 0:
+                        # Pattern is at start, series name comes AFTER the pattern
+                        series_name_raw = filename_no_ext[match.end():].strip()
+                        # Remove common separators at the start
+                        series_name_raw = re.sub(r'^[\.\-_\s@]+', '', series_name_raw)
+                    else:
+                        # Estrai solo la parte del nome serie (prima del pattern SE)
+                        series_name_raw = filename_no_ext[:match.start()].strip()
 
                     # Rimuovi separatori finali comuni (./-/_)
                     series_name_raw = re.sub(r'[\.\-_\s]+$', '', series_name_raw)
@@ -141,7 +251,7 @@ class FileNameParser:
                     series_name = cls._extract_clean_series_name(series_name_raw)
 
                     # Estrai titolo episodio se possibile
-                    episode_title = cls._extract_episode_title(filename, match)
+                    episode_title = cls._extract_episode_title(filename_no_ext, match)
 
                     best_match = {
                         'series_name': series_name,
@@ -444,6 +554,7 @@ class FileNameParser:
         # Prova a trovare un punto naturale di taglio
         # Prima cerca pattern comuni che indicano fine del titolo
         end_patterns = [
+            r'@\w+',  # Tags like @Serietvfilms, @username
             r'(?i)\b(?:' + '|'.join(cls.QUALITY_TAGS) + r')\b',  # Tag qualità
             r'\b\d{4}\b',  # Anno
             r'\b(?:season|s)\d+\b',  # Stagione
