@@ -192,11 +192,32 @@ class FileNameParser:
         # Remove extension first to avoid including it in series name
         filename_no_ext = os.path.splitext(filename)[0]
 
+        # Detect years in filename to avoid false TV series matches
+        # Store positions of years to exclude them from pattern matching
+        year_positions = []
+        year_pattern = r'[\(\[](\d{4})[\)\]]'
+        for year_match in re.finditer(year_pattern, filename_no_ext):
+            year_value = int(year_match.group(1))
+            # Check if it's a valid year (1900-2099)
+            if 1900 <= year_value <= 2099:
+                year_positions.append((year_match.start(), year_match.end()))
+
         # Prova tutti i pattern con scoring
         for pattern, pattern_type, confidence in cls.TV_PATTERNS:
             match = re.search(pattern, filename_no_ext, re.IGNORECASE)
 
             if match:
+                # Skip if match overlaps with a detected year
+                match_overlaps_year = False
+                for year_start, year_end in year_positions:
+                    # Check if match overlaps with year position
+                    if not (match.end() <= year_start or match.start() >= year_end):
+                        match_overlaps_year = True
+                        break
+
+                if match_overlaps_year:
+                    continue  # Skip this match, it's part of a year
+
                 season = None
                 episode = None
                 end_episode = None
