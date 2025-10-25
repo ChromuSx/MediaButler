@@ -202,7 +202,7 @@ class FileNameParser:
             if 1900 <= year_value <= 2099:
                 year_positions.append((year_match.start(), year_match.end()))
 
-        # Prova tutti i pattern con scoring
+        # Try all patterns with scoring
         for pattern, pattern_type, confidence in cls.TV_PATTERNS:
             match = re.search(pattern, filename_no_ext, re.IGNORECASE)
 

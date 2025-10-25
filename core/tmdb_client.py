@@ -26,43 +26,58 @@ class TMDBClient:
     
     @RetryHelpers.async_retry(max_attempts=3, delay=1, exceptions=(aiohttp.ClientError, asyncio.TimeoutError))
     async def search(
-        self, 
-        query: str, 
-        media_type: Optional[str] = None
+        self,
+        query: str,
+        media_type: Optional[str] = None,
+        year: Optional[str] = None
     ) -> Optional[List[TMDBResult]]:
         """
-        Cerca film e serie TV con retry automatico
-        
+        Search for movies and TV series with automatic retry
+
         Args:
-            query: Query di ricerca
-            media_type: Tipo media ('movie', 'tv', None per multi)
-            
+            query: Search query
+            media_type: Media type ('movie', 'tv', None for multi)
+            year: Year to filter results (uses 'y:YYYY' filter)
+
         Returns:
-            Lista risultati o None
+            List of results or None
         """
         if not self.api_key:
             return None
-        
+
         # Applica rate limiting
         await self.rate_limiter.acquire()
-        
+
         try:
-            # Pulisci query
-            query = self._clean_query(query)
-            
+            # Clean query and extract year if not provided
+            cleaned_query, extracted_year = self._clean_query(query)
+
+            # Use extracted year if not explicitly provided
+            if not year:
+                year = extracted_year
+
             # Endpoint
             if media_type:
                 endpoint = f'/search/{media_type}'
             else:
                 endpoint = '/search/multi'
-            
-            # Parametri
+
+            # Base parameters
             params = {
                 'api_key': self.api_key,
-                'query': query,
+                'query': cleaned_query,
                 'language': self.language,
                 'include_adult': 'false'
             }
+
+            # Add year filter if available
+            # Note: year filter works differently for movies vs TV
+            if year:
+                if media_type == 'movie':
+                    params['primary_release_year'] = year
+                elif media_type == 'tv':
+                    params['first_air_date_year'] = year
+                # For 'multi' search, year filter is not directly supported
             
             # Richiesta con timeout
             async with aiohttp.ClientSession() as session:
@@ -130,32 +145,49 @@ class TMDBClient:
             self.logger.error(f"TMDB episode details error: {e}")
             return None
     
-    def _clean_query(self, query: str) -> str:
+    def _clean_query(self, query: str) -> tuple[str, Optional[str]]:
         """
-        Pulisce query di ricerca
+        Clean search query and extract year
 
         Args:
-            query: Query grezza
+            query: Raw query
 
         Returns:
-            Query pulita
+            (cleaned_query, extracted_year)
         """
         import re
 
-        # Rimuovi info episodio
+        # Extract year before removing it (search in parentheses or brackets)
+        year = None
+        year_match = re.search(r'[\(\[](\d{4})[\)\]]', query)
+        if year_match:
+            year_value = int(year_match.group(1))
+            # Validate it's a reasonable year (1900-2099)
+            if 1900 <= year_value <= 2099:
+                year = year_match.group(1)
+
+        # If not found in parentheses, search for year at the end
+        if not year:
+            year_match = re.search(r'\b(\d{4})$', query)
+            if year_match:
+                year_value = int(year_match.group(1))
+                if 1900 <= year_value <= 2099:
+                    year = year_match.group(1)
+
+        # Remove episode info
         query = re.sub(r'[Ss]\d+[Ee]\d+.*', '', query).strip()
 
-        # Rimuovi tag qualità tra parentesi quadre/tonde: [HD], [4K], etc.
+        # Remove quality tags in square/round brackets: [HD], [4K], etc.
         query = re.sub(r'\[.*?\]', '', query).strip()
         query = re.sub(r'\(.*?p\)', '', query).strip()
 
-        # Rimuovi anno tra parentesi
+        # Remove year in parentheses
         query = re.sub(r'\(\d{4}\)', '', query).strip()
 
-        # Rimuovi anno alla fine
+        # Remove year at the end
         query = re.sub(r'\d{4}$', '', query).strip()
 
-        # Rimuovi informazioni di qualità video comuni
+        # Remove common video quality information
         quality_patterns = [
             r'WEBDL', r'WEB-DL', r'WEBRip', r'WEB-Rip',
             r'BluRay', r'BRRip', r'BDRip', r'DVDRip',
@@ -168,13 +200,13 @@ class TMDBClient:
         for pattern in quality_patterns:
             query = re.sub(pattern, '', query, flags=re.IGNORECASE).strip()
 
-        # Sostituisci separatori
+        # Replace separators
         query = re.sub(r'[\._]', ' ', query)
 
-        # Spazi multipli
+        # Remove multiple spaces
         query = re.sub(r'\s+', ' ', query).strip()
 
-        return query
+        return query, year
     
     def _parse_results(self, results: List[Dict]) -> List[TMDBResult]:
         """
@@ -316,40 +348,41 @@ class TMDBClient:
         media_hint: Optional[str] = None
     ) -> tuple[Optional[TMDBResult], int]:
         """
-        Cerca e calcola confidenza automaticamente
-        
+        Search and calculate confidence automatically
+
         Args:
-            filename: Nome file
-            media_hint: Suggerimento tipo media
-            
+            filename: Filename
+            media_hint: Media type hint
+
         Returns:
-            (miglior_risultato, confidenza)
+            (best_result, confidence)
         """
-        # Importa parser
+        # Import parser
         from utils.naming import FileNameParser
-        
-        # Estrai info dal nome
+
+        # Extract info from filename
+        year = None
         if media_hint == 'tv':
             series_info = FileNameParser.extract_series_info(filename)
             search_query = series_info.series_name
         else:
-            movie_name, _ = FileNameParser.extract_movie_info(filename)
+            movie_name, year = FileNameParser.extract_movie_info(filename)
             search_query = movie_name
-        
-        # Cerca
-        results = await self.search(search_query, media_hint)
-        
+
+        # Search with year if available
+        results = await self.search(search_query, media_hint, year)
+
         if not results:
             return None, 0
-        
-        # Prendi primo risultato e calcola confidenza
+
+        # Get first result and calculate confidence
         first_result = results[0]
         confidence = self.calculate_confidence(
             first_result,
             search_query,
             filename
         )
-        
+
         first_result.confidence = confidence
-        
+
         return first_result, confidence
