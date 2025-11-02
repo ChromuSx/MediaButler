@@ -40,9 +40,9 @@ async def get_overview_stats(
     if hasattr(request.app.state, 'space_manager'):
         space_manager = request.app.state.space_manager
         if space_manager:
-            # Get disk usage for download path
+            # Get disk usage for temp path (where downloads happen)
             config = request.app.state.config
-            usage = space_manager.get_disk_usage(config.paths.download)
+            usage = space_manager.get_disk_usage(config.paths.temp)
             if usage:
                 available_space_gb = usage.free_gb
 

@@ -1,9 +1,11 @@
 """
 FastAPI Web Dashboard for MediaButler
 """
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import sys
 from pathlib import Path
@@ -60,12 +62,7 @@ app = FastAPI(
 # CORS middleware - allow frontend to access API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server
-        "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=["*"],  # Allow all origins since frontend is served from same server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -82,20 +79,47 @@ app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
 app.include_router(websocket.router, prefix="/ws")
 
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "name": "MediaButler Dashboard API",
-        "version": "1.0.0",
-        "status": "running"
-    }
-
-
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+# Mount static files for frontend (production build)
+frontend_dist = project_root / "web" / "frontend" / "dist"
+if frontend_dist.exists():
+    # Serve static assets (JS, CSS, images, etc.)
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+
+    @app.get("/")
+    async def serve_frontend():
+        """Serve frontend index.html"""
+        return FileResponse(str(frontend_dist / "index.html"))
+
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        """Catch-all route for SPA - serve index.html for all non-API routes"""
+        # Don't intercept API routes or WebSocket
+        if full_path.startswith("api/") or full_path.startswith("ws/"):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Check if file exists in dist (for static files like favicon, etc.)
+        file_path = frontend_dist / full_path
+        if file_path.is_file():
+            return FileResponse(str(file_path))
+
+        # Otherwise, serve index.html for SPA routing
+        return FileResponse(str(frontend_dist / "index.html"))
+else:
+    @app.get("/")
+    async def root():
+        """Root endpoint when frontend is not built"""
+        return {
+            "name": "MediaButler Dashboard API",
+            "version": "1.0.0",
+            "status": "running",
+            "message": "Frontend not built. Build frontend with 'npm run build' in web/frontend/"
+        }
 
 
 if __name__ == "__main__":

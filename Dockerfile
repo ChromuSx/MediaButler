@@ -1,3 +1,25 @@
+# ==============================================================================
+# Stage 1: Build Frontend
+# ==============================================================================
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy package files
+COPY web/frontend/package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy frontend source
+COPY web/frontend/ ./
+
+# Build frontend for production
+RUN npm run build
+
+# ==============================================================================
+# Stage 2: Python Application
+# ==============================================================================
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -19,6 +41,9 @@ COPY handlers ./handlers
 COPY models ./models
 COPY utils ./utils
 COPY web ./web
+
+# Copy built frontend from stage 1
+COPY --from=frontend-builder /frontend/dist ./web/frontend/dist
 
 # Create necessary directories
 RUN mkdir -p /app/session /app/data /media/movies /media/tv /media/temp
