@@ -101,6 +101,9 @@ class MediaButler:
         self.callback_handlers.register()
         self.file_handlers.register()
 
+        # Setup bot commands for autocomplete
+        await self.command_handlers.setup_bot_commands()
+
         # Start workers
         await self.download_manager.start_workers()
 

@@ -32,6 +32,42 @@ class CommandHandlers:
         self.config = get_config()
         self.logger = self.config.logger
     
+    async def setup_bot_commands(self):
+        """Setup bot commands for autocomplete menu (visible when typing /)"""
+        from telethon.tl.functions.bots import SetBotCommandsRequest
+        from telethon.tl.types import BotCommand
+
+        # Define all commands with descriptions
+        commands = [
+            BotCommand(command="start", description="Start bot and show main menu"),
+            BotCommand(command="menu", description="Show main menu"),
+            BotCommand(command="status", description="Show active downloads status"),
+            BotCommand(command="space", description="Show disk space information"),
+            BotCommand(command="downloads", description="Show detailed downloads list"),
+            BotCommand(command="waiting", description="Show files waiting for space"),
+            BotCommand(command="cancel", description="Cancel a specific download"),
+            BotCommand(command="cancel_all", description="Cancel all downloads"),
+            BotCommand(command="help", description="Show help and available commands"),
+            BotCommand(command="settings", description="Show and manage global settings"),
+            BotCommand(command="mysettings", description="Show and manage your personal settings"),
+            BotCommand(command="subtitles", description="Manage subtitle settings"),
+            BotCommand(command="stats", description="Show download statistics"),
+            BotCommand(command="history", description="Show download history"),
+            BotCommand(command="users", description="[Admin] Show authorized users"),
+            BotCommand(command="stop", description="[Admin] Stop the bot"),
+        ]
+
+        try:
+            # Set commands using Telegram Bot API
+            await self.client(SetBotCommandsRequest(
+                scope=None,  # Default scope (all users)
+                lang_code='',  # Default language
+                commands=commands
+            ))
+            self.logger.info(f"✅ Bot commands configured ({len(commands)} commands)")
+        except Exception as e:
+            self.logger.warning(f"Failed to set bot commands: {e}")
+
     def register(self):
         """Register all command handlers"""
         # Main commands
@@ -61,7 +97,7 @@ class CommandHandlers:
         self.client.on(events.CallbackQuery(pattern='sub_'))(self.subtitle_callback_handler)
         self.client.on(events.CallbackQuery(pattern='stats_'))(self.stats_callback_handler)
         self.client.on(events.CallbackQuery(pattern='userset_'))(self.user_settings_callback_handler)
-        
+
         self.logger.info("Command handlers registered with inline menu")
     
     def _create_main_menu(self, is_admin: bool = False):
