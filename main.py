@@ -48,8 +48,8 @@ class MediaButler:
         if self.config.database.enabled:
             self.database_manager = DatabaseManager(self.config.database.path)
 
-        # Initialize managers
-        self.auth_manager = AuthManager()
+        # Initialize managers (pass database to AuthManager for dynamic user management)
+        self.auth_manager = AuthManager(db_manager=self.database_manager)
         self.space_manager = SpaceManager()
         self.tmdb_client = TMDBClient() if self.config.tmdb.is_enabled else None
         self.download_manager = DownloadManager(
@@ -92,6 +92,10 @@ class MediaButler:
             await self.database_manager.connect()
             set_database_manager(self.database_manager)
             self.logger.info("✅ Database initialized")
+
+            # Initialize AuthManager with database sync
+            await self.auth_manager.initialize()
+            self.logger.info("✅ AuthManager initialized with database")
 
         # Start Telegram client
         await self.client.start(bot_token=self.config.telegram.bot_token)

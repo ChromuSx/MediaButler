@@ -17,6 +17,7 @@ sys.path.insert(0, str(project_root))
 from core.config import Config
 from core.database import DatabaseManager
 from core.space_manager import SpaceManager
+from core.auth import AuthManager
 from web.backend.routers import auth, stats, downloads, users, settings
 from web.backend import websocket
 
@@ -35,12 +36,17 @@ async def lifespan(app: FastAPI):
     db = DatabaseManager(config.database.path)
     await db.connect()
 
+    # Initialize AuthManager with database
+    auth_manager = AuthManager(db_manager=db)
+    await auth_manager.initialize()
+
     # Initialize space manager
     space_manager = SpaceManager()
 
     # Store in app state
     app.state.config = config
     app.state.database = db
+    app.state.auth_manager = auth_manager
     app.state.space_manager = space_manager
     app.state.download_manager = None  # Will be set when bot is running
 

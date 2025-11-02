@@ -162,6 +162,20 @@ class DatabaseManager:
             )
         """)
 
+        # Authorized users table (for dynamic user management)
+        await self._connection.execute("""
+            CREATE TABLE IF NOT EXISTS authorized_users (
+                user_id INTEGER PRIMARY KEY,
+                telegram_username TEXT,
+                is_admin BOOLEAN DEFAULT 0,
+                is_banned BOOLEAN DEFAULT 0,
+                added_by INTEGER,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP,
+                notes TEXT
+            )
+        """)
+
         # Create indexes for better performance
         await self._connection.execute("""
             CREATE INDEX IF NOT EXISTS idx_downloads_user_id
@@ -686,6 +700,169 @@ class DatabaseManager:
         )
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
+
+    # ==================== AUTHORIZED USERS ====================
+
+    async def get_authorized_users(self) -> List[Dict]:
+        """Get all authorized users"""
+        cursor = await self._connection.execute("""
+            SELECT * FROM authorized_users
+            WHERE is_banned = 0
+            ORDER BY is_admin DESC, added_at ASC
+        """)
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+
+    async def get_authorized_user(self, user_id: int) -> Optional[Dict]:
+        """Get authorized user by ID"""
+        cursor = await self._connection.execute(
+            "SELECT * FROM authorized_users WHERE user_id = ?",
+            (user_id,)
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def add_authorized_user(
+        self,
+        user_id: int,
+        telegram_username: Optional[str] = None,
+        is_admin: bool = False,
+        added_by: Optional[int] = None,
+        notes: Optional[str] = None
+    ) -> bool:
+        """
+        Add a new authorized user
+
+        Args:
+            user_id: Telegram user ID
+            telegram_username: Telegram username
+            is_admin: Is admin user
+            added_by: User ID who added this user
+            notes: Optional notes
+
+        Returns:
+            True if added, False if already exists
+        """
+        try:
+            await self._connection.execute("""
+                INSERT INTO authorized_users (
+                    user_id, telegram_username, is_admin, added_by, notes
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (user_id, telegram_username, is_admin, added_by, notes))
+            await self._connection.commit()
+            self.logger.info(f"Added authorized user: {user_id} ({telegram_username})")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error adding authorized user {user_id}: {e}")
+            return False
+
+    async def update_authorized_user(
+        self,
+        user_id: int,
+        telegram_username: Optional[str] = None,
+        is_admin: Optional[bool] = None,
+        is_banned: Optional[bool] = None,
+        notes: Optional[str] = None
+    ) -> bool:
+        """
+        Update authorized user information
+
+        Args:
+            user_id: Telegram user ID
+            telegram_username: New username
+            is_admin: New admin status
+            is_banned: New banned status
+            notes: New notes
+
+        Returns:
+            True if updated, False otherwise
+        """
+        updates = []
+        params = []
+
+        if telegram_username is not None:
+            updates.append("telegram_username = ?")
+            params.append(telegram_username)
+
+        if is_admin is not None:
+            updates.append("is_admin = ?")
+            params.append(is_admin)
+
+        if is_banned is not None:
+            updates.append("is_banned = ?")
+            params.append(is_banned)
+
+        if notes is not None:
+            updates.append("notes = ?")
+            params.append(notes)
+
+        if not updates:
+            return False
+
+        params.append(user_id)
+        query = f"UPDATE authorized_users SET {', '.join(updates)} WHERE user_id = ?"
+
+        try:
+            await self._connection.execute(query, params)
+            await self._connection.commit()
+            self.logger.info(f"Updated authorized user: {user_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating authorized user {user_id}: {e}")
+            return False
+
+    async def remove_authorized_user(self, user_id: int) -> bool:
+        """
+        Remove authorized user (soft delete by banning)
+
+        Args:
+            user_id: Telegram user ID
+
+        Returns:
+            True if removed, False otherwise
+        """
+        try:
+            await self._connection.execute(
+                "UPDATE authorized_users SET is_banned = 1 WHERE user_id = ?",
+                (user_id,)
+            )
+            await self._connection.commit()
+            self.logger.info(f"Removed authorized user: {user_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error removing authorized user {user_id}: {e}")
+            return False
+
+    async def update_user_last_seen(self, user_id: int):
+        """Update last seen timestamp for user"""
+        await self._connection.execute("""
+            UPDATE authorized_users
+            SET last_seen = CURRENT_TIMESTAMP
+            WHERE user_id = ?
+        """, (user_id,))
+        await self._connection.commit()
+
+    async def sync_authorized_users_from_config(self, user_ids: List[int]):
+        """
+        Sync authorized users from config (AUTHORIZED_USERS in .env)
+        This ensures users in .env are added to database
+
+        Args:
+            user_ids: List of user IDs from config
+        """
+        for user_id in user_ids:
+            # Check if user already exists
+            existing = await self.get_authorized_user(user_id)
+            if not existing:
+                # Add user from config
+                await self.add_authorized_user(
+                    user_id=user_id,
+                    telegram_username=None,
+                    is_admin=(user_id == user_ids[0]),  # First user is admin
+                    added_by=None,
+                    notes="Added from .env configuration"
+                )
+                self.logger.info(f"Synced user {user_id} from .env to database")
 
 
 # Singleton instance

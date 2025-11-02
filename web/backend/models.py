@@ -102,22 +102,35 @@ class UserListItem(BaseModel):
     telegram_id: Optional[int]
     username: Optional[str]
     is_admin: bool
-    total_downloads: int
-    total_size_gb: float
-    last_active: Optional[datetime]
+    total_downloads: int = 0
+    total_size_gb: float = 0.0
+    last_active: Optional[datetime] = None
+    is_banned: bool = False
+    notes: Optional[str] = None
 
 
 class UserDetail(UserListItem):
-    success_rate: float
-    failed_downloads: int
-    cancelled_downloads: int
-    avg_file_size_gb: float
+    success_rate: float = 0.0
+    failed_downloads: int = 0
+    cancelled_downloads: int = 0
+    avg_file_size_gb: float = 0.0
     preferences: Optional[dict] = None
+    added_at: Optional[datetime] = None
+    added_by: Optional[int] = None
+
+
+class UserCreateRequest(BaseModel):
+    user_id: int = Field(..., description="Telegram user ID")
+    telegram_username: Optional[str] = Field(None, description="Telegram username")
+    is_admin: bool = Field(default=False, description="Is admin user")
+    notes: Optional[str] = Field(None, description="Optional notes about user")
 
 
 class UserUpdate(BaseModel):
+    telegram_username: Optional[str] = None
     is_admin: Optional[bool] = None
     is_banned: Optional[bool] = None
+    notes: Optional[str] = None
 
 
 # Settings models

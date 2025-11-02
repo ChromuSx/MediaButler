@@ -110,6 +110,11 @@ export const usersAPI = {
     return response.data;
   },
 
+  create: async (userData) => {
+    const response = await api.post('/api/users/', userData);
+    return response.data;
+  },
+
   getDetails: async (userId) => {
     const response = await api.get(`/api/users/${userId}`);
     return response.data;
