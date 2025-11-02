@@ -1,5 +1,5 @@
 """
-Gestione download sottotitoli per MediaButler
+Subtitle download management for MediaButler
 """
 import os
 import asyncio
@@ -16,7 +16,7 @@ from utils.helpers import RetryHelpers
 
 @dataclass
 class SubtitleInfo:
-    """Informazioni sottotitolo"""
+    """Subtitle information"""
     language: str
     filename: str
     download_url: str
@@ -27,7 +27,7 @@ class SubtitleInfo:
 
 
 class OpenSubtitlesAPI:
-    """Client per API OpenSubtitles"""
+    """Client for OpenSubtitles API"""
 
     BASE_URL = 'https://api.opensubtitles.com/api/v1'
 
@@ -54,7 +54,7 @@ class OpenSubtitlesAPI:
             await self.session.close()
 
     async def _authenticate(self) -> bool:
-        """Autentica con OpenSubtitles"""
+        """Authenticate with OpenSubtitles"""
         if not self.config.subtitles.is_opensubtitles_configured:
             return False
 
@@ -86,24 +86,24 @@ class OpenSubtitlesAPI:
         season: Optional[int] = None,
         episode: Optional[int] = None
     ) -> List[SubtitleInfo]:
-        """Cerca sottotitoli per un video"""
+        """Search subtitles for a video"""
 
         if not self.session:
-            self.logger.error("Sessione non inizializzata")
+            self.logger.error("Session not initialized")
             return []
 
-        # Calcola hash del file per ricerca più precisa
+        # Calculate file hash for more precise search
         file_hash = await self._calculate_file_hash(video_path)
         file_size = video_path.stat().st_size
 
-        # Parametri di ricerca
+        # Search parameters
         params = {
             'languages': ','.join(languages),
             'moviehash': file_hash,
             'moviebytesize': file_size
         }
 
-        # Aggiungi parametri specifici
+        # Add specific parameters
         if imdb_id:
             params['imdb_id'] = imdb_id.replace('tt', '')
 
@@ -127,7 +127,7 @@ class OpenSubtitlesAPI:
             return []
 
     def _parse_subtitle_results(self, data: Dict[str, Any]) -> List[SubtitleInfo]:
-        """Parsea risultati ricerca sottotitoli"""
+        """Parse subtitle search results"""
         subtitles = []
 
         for item in data.get('data', []):
@@ -151,18 +151,18 @@ class OpenSubtitlesAPI:
 
             subtitles.append(subtitle)
 
-        # Ordina per rating e download count
+        # Sort by rating and download count
         subtitles.sort(key=lambda x: (x.rating, x.download_count), reverse=True)
         return subtitles
 
     async def download_subtitle(self, subtitle_info: SubtitleInfo, output_path: Path) -> bool:
-        """Scarica un sottotitolo"""
+        """Download a subtitle"""
         try:
             async with self.session.get(subtitle_info.download_url) as response:
                 if response.status == 200:
                     content = await response.read()
 
-                    # Scrivi file
+                    # Write file
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     output_path.write_bytes(content)
 
@@ -177,22 +177,22 @@ class OpenSubtitlesAPI:
             return False
 
     async def _calculate_file_hash(self, file_path: Path) -> str:
-        """Calcola hash OpenSubtitles per il file"""
+        """Calculate OpenSubtitles hash for file"""
         try:
             filesize = file_path.stat().st_size
 
-            # Hash OpenSubtitles: primi e ultimi 64KB del file
+            # OpenSubtitles hash: first and last 64KB of file
             hash_value = filesize
 
             with open(file_path, 'rb') as f:
-                # Primi 64KB
+                # First 64KB
                 for _ in range(65536 // 8):
                     buffer = f.read(8)
                     if not buffer:
                         break
                     hash_value += int.from_bytes(buffer, byteorder='little', signed=False)
 
-                # Ultimi 64KB
+                # Last 64KB
                 if filesize > 65536:
                     f.seek(-65536, 2)
                     for _ in range(65536 // 8):
@@ -209,7 +209,7 @@ class OpenSubtitlesAPI:
 
 
 class SubtitleManager:
-    """Manager principale per gestione sottotitoli"""
+    """Main manager for subtitle management"""
 
     def __init__(self):
         self.config = get_config()
@@ -225,85 +225,85 @@ class SubtitleManager:
         force: bool = False
     ) -> List[Path]:
         """
-        Scarica sottotitoli per un video
+        Download subtitles for a video
 
         Args:
-            video_path: Percorso del file video
-            imdb_id: ID IMDB per ricerca più precisa
-            season: Numero stagione (per serie TV)
-            episode: Numero episodio (per serie TV)
-            languages: Lista lingue da scaricare (default: da config)
-            force: Forza download anche se già esistenti
+            video_path: Video file path
+            imdb_id: IMDB ID for more precise search
+            season: Season number (for TV series)
+            episode: Episode number (for TV series)
+            languages: List of languages to download (default: from config)
+            force: Force download even if already existing
 
         Returns:
-            Lista dei file sottotitoli scaricati
+            List of downloaded subtitle files
         """
 
         if not self.config.subtitles.enabled:
-            self.logger.debug("Sottotitoli disabilitati")
+            self.logger.debug("Subtitles disabled")
             return []
 
         if not video_path.exists():
-            self.logger.error(f"File video non trovato: {video_path}")
+            self.logger.error(f"Video file not found: {video_path}")
             return []
 
-        # Usa lingue da config se non specificate
+        # Use languages from config if not specified
         if languages is None:
             languages = self.config.subtitles.languages
 
         downloaded_subtitles = []
 
         async with OpenSubtitlesAPI() as api:
-            # Cerca sottotitoli
-            self.logger.info(f"🔍 Ricerca sottotitoli per: {video_path.name}")
+            # Search subtitles
+            self.logger.info(f"🔍 Searching subtitles for: {video_path.name}")
             subtitles = await api.search_subtitles(
                 video_path, languages, imdb_id, season, episode
             )
 
             if not subtitles:
-                self.logger.info("❌ Nessun sottotitolo trovato")
+                self.logger.info("❌ No subtitles found")
                 return []
 
-            # Scarica il migliore per ogni lingua
+            # Download the best for each language
             for language in languages:
                 lang_subtitles = [s for s in subtitles if s.language == language]
 
                 if not lang_subtitles:
-                    self.logger.info(f"❌ Nessun sottotitolo trovato per lingua: {language}")
+                    self.logger.info(f"❌ No subtitles found for language: {language}")
                     continue
 
-                best_subtitle = lang_subtitles[0]  # Già ordinati per qualità
+                best_subtitle = lang_subtitles[0]  # Already sorted by quality
 
-                # Determina nome file output
+                # Determine output file name
                 subtitle_path = self._get_subtitle_path(video_path, language, best_subtitle.format)
 
-                # Controlla se già esiste
+                # Check if already exists
                 if subtitle_path.exists() and not force:
-                    self.logger.info(f"⏭️ Sottotitolo già esistente: {subtitle_path}")
+                    self.logger.info(f"⏭️ Subtitle already existing: {subtitle_path}")
                     downloaded_subtitles.append(subtitle_path)
                     continue
 
-                # Scarica
+                # Download
                 if await api.download_subtitle(best_subtitle, subtitle_path):
                     downloaded_subtitles.append(subtitle_path)
                 else:
-                    self.logger.error(f"❌ Errore download sottotitolo {language}")
+                    self.logger.error(f"❌ Error downloading subtitle {language}")
 
-        self.logger.info(f"✅ Scaricati {len(downloaded_subtitles)} sottotitoli")
+        self.logger.info(f"✅ Downloaded {len(downloaded_subtitles)} subtitles")
         return downloaded_subtitles
 
     def _get_subtitle_path(self, video_path: Path, language: str, format: str) -> Path:
-        """Genera percorso file sottotitolo"""
+        """Generate subtitle file path"""
         video_stem = video_path.stem
         subtitle_name = f"{video_stem}.{language}.{format}"
         return video_path.parent / subtitle_name
 
     async def clean_old_subtitles(self, video_path: Path):
-        """Rimuove sottotitoli obsoleti per un video"""
+        """Remove obsolete subtitles for a video"""
         video_stem = video_path.stem
         video_dir = video_path.parent
 
-        # Cerca file sottotitoli correlati
+        # Search for related subtitle files
         subtitle_pattern = f"{video_stem}.*"
         subtitle_extensions = ['.srt', '.sub', '.ass', '.ssa', '.vtt']
 
@@ -311,12 +311,12 @@ class SubtitleManager:
             if any(file_path.suffix.lower() == ext for ext in subtitle_extensions):
                 try:
                     file_path.unlink()
-                    self.logger.info(f"🗑️ Rimosso sottotitolo obsoleto: {file_path}")
+                    self.logger.info(f"🗑️ Removed obsolete subtitle: {file_path}")
                 except Exception as e:
-                    self.logger.error(f"❌ Errore rimozione sottotitolo: {e}")
+                    self.logger.error(f"❌ Error removing subtitle: {e}")
 
     def get_existing_subtitles(self, video_path: Path) -> List[Path]:
-        """Ottiene lista sottotitoli esistenti per un video"""
+        """Get list of existing subtitles for a video"""
         video_stem = video_path.stem
         video_dir = video_path.parent
 

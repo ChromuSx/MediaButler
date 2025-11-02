@@ -1,5 +1,5 @@
 """
-Client per integrazione TMDB API
+TMDB API integration client
 """
 import aiohttp
 import asyncio
@@ -9,7 +9,7 @@ from models.download import TMDBResult, SeriesInfo
 from utils.helpers import RetryHelpers, AsyncHelpers, RateLimiter
 
 class TMDBClient:
-    """Client per The Movie Database API"""
+    """Client for The Movie Database API"""
     
     def __init__(self):
         self.config = get_config()
@@ -18,11 +18,11 @@ class TMDBClient:
         self.language = self.config.tmdb.language
         self.logger = self.config.logger
         
-        # Rate limiter: TMDB permette 40 richieste ogni 10 secondi
+        # Rate limiter: TMDB allows 40 requests every 10 seconds
         self.rate_limiter = RateLimiter(max_calls=40, period=10)
-        
+
         if not self.api_key:
-            self.logger.warning("TMDB API key non configurata")
+            self.logger.warning("TMDB API key not configured")
     
     @RetryHelpers.async_retry(max_attempts=3, delay=1, exceptions=(aiohttp.ClientError, asyncio.TimeoutError))
     async def search(
@@ -45,7 +45,7 @@ class TMDBClient:
         if not self.api_key:
             return None
 
-        # Applica rate limiting
+        # Apply rate limiting
         await self.rate_limiter.acquire()
 
         try:
@@ -79,11 +79,11 @@ class TMDBClient:
                     params['first_air_date_year'] = year
                 # For 'multi' search, year filter is not directly supported
             
-            # Richiesta con timeout
+            # Request with timeout
             async with aiohttp.ClientSession() as session:
                 url = f"{self.base_url}{endpoint}"
-                
-                # Usa helper per timeout
+
+                # Use helper for timeout
                 response = await AsyncHelpers.run_with_timeout(
                     session.get(url, params=params),
                     timeout=5,
@@ -103,21 +103,21 @@ class TMDBClient:
     
     @RetryHelpers.async_retry(max_attempts=2, delay=1)
     async def get_episode_details(
-        self, 
-        tv_id: int, 
-        season: int, 
+        self,
+        tv_id: int,
+        season: int,
         episode: int
     ) -> Optional[Dict[str, Any]]:
         """
-        Ottieni dettagli episodio con retry
-        
+        Get episode details with retry
+
         Args:
-            tv_id: ID serie TMDB
-            season: Numero stagione
-            episode: Numero episodio
-            
+            tv_id: TMDB series ID
+            season: Season number
+            episode: Episode number
+
         Returns:
-            Dettagli episodio o None
+            Episode details or None
         """
         if not self.api_key:
             return None
@@ -210,21 +210,21 @@ class TMDBClient:
     
     def _parse_results(self, results: List[Dict]) -> List[TMDBResult]:
         """
-        Converte risultati API in TMDBResult
-        
+        Convert API results to TMDBResult
+
         Args:
-            results: Risultati raw da API
-            
+            results: Raw results from API
+
         Returns:
-            Lista TMDBResult
+            List of TMDBResult
         """
         parsed = []
         
         for result in results:
-            # Determina tipo media
+            # Determine media type
             media_type = result.get('media_type', 'movie')
-            
-            # Estrai dati base
+
+            # Extract base data
             if media_type == 'tv' or 'first_air_date' in result:
                 title = result.get('name', 'Unknown')
                 original_title = result.get('original_name', title)
@@ -253,37 +253,37 @@ class TMDBClient:
         return parsed
     
     def calculate_confidence(
-        self, 
-        result: TMDBResult, 
+        self,
+        result: TMDBResult,
         search_query: str,
         original_filename: str = ""
     ) -> int:
         """
-        Calcola confidenza match
-        
+        Calculate match confidence
+
         Args:
-            result: Risultato TMDB
-            search_query: Query ricerca
-            original_filename: Nome file originale
-            
+            result: TMDB result
+            search_query: Search query
+            original_filename: Original filename
+
         Returns:
-            Percentuale confidenza (0-100)
+            Confidence percentage (0-100)
         """
         confidence = 0
-        
-        # Confronta titoli
+
+        # Compare titles
         result_title = result.title.lower()
         search_title = search_query.lower()
-        
+
         if result_title == search_title:
             confidence = 95
         elif search_title in result_title or result_title in search_title:
             confidence = 80
         else:
-            # Calcola similarità base
+            # Calculate base similarity
             confidence = 60
-        
-        # Boost per anno se presente
+
+        # Boost for year if present
         if original_filename and result.year:
             import re
             year_match = re.search(r'(\d{4})', original_filename)
@@ -293,46 +293,46 @@ class TMDBClient:
         return confidence
     
     def format_result(
-        self, 
+        self,
         result: TMDBResult,
         series_info: Optional[SeriesInfo] = None
     ) -> tuple[str, Optional[str]]:
         """
-        Formatta risultato per display
-        
+        Format result for display
+
         Args:
-            result: Risultato TMDB
-            series_info: Info serie se TV show
-            
+            result: TMDB result
+            series_info: Series info if TV show
+
         Returns:
-            (testo_formattato, url_poster)
+            (formatted_text, poster_url)
         """
-        # Emoji e tipo
+        # Emoji and type
         if result.is_tv_show:
             emoji = "📺"
-            media_type_str = "Serie TV"
+            media_type_str = "TV Series"
         else:
             emoji = "🎬"
-            media_type_str = "Film"
+            media_type_str = "Movie"
         
         # Rating
         rating_str = f"⭐ {result.vote_average:.1f}/10" if result.vote_average > 0 else ""
         
-        # Overview (tronca se troppo lunga)
+        # Overview (truncate if too long)
         overview = result.overview
         if len(overview) > 300:
             overview = overview[:297] + "..."
-        
-        # Costruisci testo
+
+        # Build text
         text = f"{emoji} **{media_type_str}**\n\n"
         text += f"**{result.title}**"
         if result.year:
             text += f" ({result.year})"
         text += "\n"
-        
-        # Info episodio se presente
+
+        # Episode info if present
         if series_info and series_info.season and series_info.episode:
-            text += f"📅 Stagione {series_info.season}, Episodio {series_info.episode}\n"
+            text += f"📅 Season {series_info.season}, Episode {series_info.episode}\n"
         
         if rating_str:
             text += f"{rating_str}\n"

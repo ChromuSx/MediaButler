@@ -1,24 +1,24 @@
 """
-Utility per formattazione messaggi e output
+Message and output formatting utilities
 """
 from typing import Optional, List
 from models.download import DownloadInfo, DownloadStatus
 
 
 class MessageFormatter:
-    """Formattatore messaggi per Telegram"""
+    """Message formatter for Telegram"""
     
     @staticmethod
     def format_progress_bar(progress: float, width: int = 20) -> str:
         """
-        Crea barra progresso
-        
+        Create progress bar
+
         Args:
-            progress: Percentuale progresso (0-100)
-            width: Larghezza barra in caratteri
-            
+            progress: Progress percentage (0-100)
+            width: Bar width in characters
+
         Returns:
-            Stringa barra progresso
+            Progress bar string
         """
         filled = int((progress / 100) * width)
         empty = width - filled
@@ -27,13 +27,13 @@ class MessageFormatter:
     @staticmethod
     def format_time(seconds: int) -> str:
         """
-        Formatta tempo in formato leggibile
-        
+        Format time in readable format
+
         Args:
-            seconds: Secondi totali
-            
+            seconds: Total seconds
+
         Returns:
-            Stringa tempo formattata
+            Formatted time string
         """
         if seconds < 60:
             return f"{seconds}s"
@@ -49,13 +49,13 @@ class MessageFormatter:
     @staticmethod
     def format_size(size_bytes: int) -> str:
         """
-        Formatta dimensione file
-        
+        Format file size
+
         Args:
-            size_bytes: Dimensione in bytes
-            
+            size_bytes: Size in bytes
+
         Returns:
-            Stringa dimensione formattata
+            Formatted size string
         """
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size_bytes < 1024.0:
@@ -69,13 +69,13 @@ class MessageFormatter:
     @staticmethod
     def format_speed(bytes_per_second: float) -> str:
         """
-        Formatta velocità download
-        
+        Format download speed
+
         Args:
-            bytes_per_second: Bytes al secondo
-            
+            bytes_per_second: Bytes per second
+
         Returns:
-            Stringa velocità formattata
+            Formatted speed string
         """
         mbps = bytes_per_second / (1024 * 1024)
         if mbps < 1:
@@ -87,13 +87,13 @@ class MessageFormatter:
     @staticmethod
     def format_download_status(download_info: DownloadInfo) -> str:
         """
-        Formatta stato download completo
-        
+        Format complete download status
+
         Args:
-            download_info: Info download
-            
+            download_info: Download info
+
         Returns:
-            Messaggio stato formattato
+            Formatted status message
         """
         status_emoji = {
             DownloadStatus.PENDING: "⏳",
@@ -109,35 +109,35 @@ class MessageFormatter:
         
         text = f"{emoji} **{download_info.status.value.capitalize()}**\n\n"
         text += f"📁 **File:** `{download_info.filename}`\n"
-        text += f"📏 **Dimensione:** {MessageFormatter.format_size(download_info.size)}\n"
-        
+        text += f"📏 **Size:** {MessageFormatter.format_size(download_info.size)}\n"
+
         if download_info.status == DownloadStatus.DOWNLOADING:
-            text += f"\n**Progresso:** {download_info.progress:.1f}%\n"
-            
+            text += f"\n**Progress:** {download_info.progress:.1f}%\n"
+
             if download_info.speed_mbps > 0:
-                text += f"⚡ **Velocità:** {download_info.speed_mbps:.1f} MB/s\n"
-            
+                text += f"⚡ **Speed:** {download_info.speed_mbps:.1f} MB/s\n"
+
             if download_info.eta_seconds:
-                text += f"⏱ **Tempo rimanente:** {MessageFormatter.format_time(download_info.eta_seconds)}\n"
-        
+                text += f"⏱ **Time remaining:** {MessageFormatter.format_time(download_info.eta_seconds)}\n"
+
         elif download_info.status == DownloadStatus.FAILED and download_info.error_message:
-            text += f"\n❌ **Errore:** {download_info.error_message}\n"
+            text += f"\n❌ **Error:** {download_info.error_message}\n"
         
         return text
     
     @staticmethod
     def format_queue_position(position: int, total: int) -> str:
         """
-        Formatta posizione in coda
-        
+        Format queue position
+
         Args:
-            position: Posizione corrente
-            total: Totale elementi in coda
-            
+            position: Current position
+            total: Total items in queue
+
         Returns:
-            Stringa posizione formattata
+            Formatted position string
         """
-        return f"📊 Posizione in coda: **{position}/{total}**"
+        return f"📊 Queue position: **{position}/{total}**"
     
     @staticmethod
     def format_disk_space(
@@ -147,53 +147,53 @@ class MessageFormatter:
         min_free: float
     ) -> str:
         """
-        Formatta info spazio disco
-        
+        Format disk space info
+
         Args:
-            free_gb: GB liberi
-            total_gb: GB totali
-            warning_threshold: Soglia avviso
-            min_free: Minimo spazio libero
-            
+            free_gb: Free GB
+            total_gb: Total GB
+            warning_threshold: Warning threshold
+            min_free: Minimum free space
+
         Returns:
-            Stringa spazio formattata
+            Formatted space string
         """
         percent_used = ((total_gb - free_gb) / total_gb) * 100
-        
-        # Determina emoji stato
+
+        # Determine status emoji
         if free_gb > warning_threshold:
             emoji = "🟢"
             status = "OK"
         elif free_gb > min_free:
             emoji = "🟡"
-            status = "Attenzione"
+            status = "Warning"
         else:
             emoji = "🔴"
-            status = "Critico"
-        
-        text = f"{emoji} **Spazio Disco - {status}**\n"
-        text += f"• Totale: {total_gb:.1f} GB\n"
-        text += f"• Usato: {total_gb - free_gb:.1f} GB ({percent_used:.1f}%)\n"
-        text += f"• Libero: {free_gb:.1f} GB\n"
-        text += f"• Disponibile per download: {max(0, free_gb - min_free):.1f} GB"
+            status = "Critical"
+
+        text = f"{emoji} **Disk Space - {status}**\n"
+        text += f"• Total: {total_gb:.1f} GB\n"
+        text += f"• Used: {total_gb - free_gb:.1f} GB ({percent_used:.1f}%)\n"
+        text += f"• Free: {free_gb:.1f} GB\n"
+        text += f"• Available for download: {max(0, free_gb - min_free):.1f} GB"
         
         return text
     
     @staticmethod
     def format_download_list(downloads: List[DownloadInfo]) -> str:
         """
-        Formatta lista download
-        
+        Format download list
+
         Args:
-            downloads: Lista download
-            
+            downloads: Download list
+
         Returns:
-            Lista formattata
+            Formatted list
         """
         if not downloads:
-            return "📭 Nessun download in corso"
-        
-        text = f"📥 **Download attivi ({len(downloads)}):**\n\n"
+            return "📭 No active downloads"
+
+        text = f"📥 **Active downloads ({len(downloads)}):**\n\n"
         
         for idx, dl in enumerate(downloads, 1):
             text += f"{idx}. `{dl.filename[:30]}...`\n"
@@ -209,7 +209,7 @@ class MessageFormatter:
                 else:
                     text += "\n"
             else:
-                text += f"   Stato: {dl.status.value}\n"
+                text += f"   Status: {dl.status.value}\n"
             
             text += "\n"
         
@@ -218,14 +218,14 @@ class MessageFormatter:
     @staticmethod
     def format_error(error_type: str, error_message: str) -> str:
         """
-        Formatta messaggio errore
-        
+        Format error message
+
         Args:
-            error_type: Tipo errore
-            error_message: Messaggio errore
-            
+            error_type: Error type
+            error_message: Error message
+
         Returns:
-            Errore formattato
+            Formatted error
         """
         emoji_map = {
             'space': '💾',
@@ -237,19 +237,19 @@ class MessageFormatter:
         }
         
         emoji = emoji_map.get(error_type, '❌')
-        
-        return f"{emoji} **Errore {error_type.capitalize()}**\n\n{error_message}"
+
+        return f"{emoji} **Error {error_type.capitalize()}**\n\n{error_message}"
     
     @staticmethod
     def escape_markdown(text: str) -> str:
         """
-        Escape caratteri markdown
-        
+        Escape markdown characters
+
         Args:
-            text: Testo da escapare
-            
+            text: Text to escape
+
         Returns:
-            Testo con escape
+            Escaped text
         """
         escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
         
@@ -260,7 +260,7 @@ class MessageFormatter:
 
 
 class TableFormatter:
-    """Formattatore tabelle per output testuale"""
+    """Table formatter for text output"""
     
     @staticmethod
     def create_table(
@@ -269,20 +269,20 @@ class TableFormatter:
         align: str = 'left'
     ) -> str:
         """
-        Crea tabella formattata
-        
+        Create formatted table
+
         Args:
-            headers: Intestazioni colonne
-            rows: Righe dati
-            align: Allineamento (left, right, center)
-            
+            headers: Column headers
+            rows: Data rows
+            align: Alignment (left, right, center)
+
         Returns:
-            Tabella formattata
+            Formatted table
         """
         if not rows:
-            return "Nessun dato disponibile"
-        
-        # Calcola larghezze colonne
+            return "No data available"
+
+        # Calculate column widths
         col_widths = []
         for i, header in enumerate(headers):
             max_width = len(header)
@@ -290,11 +290,11 @@ class TableFormatter:
                 if i < len(row):
                     max_width = max(max_width, len(str(row[i])))
             col_widths.append(max_width)
-        
-        # Crea separatore
+
+        # Create separator
         separator = "+" + "+".join(["-" * (w + 2) for w in col_widths]) + "+"
-        
-        # Formatta header
+
+        # Format header
         header_row = "|"
         for i, header in enumerate(headers):
             if align == 'center':
@@ -303,11 +303,11 @@ class TableFormatter:
                 header_row += f" {header.rjust(col_widths[i])} |"
             else:
                 header_row += f" {header.ljust(col_widths[i])} |"
-        
-        # Costruisci tabella
+
+        # Build table
         table = f"```\n{separator}\n{header_row}\n{separator}\n"
-        
-        # Aggiungi righe
+
+        # Add rows
         for row in rows:
             row_str = "|"
             for i, cell in enumerate(row):

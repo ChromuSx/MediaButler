@@ -113,7 +113,7 @@ class CommandHandlers:
             return
         
         user = await event.get_sender()
-        self.logger.info(f"/start da {user.username} (ID: {user.id})")
+        self.logger.info(f"/start from {user.username} (ID: {user.id})")
         
         is_admin = self.auth.is_admin(user.id)
         
@@ -219,7 +219,7 @@ class CommandHandlers:
             )
             return
         
-        text = "**❌ Seleziona download da cancellare:**\n\n"
+        text = "**❌ Select download to cancel:**\n\n"
         buttons = []
         
         for idx, info in enumerate(active, 1):
@@ -264,11 +264,11 @@ class CommandHandlers:
         
         await event.reply(
             f"⚠️ **Confirm cancellation**\n\n"
-            f"Stai per cancellare:\n"
-            f"• Download attivi: {active}\n"
-            f"• In coda: {queued}\n"
+            f"You are about to cancel:\n"
+            f"• Active downloads: {active}\n"
+            f"• Queued: {queued}\n"
             f"• Waiting: {waiting}\n\n"
-            f"**Totale: {total} operations**\n\n"
+            f"**Total: {total} operations**\n\n"
             f"Confirm?",
             buttons=buttons
         )
@@ -383,7 +383,7 @@ class CommandHandlers:
                 downloads_text = self._get_downloads_detailed()
                 buttons = [
                     [
-                        Button.inline("🔄 Aggiorna", "menu_downloads"),
+                        Button.inline("🔄 Refresh", "menu_downloads"),
                         Button.inline("📱 Menu", "menu_back")
                     ]
                 ]
@@ -438,8 +438,8 @@ class CommandHandlers:
             elif action == 'cancel_all':
                 buttons = [
                     [
-                        Button.inline("✅ Conferma", "cancel_confirm"),
-                        Button.inline("❌ Annulla", "menu_back")
+                        Button.inline("✅ Confirm", "cancel_confirm"),
+                        Button.inline("❌ Cancel", "menu_back")
                     ]
                 ]
             elif action == 'users':
@@ -454,7 +454,7 @@ class CommandHandlers:
                 buttons = [
                     [
                         Button.inline("✅ Confirm Stop", "stop_confirm"),
-                        Button.inline("❌ Annulla", "menu_back")
+                        Button.inline("❌ Cancel", "menu_back")
                     ]
                 ]
                 content = "🛑 **Confirm Bot Stop**\n\n⚠️ This action:\n• Will cancel all downloads\n• Will stop the bot\n• Will require manual restart\n\nConfirm?"
@@ -590,7 +590,7 @@ class CommandHandlers:
             text += f"    📏 {info.size_gb:.1f} GB | 📂 {info.media_type.value}\n"
         
         if waiting_count > 10:
-            text += f"\n...e altri {waiting_count - 10} file"
+            text += f"\n...and {waiting_count - 10} more files"
         
         return text
     
@@ -603,18 +603,18 @@ class CommandHandlers:
             f"**Download:**\n"
             f"• Concurrent: {self.config.limits.max_concurrent_downloads}\n"
             f"• Max size: {self.config.limits.max_file_size_gb} GB\n\n"
-            f"**Spazio:**\n"
+            f"**Space:**\n"
             f"• Minimum reserved: {self.config.limits.min_free_space_gb} GB\n"
             f"• Warning threshold: {self.config.limits.warning_threshold_gb} GB\n"
             f"• Check every: {self.config.limits.space_check_interval}s\n\n"
             f"**TMDB:**\n"
-            f"• Stato: {tmdb_status}\n"
-            f"• Lingua: {self.config.tmdb.language}\n\n"
-            f"**Percorsi:**\n"
-            f"• Film: `{self.config.paths.movies}`\n"
-            f"• Serie: `{self.config.paths.tv}`\n"
+            f"• Status: {tmdb_status}\n"
+            f"• Language: {self.config.tmdb.language}\n\n"
+            f"**Paths:**\n"
+            f"• Movies: `{self.config.paths.movies}`\n"
+            f"• TV Shows: `{self.config.paths.tv}`\n"
             f"• Temp: `{self.config.paths.temp}`\n\n"
-            f"ℹ️ Modifica `.env` per cambiare."
+            f"ℹ️ Edit `.env` to change."
         )
     
     def _get_help_text(self) -> str:
@@ -656,7 +656,7 @@ class CommandHandlers:
         
         text += (
             "\n📝 **To modify:**\n"
-            "1. Modifica `AUTHORIZED_USERS` in `.env`\n"
+            "1. Edit `AUTHORIZED_USERS` in `.env`\n"
             "2. Restart the bot\n\n"
             "The first user is always admin."
         )
@@ -674,13 +674,13 @@ class CommandHandlers:
             return "✅ **No downloads to cancel**"
         
         return (
-            f"⚠️ **Conferma Cancellazione**\n\n"
-            f"Stai per cancellare:\n"
-            f"• Download attivi: {active}\n"
-            f"• In coda: {queued}\n"
+            f"⚠️ **Confirm Cancellation**\n\n"
+            f"You are about to cancel:\n"
+            f"• Active downloads: {active}\n"
+            f"• Queued: {queued}\n"
             f"• Waiting: {waiting}\n\n"
-            f"**Totale: {total} operations**\n\n"
-            f"Sei sicuro?"
+            f"**Total: {total} operations**\n\n"
+            f"Are you sure?"
         )
 
     async def subtitles_handler(self, event):
@@ -699,12 +699,12 @@ class CommandHandlers:
             return
 
         await event.reply(
-            "⚙️ **Configurazione Sottotitoli**\n\n"
-            "Per modificare le impostazioni sottotitoli, aggiorna il file .env:\n\n"
+            "⚙️ **Subtitle Configuration**\n\n"
+            "To modify subtitle settings, update the .env file:\n\n"
             "• `SUBTITLE_ENABLED=true/false`\n"
             "• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n"
             "• `SUBTITLE_LANGUAGES=it,en`\n\n"
-            "Restart the bot per applicare le modifiche."
+            "Restart the bot to apply changes."
         )
 
     async def subtitle_auto_handler(self, event):
@@ -713,16 +713,16 @@ class CommandHandlers:
             return
 
         await event.reply(
-            "⚙️ **Download Automatico Sottotitoli**\n\n"
-            "Per abilitare/disabilitare il download automatico, "
-            "modifica `SUBTITLE_AUTO_DOWNLOAD=true/false` nel file .env\n\n"
-            "Restart the bot per applicare le modifiche."
+            "⚙️ **Automatic Subtitle Download**\n\n"
+            "To enable/disable automatic download, "
+            "edit `SUBTITLE_AUTO_DOWNLOAD=true/false` in the .env file\n\n"
+            "Restart the bot to apply changes."
         )
 
     async def subtitle_callback_handler(self, event):
         """Handler for subtitle button callbacks"""
         if not await self.auth.check_authorized(event):
-            await event.answer("❌ Non autorizzato")
+            await event.answer("❌ Not authorized")
             return
 
         try:
@@ -736,14 +736,14 @@ class CommandHandlers:
 
             elif data == "sub_config":
                 await event.edit(
-                    "⚙️ **Configurazione Sottotitoli**\n\n"
-                    "Per modificare le impostazioni, edita il file .env:\n\n"
+                    "⚙️ **Subtitle Configuration**\n\n"
+                    "To modify settings, edit the .env file:\n\n"
                     "• `SUBTITLE_ENABLED=true/false`\n"
                     "• `SUBTITLE_AUTO_DOWNLOAD=true/false`\n"
                     "• `SUBTITLE_LANGUAGES=it,en,es`\n"
                     "• `OPENSUBTITLES_USERNAME=username`\n"
                     "• `OPENSUBTITLES_PASSWORD=password`\n\n"
-                    "Restart the bot per applicare le modifiche.",
+                    "Restart the bot to apply changes.",
                     buttons=[[Button.inline("🔙 Back", "sub_status")]]
                 )
 
@@ -760,7 +760,7 @@ class CommandHandlers:
 
         except Exception as e:
             self.logger.error(f"Subtitle callback error: {e}")
-            await event.answer("❌ Errore")
+            await event.answer("❌ Error")
 
     def _get_subtitle_status(self) -> str:
         """Get subtitle system status"""
@@ -771,12 +771,12 @@ class CommandHandlers:
         auth_icon = "✅" if config.is_opensubtitles_configured else "❌"
 
         return (
-            f"📝 **Stato Sottotitoli**\n\n"
-            f"{status_icon} Sistema attivo: **{'Sì' if config.enabled else 'No'}**\n"
-            f"{auto_icon} Download automatico: **{'Sì' if config.auto_download else 'No'}**\n"
-            f"🌍 Lingue: **{', '.join(config.languages)}**\n"
-            f"{auth_icon} OpenSubtitles configurato: **{'Sì' if config.is_opensubtitles_configured else 'No'}**\n"
-            f"📄 Formato preferito: **{config.preferred_format}**\n\n"
+            f"📝 **Subtitle Status**\n\n"
+            f"{status_icon} System enabled: **{'Yes' if config.enabled else 'No'}**\n"
+            f"{auto_icon} Auto-download: **{'Yes' if config.auto_download else 'No'}**\n"
+            f"🌍 Languages: **{', '.join(config.languages)}**\n"
+            f"{auth_icon} OpenSubtitles configured: **{'Yes' if config.is_opensubtitles_configured else 'No'}**\n"
+            f"📄 Preferred format: **{config.preferred_format}**\n\n"
             f"User Agent: `{config.opensubtitles_user_agent}`"
         )
 

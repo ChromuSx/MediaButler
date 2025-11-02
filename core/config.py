@@ -1,5 +1,5 @@
 """
-Configurazione centralizzata per MediaButler
+Centralized configuration for MediaButler
 """
 import os
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass
 
-# Carica variabili ambiente
+# Load environment variables
 try:
     from dotenv import load_dotenv
     env_path = Path('.env')
@@ -21,7 +21,7 @@ except ImportError:
 
 @dataclass
 class TelegramConfig:
-    """Configurazione Telegram"""
+    """Telegram configuration"""
     api_id: int
     api_hash: str
     bot_token: str
@@ -30,7 +30,7 @@ class TelegramConfig:
 
 @dataclass
 class TMDBConfig:
-    """Configurazione TMDB"""
+    """TMDB configuration"""
     api_key: Optional[str]
     base_url: str = 'https://api.themoviedb.org/3'
     image_base: str = 'https://image.tmdb.org/t/p/'
@@ -43,20 +43,20 @@ class TMDBConfig:
 
 @dataclass
 class PathsConfig:
-    """Configurazione percorsi"""
+    """Paths configuration"""
     movies: Path
     tv: Path
     temp: Path
     
     def create_directories(self):
-        """Crea le directory se non esistono"""
+        """Create directories if they don't exist"""
         for path in [self.movies, self.tv, self.temp]:
             path.mkdir(parents=True, exist_ok=True)
 
 
 @dataclass
 class LimitsConfig:
-    """Configurazione limiti e soglie"""
+    """Limits and thresholds configuration"""
     max_concurrent_downloads: int = 3
     min_free_space_gb: float = 5.0
     warning_threshold_gb: float = 10.0
@@ -66,7 +66,7 @@ class LimitsConfig:
 
 @dataclass
 class AuthConfig:
-    """Configurazione autorizzazioni"""
+    """Authorization configuration"""
     authorized_users: List[int]
     admin_mode: bool
 
@@ -77,7 +77,7 @@ class AuthConfig:
 
 @dataclass
 class SubtitleConfig:
-    """Configurazione sottotitoli"""
+    """Subtitles configuration"""
     enabled: bool = False
     auto_download: bool = False
     languages: List[str] = None
@@ -103,7 +103,7 @@ class DatabaseConfig:
 
 
 class Config:
-    """Configurazione principale MediaButler"""
+    """Main MediaButler configuration"""
     
     def __init__(self):
         self.telegram = self._load_telegram_config()
@@ -115,22 +115,22 @@ class Config:
         self.database = self._load_database_config()
         self.logger = self._setup_logging()
 
-        # Validazione
+        # Validation
         self._validate_config()
 
-        # Crea directory necessarie
+        # Create necessary directories
         self.paths.create_directories()
 
-        # Crea directory per sessione
+        # Create directory for session
         Path(os.path.dirname(self.telegram.session_path)).mkdir(
             parents=True, exist_ok=True
         )
 
-        # Crea directory per database
+        # Create directory for database
         self.database.path.parent.mkdir(parents=True, exist_ok=True)
     
     def _load_telegram_config(self) -> TelegramConfig:
-        """Carica configurazione Telegram"""
+        """Load Telegram configuration"""
         api_id = int(os.getenv('TELEGRAM_API_ID', '0'))
         api_hash = os.getenv('TELEGRAM_API_HASH', '')
         bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
@@ -148,14 +148,14 @@ class Config:
         )
     
     def _load_tmdb_config(self) -> TMDBConfig:
-        """Carica configurazione TMDB"""
+        """Load TMDB configuration"""
         return TMDBConfig(
             api_key=os.getenv('TMDB_API_KEY', '') or None,
             language=os.getenv('TMDB_LANGUAGE', 'it-IT')
         )
     
     def _load_paths_config(self) -> PathsConfig:
-        """Carica configurazione percorsi"""
+        """Load paths configuration"""
         return PathsConfig(
             movies=Path(os.getenv('MOVIES_PATH', '/media/movies')),
             tv=Path(os.getenv('TV_PATH', '/media/tv')),
@@ -163,7 +163,7 @@ class Config:
         )
     
     def _load_limits_config(self) -> LimitsConfig:
-        """Carica configurazione limiti"""
+        """Load limits configuration"""
         return LimitsConfig(
             max_concurrent_downloads=int(os.getenv('MAX_CONCURRENT_DOWNLOADS', '3')),
             min_free_space_gb=float(os.getenv('MIN_FREE_SPACE_GB', '5')),
@@ -172,7 +172,7 @@ class Config:
         )
     
     def _load_auth_config(self) -> AuthConfig:
-        """Carica configurazione autorizzazioni"""
+        """Load authorization configuration"""
         users_str = os.getenv('AUTHORIZED_USERS', '')
         authorized_users = [
             int(uid.strip())
@@ -186,7 +186,7 @@ class Config:
         )
 
     def _load_subtitle_config(self) -> SubtitleConfig:
-        """Carica configurazione sottotitoli"""
+        """Load subtitles configuration"""
         languages_str = os.getenv('SUBTITLE_LANGUAGES', 'it,en')
         languages = [lang.strip() for lang in languages_str.split(',') if lang.strip()]
 
@@ -211,7 +211,7 @@ class Config:
         )
     
     def _setup_logging(self) -> logging.Logger:
-        """Configura logging"""
+        """Configure logging"""
         logging.basicConfig(
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             level=logging.INFO
@@ -219,7 +219,7 @@ class Config:
         return logging.getLogger('MediaButler')
     
     def _validate_config(self):
-        """Valida la configurazione"""
+        """Validate configuration"""
         if not all([
             self.telegram.api_id, 
             self.telegram.api_hash, 
@@ -230,7 +230,7 @@ class Config:
             sys.exit(1)
     
     def log_config(self):
-        """Log della configurazione attuale"""
+        """Log current configuration"""
         self.logger.info("=== MEDIABUTLER CONFIGURATION ===")
         self.logger.info(f"Movies path: {self.paths.movies}")
         self.logger.info(f"TV path: {self.paths.tv}")
@@ -245,12 +245,12 @@ class Config:
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
 
 
-# Singleton per configurazione globale
+# Singleton for global configuration
 _config: Optional[Config] = None
 
 
 def get_config() -> Config:
-    """Ottieni istanza configurazione (singleton)"""
+    """Get configuration instance (singleton)"""
     global _config
     if _config is None:
         _config = Config()

@@ -1,5 +1,5 @@
 """
-Gestione download e code
+Download and queue management
 """
 import asyncio
 import time
@@ -35,7 +35,7 @@ async def get_user_config_for_download(user_id: int) -> UserConfig:
 
 
 class DownloadManager:
-    """Gestore download e code"""
+    """Download and queue manager"""
     
     def __init__(
         self,
@@ -50,7 +50,7 @@ class DownloadManager:
         self.config = get_config()
         self.logger = self.config.logger
         
-        # Strutture dati per gestione download
+        # Data structures for download management
         self.active_downloads: Dict[int, DownloadInfo] = {}
         self.download_tasks: Dict[int, asyncio.Task] = {}
         self.download_queue = asyncio.Queue()
@@ -63,47 +63,47 @@ class DownloadManager:
         
     async def start_workers(self):
         """Start workers to process downloads"""
-        # Crea worker download
+        # Create download workers
         for i in range(self.config.limits.max_concurrent_downloads):
             worker = asyncio.create_task(self._download_worker())
             self.workers.append(worker)
-        
-        # Avvia monitor spazio
+
+        # Start space monitor
         self.space_monitor_task = asyncio.create_task(self._space_monitor_worker())
         
         self.logger.info(f"Started {len(self.workers)} download workers")
     
     async def stop(self):
         """Stop all workers"""
-        # Cancella tutti i download attivi
+        # Cancel all active downloads
         for msg_id in list(self.active_downloads.keys()):
             self.cancelled_downloads.add(msg_id)
-        
-        # Cancella task
+
+        # Cancel tasks
         for task in self.download_tasks.values():
             task.cancel()
-        
-        # Ferma workers
+
+        # Stop workers
         for worker in self.workers:
             worker.cancel()
-        
+
         if self.space_monitor_task:
             self.space_monitor_task.cancel()
-        
-        # Attendi chiusura
+
+        # Wait for shutdown
         await asyncio.gather(*self.workers, return_exceptions=True)
         
         self.logger.info("Download manager stopped")
     
     def add_download(self, download_info: DownloadInfo) -> bool:
         """
-        Aggiunge un download
-        
+        Add a download
+
         Args:
-            download_info: Info download
-            
+            download_info: Download info
+
         Returns:
-            True se aggiunto, False se già presente
+            True if added, False if already present
         """
         if download_info.message_id in self.active_downloads:
             return False
@@ -113,13 +113,13 @@ class DownloadManager:
     
     async def queue_download(self, download_info: DownloadInfo) -> int:
         """
-        Mette in coda un download
-        
+        Queue a download
+
         Args:
-            download_info: Info download
-            
+            download_info: Download info
+
         Returns:
-            Posizione in coda
+            Queue position
         """
         queue_item = QueueItem(download_info=download_info)
         await self.download_queue.put(queue_item)
@@ -129,13 +129,13 @@ class DownloadManager:
     
     def queue_for_space(self, download_info: DownloadInfo) -> int:
         """
-        Mette in coda per spazio
-        
+        Queue for space
+
         Args:
-            download_info: Info download
-            
+            download_info: Download info
+
         Returns:
-            Posizione in coda spazio
+            Space queue position
         """
         queue_item = QueueItem(download_info=download_info)
         self.space_waiting_queue.append(queue_item)
@@ -145,13 +145,13 @@ class DownloadManager:
     
     def cancel_download(self, message_id: int) -> bool:
         """
-        Cancella un download
-        
+        Cancel a download
+
         Args:
-            message_id: ID messaggio
-            
+            message_id: Message ID
+
         Returns:
-            True se cancellato
+            True if cancelled
         """
         self.cancelled_downloads.add(message_id)
         
@@ -167,19 +167,19 @@ class DownloadManager:
     
     def cancel_all_downloads(self) -> int:
         """
-        Cancella tutti i download
-        
+        Cancel all downloads
+
         Returns:
-            Numero download cancellati
+            Number of cancelled downloads
         """
         cancelled = 0
-        
-        # Cancella attivi
+
+        # Cancel active ones
         for msg_id in list(self.active_downloads.keys()):
             if self.cancel_download(msg_id):
                 cancelled += 1
-        
-        # Svuota code
+
+        # Empty queues
         while not self.download_queue.empty():
             try:
                 queue_item = self.download_queue.get_nowait()
@@ -187,8 +187,8 @@ class DownloadManager:
                 cancelled += 1
             except:
                 break
-        
-        # Svuota coda spazio
+
+        # Empty space queue
         for item in self.space_waiting_queue:
             self.cancelled_downloads.add(item.download_info.message_id)
             cancelled += 1
@@ -197,63 +197,63 @@ class DownloadManager:
         return cancelled
     
     def get_active_downloads(self) -> list[DownloadInfo]:
-        """Ottieni download attivi"""
+        """Get active downloads"""
         return [
             info for msg_id, info in self.active_downloads.items()
             if msg_id in self.download_tasks
         ]
     
     def get_queued_count(self) -> int:
-        """Ottieni numero file in coda"""
+        """Get number of queued files"""
         return self.download_queue.qsize()
     
     def get_space_waiting_count(self) -> int:
-        """Ottieni numero file in attesa spazio"""
+        """Get number of files waiting for space"""
         return len(self.space_waiting_queue)
     
     def get_download_info(self, message_id: int) -> Optional[DownloadInfo]:
-        """Ottieni info download"""
+        """Get download info"""
         return self.active_downloads.get(message_id)
     
     def is_downloading(self, message_id: int) -> bool:
-        """Verifica se sta scaricando"""
+        """Check if downloading"""
         return message_id in self.download_tasks
     
     async def _download_worker(self):
-        """Worker che processa coda download"""
+        """Worker that processes download queue"""
         while True:
             try:
-                # Attendi slot libero
+                # Wait for free slot
                 while len(self.download_tasks) >= self.config.limits.max_concurrent_downloads:
                     await asyncio.sleep(1)
-                
-                # Prendi dalla coda
+
+                # Get from queue
                 queue_item = await self.download_queue.get()
                 download_info = queue_item.download_info
                 msg_id = download_info.message_id
-                
-                # Verifica se cancellato
+
+                # Check if cancelled
                 if msg_id in self.cancelled_downloads:
-                    self.logger.info(f"Download cancellato dalla coda: {download_info.filename}")
+                    self.logger.info(f"Download cancelled from queue: {download_info.filename}")
                     self.cancelled_downloads.discard(msg_id)
                     continue
-                
-                # Verifica spazio
+
+                # Check space
                 size_gb = download_info.size_gb
                 space_ok, free_gb = self.space_manager.check_space_available(
                     download_info.dest_path,
                     size_gb
                 )
-                
+
                 if not space_ok:
-                    # Rimetti in coda spazio
+                    # Put back in space queue
                     self.queue_for_space(download_info)
                     self.logger.warning(
-                        f"Spazio insufficiente per {download_info.filename}, "
-                        f"messo in coda spazio"
+                        f"Insufficient space for {download_info.filename}, "
+                        f"queued for space"
                     )
-                    
-                    # Notifica utente se possibile
+
+                    # Notify user if possible
                     if download_info.event:
                         try:
                             await download_info.event.edit(
@@ -265,12 +265,12 @@ class DownloadManager:
                         except:
                             pass
                     continue
-                
-                # Avvia download
+
+                # Start download
                 task = asyncio.create_task(self._download_file(download_info))
                 self.download_tasks[msg_id] = task
-                
-                # Attendi completamento
+
+                # Wait for completion
                 await task
                 
             except asyncio.CancelledError:
@@ -279,7 +279,7 @@ class DownloadManager:
                 self.logger.error(f"Errore in download worker: {e}", exc_info=True)
     
     async def _space_monitor_worker(self):
-        """Worker che monitora spazio e processa coda attesa"""
+        """Worker that monitors space and processes waiting queue"""
         while True:
             try:
                 await asyncio.sleep(self.config.limits.space_check_interval)
@@ -292,42 +292,42 @@ class DownloadManager:
                 for queue_item in self.space_waiting_queue:
                     download_info = queue_item.download_info
                     msg_id = download_info.message_id
-                    
-                    # Verifica se cancellato
+
+                    # Check if cancelled
                     if msg_id in self.cancelled_downloads:
                         processed.append(queue_item)
                         continue
-                    
-                    # Verifica spazio
+
+                    # Check space
                     size_gb = download_info.size_gb
                     space_ok, free_gb = self.space_manager.check_space_available(
                         download_info.dest_path,
                         size_gb
                     )
-                    
+
                     # If there's space and free slot, move to download queue
                     if space_ok and len(self.download_tasks) < self.config.limits.max_concurrent_downloads:
                         await self.download_queue.put(queue_item)
                         processed.append(queue_item)
-                        
+
                         self.logger.info(
                             f"Space available for {download_info.filename}, "
                             f"moved to download queue"
                         )
-                        
-                        # Notifica utente
+
+                        # Notify user
                         if download_info.event:
                             try:
                                 await download_info.event.edit(
                                     f"{download_info.emoji} **{download_info.media_type}**\n\n"
-                                    f"✅ **Spazio disponibile!**\n"
-                                    f"📥 Spostato in coda download...\n"
-                                    f"💾 Spazio libero: {free_gb:.1f} GB"
+                                    f"✅ **Space available!**\n"
+                                    f"📥 Moved to download queue...\n"
+                                    f"💾 Free space: {free_gb:.1f} GB"
                                 )
                             except:
                                 pass
-                
-                # Rimuovi processati
+
+                # Remove processed
                 for item in processed:
                     self.space_waiting_queue.remove(item)
                 
@@ -335,16 +335,16 @@ class DownloadManager:
                 self.logger.error(f"Errore in space monitor: {e}", exc_info=True)
     
     async def _download_file(self, download_info: DownloadInfo):
-        """Esegue download di un file con retry e gestione sicura"""
+        """Execute file download with retry and safe handling"""
         msg_id = download_info.message_id
         
         try:
-            # Verifica cancellazione
+            # Check cancellation
             if msg_id in self.cancelled_downloads:
                 self.logger.info(f"Download already cancelled: {download_info.filename}")
                 return
-            
-            # Aggiorna stato
+
+            # Update status
             download_info.status = DownloadStatus.DOWNLOADING
             download_info.start_time = time.time()
 
@@ -359,7 +359,7 @@ class DownloadManager:
                 except Exception as e:
                     self.logger.error(f"Error adding download to database: {e}")
 
-            # Prepara percorsi
+            # Prepare paths
             filepath = self._prepare_file_path(download_info)
             download_info.final_path = filepath
             
@@ -378,34 +378,34 @@ class DownloadManager:
                 return
             
             self.logger.info(f"Download started: {download_info.filename} -> {filepath}")
-            
-            # Info per display
+
+            # Info for display
             path_info = self._get_path_info(download_info, filepath)
-            
-            # Notifica inizio
+
+            # Notify start
             if download_info.event:
                 await download_info.event.edit(
                     f"{download_info.emoji} **{download_info.media_type}**\n\n"
-                    f"📥 **Download in corso...**\n"
+                    f"📥 **Downloading...**\n"
                     f"`{filepath.name}`\n\n"
                     f"{path_info}"
-                    f"Inizializzazione..."
+                    f"Initializing..."
                 )
-            
-            # Callback progresso
+
+            # Progress callback
             last_update = time.time()
-            
+
             async def progress_callback(current, total):
                 nonlocal last_update
-                
-                # Verifica cancellazione
+
+                # Check cancellation
                 if msg_id in self.cancelled_downloads:
-                    raise asyncio.CancelledError("Download cancellato dall'utente")
-                
+                    raise asyncio.CancelledError("Download cancelled by user")
+
                 now = time.time()
-                if now - last_update < 2:  # Aggiorna ogni 2 secondi
+                if now - last_update < 2:  # Update every 2 seconds
                     return
-                
+
                 last_update = now
                 await self._update_progress(download_info, current, total, path_info)
             
@@ -423,28 +423,28 @@ class DownloadManager:
                 )
             
             await download_with_retry()
-            
-            # Verifica cancellazione finale
+
+            # Check final cancellation
             if msg_id in self.cancelled_downloads:
                 if temp_path.exists():
                     temp_path.unlink()
-                raise asyncio.CancelledError("Download cancellato")
-            
-            # Sposta file in posizione finale (atomico)
+                raise asyncio.CancelledError("Download cancelled")
+
+            # Move file to final position (atomic)
             if not FileHelpers.safe_move(temp_path, filepath):
-                raise Exception("Impossibile spostare file nella destinazione finale")
-            
-            # Completato
+                raise Exception("Unable to move file to final destination")
+
+            # Completed
             download_info.status = DownloadStatus.COMPLETED
             download_info.end_time = time.time()
 
-            # Calcola hash per deduplicazione futura
+            # Calculate hash for future deduplication
             file_hash = await AsyncHelpers.run_with_timeout(
                 asyncio.to_thread(FileHelpers.get_file_hash, filepath),
                 timeout=30,
                 default="unknown"
             )
-            self.logger.info(f"File completato: {filepath} (hash: {file_hash})")
+            self.logger.info(f"File completed: {filepath} (hash: {file_hash})")
 
             # Save to database
             if _database_manager:
@@ -460,14 +460,14 @@ class DownloadManager:
                 except Exception as e:
                     self.logger.error(f"Error saving to database: {e}")
 
-            # Download sottotitoli se configurato
+            # Download subtitles if configured
             await self._handle_subtitles_download(download_info, filepath)
 
-            # Notifica completamento
+            # Notify completion
             await self._notify_completion(download_info, filepath)
             
         except asyncio.CancelledError:
-            self.logger.info(f"Download cancellato: {download_info.filename}")
+            self.logger.info(f"Download cancelled: {download_info.filename}")
             download_info.status = DownloadStatus.CANCELLED
 
             # Save cancellation to database
@@ -481,29 +481,29 @@ class DownloadManager:
                 except Exception as e:
                     self.logger.error(f"Error saving cancellation to database: {e}")
 
-            # Pulizia file temporaneo
+            # Cleanup temporary file
             if 'temp_path' in locals() and temp_path.exists():
                 temp_path.unlink()
 
-            # Pulizia file finale e cartelle
+            # Cleanup final file and folders
             if download_info.final_path and download_info.final_path.exists():
                 self.space_manager.smart_cleanup(
                     download_info.final_path,
                     download_info.is_movie
                 )
 
-            # Notifica cancellazione
+            # Notify cancellation
             if download_info.event:
                 try:
                     await download_info.event.edit(
-                        f"❌ **Download cancellato**\n\n"
+                        f"❌ **Download cancelled**\n\n"
                         f"File: `{download_info.filename}`"
                     )
                 except:
                     pass
 
         except Exception as e:
-            self.logger.error(f"Errore download: {e}", exc_info=True)
+            self.logger.error(f"Download error: {e}", exc_info=True)
             download_info.status = DownloadStatus.FAILED
             download_info.error_message = str(e)
 
@@ -519,11 +519,11 @@ class DownloadManager:
                 except Exception as db_err:
                     self.logger.error(f"Error saving failure to database: {db_err}")
 
-            # Pulizia file temporaneo se esiste
+            # Cleanup temporary file if exists
             if 'temp_path' in locals() and temp_path.exists():
                 temp_path.unlink()
 
-            # Notifica errore (rispettando preferenze utente)
+            # Notify error (respecting user preferences)
             user_config = await get_user_config_for_download(download_info.user_id)
             notify_failed = True  # Default
             compact_messages = False
@@ -540,37 +540,37 @@ class DownloadManager:
                         )
                     else:
                         await download_info.event.edit(
-                            f"❌ **Errore durante il download**\n\n"
+                            f"❌ **Download error**\n\n"
                             f"File: `{download_info.filename}`\n"
-                            f"Errore: `{str(e)}`"
+                            f"Error: `{str(e)}`"
                         )
                 except:
                     pass
                     
         finally:
-            # Rimuovi da strutture
+            # Remove from structures
             if msg_id in self.download_tasks:
                 del self.download_tasks[msg_id]
             if msg_id in self.active_downloads:
                 del self.active_downloads[msg_id]
             self.cancelled_downloads.discard(msg_id)
-    
+
     def _prepare_file_path(self, download_info: DownloadInfo) -> Path:
-        """Prepara percorso file finale"""
-        # Determina nome file e cartella
+        """Prepare final file path"""
+        # Determine filename and folder
         if download_info.selected_tmdb and download_info.tmdb_confidence >= 60:
-            # Usa naming TMDB
+            # Use TMDB naming
             folder_name, filename = FileNameParser.create_tmdb_filename(
                 download_info.selected_tmdb,
                 download_info.original_filename,
                 download_info.series_info
             )
         else:
-            # Usa naming base
+            # Use base naming
             folder_name = download_info.movie_folder or download_info.display_name
             filename = download_info.filename
 
-        # Crea struttura cartelle
+        # Create folder structure
         if download_info.is_movie:
             # Check for existing similar folder
             similar_folder = FileNameParser.find_similar_folder(
@@ -614,19 +614,19 @@ class DownloadManager:
             filepath = season_folder / filename
 
         return filepath
-    
+
     def _get_path_info(self, download_info: DownloadInfo, filepath: Path) -> str:
-        """Genera info percorso per display"""
+        """Generate path info for display"""
         if download_info.is_movie:
-            return f"📁 Cartella: `{filepath.parent.name}/`\n"
+            return f"📁 Folder: `{filepath.parent.name}/`\n"
         else:
             season_folder = filepath.parent
             series_folder = season_folder.parent
             return (
-                f"📁 Serie: `{series_folder.name}/`\n"
-                f"📅 Stagione: `{season_folder.name}/`\n"
+                f"📁 Series: `{series_folder.name}/`\n"
+                f"📅 Season: `{season_folder.name}/`\n"
             )
-    
+
     async def _update_progress(
         self,
         download_info: DownloadInfo,
@@ -634,7 +634,7 @@ class DownloadManager:
         total: int,
         path_info: str
     ):
-        """Aggiorna progresso download"""
+        """Update download progress"""
         progress = (current / total) * 100
         download_info.progress = progress
         
@@ -655,35 +655,35 @@ class DownloadManager:
             else:
                 eta_str = f"{int(eta/60)}m {int(eta%60)}s"
         else:
-            eta_str = "calcolo..."
-        
+            eta_str = "calculating..."
+
         # Progress bar
         filled = int(progress / 5)
         bar = "█" * filled + "░" * (20 - filled)
-        
-        # Stato spazio
+
+        # Space status
         free_gb = self.space_manager.get_free_space_gb(download_info.dest_path)
         space_emoji = "🟢" if free_gb > self.config.limits.warning_threshold_gb else "🟡" if free_gb > self.config.limits.min_free_space_gb else "🔴"
-        
-        # Aggiorna messaggio
+
+        # Update message
         if download_info.event:
             try:
                 await download_info.event.edit(
                     f"{download_info.emoji} **{download_info.media_type}**\n\n"
-                    f"📥 **Download in corso...**\n"
+                    f"📥 **Downloading...**\n"
                     f"`{download_info.final_path.name}`\n\n"
                     f"{path_info}"
                     f"`[{bar}]`\n"
                     f"**{progress:.1f}%** - {current_mb:.1f}/{total_mb:.1f} MB\n"
-                    f"⚡ Velocità: **{speed:.1f} MB/s**\n"
-                    f"⏱ Tempo rimanente: **{eta_str}**\n"
-                    f"{space_emoji} Spazio libero: **{free_gb:.1f} GB**"
+                    f"⚡ Speed: **{speed:.1f} MB/s**\n"
+                    f"⏱ Time remaining: **{eta_str}**\n"
+                    f"{space_emoji} Free space: **{free_gb:.1f} GB**"
                 )
             except:
                 pass
-    
+
     async def _notify_completion(self, download_info: DownloadInfo, filepath: Path):
-        """Notifica completamento download"""
+        """Notify download completion"""
         # Check user notification preferences
         user_config = await get_user_config_for_download(download_info.user_id)
 
@@ -695,12 +695,12 @@ class DownloadManager:
             compact_messages = False
 
         if not notify_complete:
-            self.logger.info(f"Download completato (notifica disabilitata): {filepath}")
+            self.logger.info(f"Download completed (notification disabled): {filepath}")
             return
 
         final_free_gb = self.space_manager.get_free_space_gb(download_info.dest_path)
 
-        # Percorso relativo per display
+        # Relative path for display
         if download_info.is_movie:
             display_path = f"{filepath.parent.name}/{filepath.name}"
         else:
@@ -720,20 +720,20 @@ class DownloadManager:
                 else:
                     # Detailed notification
                     await download_info.event.edit(
-                        f"✅ **Download completato!**\n\n"
-                        f"{download_info.emoji} Tipo: **{download_info.media_type}**\n"
+                        f"✅ **Download completed!**\n\n"
+                        f"{download_info.emoji} Type: **{download_info.media_type}**\n"
                         f"📁 File: `{filepath.name}`\n"
-                        f"📂 Percorso: `{display_path}`\n"
-                        f"💾 Spazio rimanente: **{final_free_gb:.1f} GB**\n\n"
-                        f"🎬 Disponibile sul tuo media server!"
+                        f"📂 Path: `{display_path}`\n"
+                        f"💾 Remaining space: **{final_free_gb:.1f} GB**\n\n"
+                        f"🎬 Available on your media server!"
                     )
             except:
                 pass
 
-        self.logger.info(f"Download completato: {filepath}")
+        self.logger.info(f"Download completed: {filepath}")
 
     async def _handle_subtitles_download(self, download_info: DownloadInfo, filepath: Path):
-        """Gestisce download sottotitoli dopo completamento video"""
+        """Handle subtitle download after video completion"""
         # Get user-specific configuration
         user_config = await get_user_config_for_download(download_info.user_id)
 
@@ -751,13 +751,13 @@ class DownloadManager:
             return
 
         if not auto_download:
-            self.logger.debug("Download automatico sottotitoli disabilitato")
+            self.logger.debug("Automatic subtitle download disabled")
             return
 
         try:
-            self.logger.info(f"🎬 Avvio download sottotitoli per: {filepath.name}")
+            self.logger.info(f"🎬 Starting subtitle download for: {filepath.name}")
 
-            # Estrai informazioni per ricerca sottotitoli
+            # Extract information for subtitle search
             season = None
             episode = None
             imdb_id = getattr(download_info, 'imdb_id', None)
@@ -767,7 +767,7 @@ class DownloadManager:
                 season = download_info.season
                 episode = download_info.episode
 
-            # Scarica sottotitoli
+            # Download subtitles
             subtitle_files = await self.subtitle_manager.download_subtitles_for_video(
                 video_path=filepath,
                 imdb_id=imdb_id,
@@ -778,26 +778,26 @@ class DownloadManager:
             )
 
             if subtitle_files:
-                self.logger.info(f"✅ Scaricati {len(subtitle_files)} sottotitoli per {filepath.name}")
+                self.logger.info(f"✅ Downloaded {len(subtitle_files)} subtitles for {filepath.name}")
 
-                # Aggiorna notifica per includere info sottotitoli
+                # Update notification to include subtitle info
                 if download_info.event:
                     try:
                         langs = ", ".join([f.stem.split('.')[-2] for f in subtitle_files if '.' in f.stem])
                         current_text = download_info.event.text or ""
-                        if "🎬 Disponibile sul tuo media server!" in current_text:
+                        if "🎬 Available on your media server!" in current_text:
                             updated_text = current_text.replace(
-                                "🎬 Disponibile sul tuo media server!",
-                                f"🎬 Disponibile sul tuo media server!\n📝 Sottotitoli: {langs}"
+                                "🎬 Available on your media server!",
+                                f"🎬 Available on your media server!\n📝 Subtitles: {langs}"
                             )
                             await download_info.event.edit(updated_text)
                     except Exception as e:
-                        self.logger.debug(f"Errore aggiornamento notifica sottotitoli: {e}")
+                        self.logger.debug(f"Error updating subtitle notification: {e}")
             else:
-                self.logger.info(f"❌ Nessun sottotitolo trovato per {filepath.name}")
+                self.logger.info(f"❌ No subtitles found for {filepath.name}")
 
         except Exception as e:
-            self.logger.error(f"❌ Errore download sottotitoli per {filepath.name}: {e}")
+            self.logger.error(f"❌ Subtitle download error for {filepath.name}: {e}")
 
     async def download_subtitles_manually(
         self,
@@ -806,18 +806,18 @@ class DownloadManager:
         force: bool = True
     ) -> List[Path]:
         """
-        Download manuale sottotitoli per un video esistente
+        Manual subtitle download for an existing video
 
         Args:
-            video_path: Percorso del file video
-            languages: Lingue da scaricare (default: da config)
-            force: Forza download anche se già esistenti
+            video_path: Video file path
+            languages: Languages to download (default: from config)
+            force: Force download even if already existing
 
         Returns:
-            Lista file sottotitoli scaricati
+            List of downloaded subtitle files
         """
         if not self.config.subtitles.enabled:
-            self.logger.warning("Sistema sottotitoli disabilitato")
+            self.logger.warning("Subtitle system disabled")
             return []
 
         return await self.subtitle_manager.download_subtitles_for_video(

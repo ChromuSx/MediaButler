@@ -58,7 +58,7 @@ class CallbackHandlers:
         elif data.startswith('dup_'):
             await self._handle_duplicate_action(event, data)
         else:
-            await event.answer("⚠️ Azione non riconosciuta")
+            await event.answer("⚠️ Unrecognized action")
     
     async def _handle_tmdb_selection(self, event, data: str):
         """Handles TMDB result selection"""
@@ -76,12 +76,12 @@ class CallbackHandlers:
             await event.answer("❌ You can only manage your own downloads", alert=True)
             return
         
-        # Seleziona risultato TMDB
+        # Select TMDB result
         if download_info.tmdb_results and result_idx < len(download_info.tmdb_results):
             download_info.selected_tmdb = download_info.tmdb_results[result_idx]
-            download_info.tmdb_confidence = 100  # Confermato dall'utente
+            download_info.tmdb_confidence = 100  # Confirmed by user
             
-            # Determina tipo
+            # Determine type
             if download_info.selected_tmdb.is_tv_show:
                 await self._process_tv_selection(event, download_info)
             else:
@@ -119,16 +119,16 @@ class CallbackHandlers:
         # Show manual selection
         buttons = [
             [
-                Button.inline("🎬 Film", f"movie_{msg_id}"),
-                Button.inline("📺 Serie TV", f"tv_{msg_id}")
+                Button.inline("🎬 Movie", f"movie_{msg_id}"),
+                Button.inline("📺 TV Series", f"tv_{msg_id}")
             ],
-            [Button.inline("❌ Cancella", f"cancel_{msg_id}")]
+            [Button.inline("❌ Cancel", f"cancel_{msg_id}")]
         ]
-        
+
         await event.edit(
             f"📁 **File:** `{download_info.filename}`\n"
-            f"📏 **Dimensione:** {download_info.size_gb:.1f} GB\n\n"
-            f"**Seleziona tipo media:**",
+            f"📏 **Size:** {download_info.size_gb:.1f} GB\n\n"
+            f"**Select media type:**",
             buttons=buttons
         )
     
@@ -169,9 +169,9 @@ class CallbackHandlers:
         
         await event.edit(
             f"{download_info.emoji} **{download_info.media_type}**\n"
-            f"📅 Stagione {season_num}\n\n"
-            f"📥 **Preparazione download...**\n"
-            f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
+            f"📅 Season {season_num}\n\n"
+            f"📥 **Preparing download...**\n"
+            f"✅ Available space: {free_gb:.1f} GB\n"
             f"📊 Position in queue: #{position}"
         )
 
@@ -193,12 +193,12 @@ class CallbackHandlers:
         download_info.waiting_for_season = True
 
         await event.edit(
-            f"📺 **Serie TV selezionata**\n\n"
-            f"📁 Serie: `{series_name}`\n"
+            f"📺 **TV Series selected**\n\n"
+            f"📁 Series: `{series_name}`\n"
             f"📄 File: `{download_info.filename}`\n\n"
-            f"**Scrivi il numero della stagione** (es: `12`)\n"
-            f"_Risponderò con un messaggio qui sotto_",
-            buttons=[[Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")]]
+            f"**Enter the season number** (e.g., `12`)\n"
+            f"_I'll respond below_",
+            buttons=[[Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]]
         )
 
     async def _handle_cancel(self, event, data: str):
@@ -207,18 +207,18 @@ class CallbackHandlers:
         
         download_info = self.downloads.get_download_info(msg_id)
         if not download_info:
-            await event.answer("❌ Download già completato o cancellato")
+            await event.answer("❌ Download already completed or cancelled")
             return
-        
+
         # Check ownership
         if not self.auth.can_manage_download(event.sender_id, download_info.user_id):
-            await event.answer("❌ Puoi cancellare solo i tuoi download", alert=True)
+            await event.answer("❌ You can only cancel your own downloads", alert=True)
             return
-        
+
         # Cancel
         self.downloads.cancel_download(msg_id)
-        
-        await event.edit("❌ Download cancellato")
+
+        await event.edit("❌ Download cancelled")
     
     async def _handle_movie_selection(self, event, data: str):
         """Handles movie selection"""
@@ -261,44 +261,44 @@ class CallbackHandlers:
             position = self.downloads.queue_for_space(download_info)
             
             await event.edit(
-                f"🎬 **Film** selezionato\n\n"
+                f"🎬 **Movie** selected\n\n"
                 + self.space.format_space_warning(download_info.dest_path, size_gb)
                 + f"\nPosition in space queue: #{position}"
             )
             return
-        
-        # Metti in coda
+
+        # Queue download
         position = await self.downloads.queue_download(download_info)
-        
-        # Notifica
+
+        # Notify
         active_downloads = len(self.downloads.get_active_downloads())
-        
+
         if active_downloads >= self.config.limits.max_concurrent_downloads:
             await event.edit(
-                f"🎬 **Film** selezionato\n\n"
-                f"⏳ **In coda** - Posizione: #{position}\n"
-                f"Download attivi: {active_downloads}/{self.config.limits.max_concurrent_downloads}\n\n"
-                f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
-                f"Il download partirà automaticamente."
+                f"🎬 **Movie** selected\n\n"
+                f"⏳ **Queued** - Position: #{position}\n"
+                f"Active downloads: {active_downloads}/{self.config.limits.max_concurrent_downloads}\n\n"
+                f"✅ Available space: {free_gb:.1f} GB\n"
+                f"Download will start automatically."
             )
         else:
             await event.edit(
-                f"🎬 **Film** selezionato\n\n"
-                f"📥 **Preparazione download...**\n"
-                f"✅ Spazio disponibile: {free_gb:.1f} GB"
+                f"🎬 **Movie** selected\n\n"
+                f"📥 **Preparing download...**\n"
+                f"✅ Available space: {free_gb:.1f} GB"
             )
     
     async def _process_tv_selection(self, event, download_info):
-        """Processa selezione serie TV"""
+        """Process TV series selection"""
         download_info.media_type = MediaType.TV_SHOW
         download_info.is_movie = False
         download_info.dest_path = self.config.paths.tv
         download_info.emoji = "📺"
         download_info.event = event
         
-        # Se non ha info stagione, chiedi
+        # If no season info, ask for it
         if not download_info.series_info or not download_info.series_info.season:
-            # Bottoni stagione
+            # Season buttons
             season_buttons = []
             for i in range(1, 6):
                 if len(season_buttons) < 1:
@@ -315,28 +315,28 @@ class CallbackHandlers:
                 )
             
             season_buttons.append([
-                Button.inline("✏️ Inserisci numero", f"manual_season_{download_info.message_id}")
+                Button.inline("✏️ Enter number", f"manual_season_{download_info.message_id}")
             ])
             season_buttons.append([
-                Button.inline("❌ Cancella", f"cancel_{download_info.message_id}")
+                Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")
             ])
-            
+
             # Series name
-            series_name = download_info.series_info.series_name if download_info.series_info else "Serie"
+            series_name = download_info.series_info.series_name if download_info.series_info else "Series"
             if download_info.selected_tmdb:
                 series_name = download_info.selected_tmdb.title
-            
+
             await event.edit(
-                f"📺 **Serie TV selezionata**\n\n"
-                f"📁 Serie: `{series_name}`\n"
+                f"📺 **TV Series selected**\n\n"
+                f"📁 Series: `{series_name}`\n"
                 f"📄 File: `{download_info.filename}`\n\n"
-                f"**Quale stagione?**\n"
-                f"_Usa ✏️ Inserisci numero per stagioni oltre la 10_",
+                f"**Which season?**\n"
+                f"_Use ✏️ Enter number for seasons beyond 10_",
                 buttons=season_buttons
             )
             return
-        
-        # Ha già info stagione
+
+        # Already has season info
         download_info.selected_season = download_info.series_info.season
         
         # Check space
@@ -350,21 +350,21 @@ class CallbackHandlers:
             position = self.downloads.queue_for_space(download_info)
             
             await event.edit(
-                f"📺 **Serie TV** selezionata\n\n"
+                f"📺 **TV Series** selected\n\n"
                 + self.space.format_space_warning(download_info.dest_path, size_gb)
                 + f"\nPosition in space queue: #{position}"
             )
             return
-        
-        # Metti in coda
+
+        # Queue download
         position = await self.downloads.queue_download(download_info)
-        
-        # Notifica
+
+        # Notify
         await event.edit(
-            f"📺 **Serie TV** selezionata\n"
-            f"📅 Stagione {download_info.selected_season}\n\n"
-            f"📥 **Preparazione download...**\n"
-            f"✅ Spazio disponibile: {free_gb:.1f} GB\n"
+            f"📺 **TV Series** selected\n"
+            f"📅 Season {download_info.selected_season}\n\n"
+            f"📥 **Preparing download...**\n"
+            f"✅ Available space: {free_gb:.1f} GB\n"
             f"📊 Position in queue: #{position}"
         )
 

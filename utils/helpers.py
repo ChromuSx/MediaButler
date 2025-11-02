@@ -1,5 +1,5 @@
 """
-Helper utility generiche per MediaButler
+General helper utilities for MediaButler
 """
 import os
 import asyncio
@@ -11,19 +11,19 @@ import time
 
 
 class FileHelpers:
-    """Helper per operazioni su file"""
+    """Helper for file operations"""
     
     @staticmethod
     def get_file_hash(filepath: Path, algorithm: str = 'md5') -> str:
         """
-        Calcola hash di un file
-        
+        Calculate file hash
+
         Args:
-            filepath: Percorso file
-            algorithm: Algoritmo hash (md5, sha1, sha256)
-            
+            filepath: File path
+            algorithm: Hash algorithm (md5, sha1, sha256)
+
         Returns:
-            Hash esadecimale
+            Hexadecimal hash
         """
         hash_func = getattr(hashlib, algorithm)()
         
@@ -36,25 +36,25 @@ class FileHelpers:
     @staticmethod
     def safe_move(source: Path, destination: Path) -> bool:
         """
-        Sposta file in modo sicuro
+        Move file safely
 
         Args:
-            source: File sorgente
-            destination: Destinazione
+            source: Source file
+            destination: Destination
 
         Returns:
-            True se successo
+            True if successful
         """
         try:
-            # Crea directory destinazione se non esiste
+            # Create destination directory if not exists
             destination.parent.mkdir(parents=True, exist_ok=True)
 
-            # Prova prima con rename (più veloce)
+            # Try rename first (faster)
             try:
                 source.rename(destination)
                 return True
             except OSError as e:
-                # Se errore cross-device link, usa copy + delete
+                # If cross-device link error, use copy + delete
                 if e.errno == 18:  # EXDEV: Invalid cross-device link
                     import shutil
                     shutil.copy2(source, destination)
@@ -64,16 +64,16 @@ class FileHelpers:
                     raise
 
         except Exception as e:
-            print(f"Errore spostamento file: {e}")
+            print(f"Error moving file: {e}")
             return False
     
     @staticmethod
     def get_video_extensions() -> list[str]:
         """
-        Ottieni estensioni video supportate
-        
+        Get supported video extensions
+
         Returns:
-            Lista estensioni
+            Extension list
         """
         return [
             '.mp4', '.mkv', '.avi', '.mov', '.wmv',
@@ -84,13 +84,13 @@ class FileHelpers:
     @staticmethod
     def is_video_file(filename: str) -> bool:
         """
-        Verifica se è un file video
-        
+        Check if it's a video file
+
         Args:
-            filename: Nome file
-            
+            filename: Filename
+
         Returns:
-            True se video
+            True if video
         """
         ext = Path(filename).suffix.lower()
         return ext in FileHelpers.get_video_extensions()
@@ -98,13 +98,13 @@ class FileHelpers:
     @staticmethod
     def find_duplicate_files(directory: Path) -> dict[str, list[Path]]:
         """
-        Trova file duplicati basandosi sull'hash
-        
+        Find duplicate files based on hash
+
         Args:
-            directory: Directory da scansionare
-            
+            directory: Directory to scan
+
         Returns:
-            Dict con hash -> lista file
+            Dict with hash -> file list
         """
         hash_map = {}
         
@@ -115,8 +115,8 @@ class FileHelpers:
                 if file_hash not in hash_map:
                     hash_map[file_hash] = []
                 hash_map[file_hash].append(filepath)
-        
-        # Ritorna solo duplicati
+
+        # Return only duplicates
         return {
             hash_val: files 
             for hash_val, files in hash_map.items() 
@@ -125,7 +125,7 @@ class FileHelpers:
 
 
 class RetryHelpers:
-    """Helper per retry e resilienza"""
+    """Helper for retry and resilience"""
     
     @staticmethod
     def retry(
@@ -135,14 +135,14 @@ class RetryHelpers:
         exceptions: tuple = (Exception,)
     ):
         """
-        Decorator per retry automatico
-        
+        Decorator for automatic retry
+
         Args:
-            max_attempts: Numero massimo tentativi
-            delay: Ritardo iniziale tra tentativi
-            backoff: Moltiplicatore ritardo
-            exceptions: Eccezioni da catturare
-            
+            max_attempts: Maximum number of attempts
+            delay: Initial delay between attempts
+            backoff: Delay multiplier
+            exceptions: Exceptions to catch
+
         Usage:
             @retry(max_attempts=3, delay=1)
             def unstable_function():
@@ -161,8 +161,8 @@ class RetryHelpers:
                         attempt += 1
                         if attempt >= max_attempts:
                             raise
-                        
-                        print(f"Tentativo {attempt}/{max_attempts} fallito: {e}")
+
+                        print(f"Attempt {attempt}/{max_attempts} failed: {e}")
                         time.sleep(current_delay)
                         current_delay *= backoff
                 
@@ -179,13 +179,13 @@ class RetryHelpers:
         exceptions: tuple = (Exception,)
     ):
         """
-        Decorator per retry automatico async
-        
+        Decorator for automatic async retry
+
         Args:
-            max_attempts: Numero massimo tentativi
-            delay: Ritardo iniziale
-            backoff: Moltiplicatore ritardo
-            exceptions: Eccezioni da catturare
+            max_attempts: Maximum number of attempts
+            delay: Initial delay
+            backoff: Delay multiplier
+            exceptions: Exceptions to catch
         """
         def decorator(func):
             @wraps(func)
@@ -200,8 +200,8 @@ class RetryHelpers:
                         attempt += 1
                         if attempt >= max_attempts:
                             raise
-                        
-                        print(f"Tentativo {attempt}/{max_attempts} fallito: {e}")
+
+                        print(f"Attempt {attempt}/{max_attempts} failed: {e}")
                         await asyncio.sleep(current_delay)
                         current_delay *= backoff
                 
@@ -212,18 +212,18 @@ class RetryHelpers:
 
 
 class ValidationHelpers:
-    """Helper per validazioni"""
+    """Helper for validations"""
     
     @staticmethod
     def is_valid_telegram_id(user_id: Any) -> bool:
         """
-        Valida ID utente Telegram
-        
+        Validate Telegram user ID
+
         Args:
-            user_id: ID da validare
-            
+            user_id: ID to validate
+
         Returns:
-            True se valido
+            True if valid
         """
         try:
             user_id = int(user_id)
@@ -234,21 +234,21 @@ class ValidationHelpers:
     @staticmethod
     def sanitize_path(path_str: str) -> str:
         """
-        Sanitizza percorso file
-        
+        Sanitize file path
+
         Args:
-            path_str: Percorso da sanitizzare
-            
+            path_str: Path to sanitize
+
         Returns:
-            Percorso sanitizzato
+            Sanitized path
         """
-        # Rimuovi caratteri pericolosi
+        # Remove dangerous characters
         dangerous_chars = ['..', '~', '$', '`', '|', ';', '&', '>', '<']
-        
+
         for char in dangerous_chars:
             path_str = path_str.replace(char, '')
-        
-        # Rimuovi spazi multipli
+
+        # Remove multiple spaces
         path_str = ' '.join(path_str.split())
         
         return path_str.strip()
@@ -260,28 +260,28 @@ class ValidationHelpers:
         max_size: int = 10 * 1024**3  # 10 GB
     ) -> tuple[bool, str]:
         """
-        Valida dimensione file
-        
+        Validate file size
+
         Args:
-            size_bytes: Dimensione in bytes
-            min_size: Dimensione minima
-            max_size: Dimensione massima
-            
+            size_bytes: Size in bytes
+            min_size: Minimum size
+            max_size: Maximum size
+
         Returns:
-            (valido, messaggio_errore)
+            (valid, error_message)
         """
         if size_bytes < min_size:
-            return False, f"File troppo piccolo (minimo {min_size} bytes)"
-        
+            return False, f"File too small (minimum {min_size} bytes)"
+
         if size_bytes > max_size:
             max_gb = max_size / (1024**3)
-            return False, f"File troppo grande (massimo {max_gb:.1f} GB)"
+            return False, f"File too large (maximum {max_gb:.1f} GB)"
         
         return True, "OK"
 
 
 class AsyncHelpers:
-    """Helper per operazioni asincrone"""
+    """Helper for asynchronous operations"""
     
     @staticmethod
     async def run_with_timeout(
@@ -290,15 +290,15 @@ class AsyncHelpers:
         default: Any = None
     ) -> Any:
         """
-        Esegue coroutine con timeout
-        
+        Execute coroutine with timeout
+
         Args:
-            coro: Coroutine da eseguire
-            timeout: Timeout in secondi
-            default: Valore default se timeout
-            
+            coro: Coroutine to execute
+            timeout: Timeout in seconds
+            default: Default value if timeout
+
         Returns:
-            Risultato o default
+            Result or default
         """
         try:
             return await asyncio.wait_for(coro, timeout=timeout)
@@ -311,14 +311,14 @@ class AsyncHelpers:
         limit: int = 5
     ) -> list:
         """
-        Esegue coroutine con limite concorrenza
-        
+        Execute coroutines with concurrency limit
+
         Args:
-            coros: Lista coroutine
-            limit: Limite esecuzioni simultanee
-            
+            coros: Coroutine list
+            limit: Simultaneous execution limit
+
         Returns:
-            Lista risultati
+            Result list
         """
         semaphore = asyncio.Semaphore(limit)
         
@@ -334,13 +334,13 @@ class AsyncHelpers:
     @staticmethod
     def create_task_safe(coro: Callable) -> asyncio.Task:
         """
-        Crea task in modo sicuro
-        
+        Create task safely
+
         Args:
             coro: Coroutine
-            
+
         Returns:
-            Task creato
+            Created task
         """
         try:
             loop = asyncio.get_running_loop()
@@ -351,15 +351,15 @@ class AsyncHelpers:
 
 
 class SystemHelpers:
-    """Helper di sistema"""
+    """System helpers"""
     
     @staticmethod
     def get_memory_usage() -> dict[str, float]:
         """
-        Ottieni utilizzo memoria
-        
+        Get memory usage
+
         Returns:
-            Dict con info memoria
+            Dict with memory info
         """
         try:
             import psutil
@@ -379,10 +379,10 @@ class SystemHelpers:
     @staticmethod
     def get_cpu_usage() -> float:
         """
-        Ottieni utilizzo CPU
-        
+        Get CPU usage
+
         Returns:
-            Percentuale utilizzo CPU
+            CPU usage percentage
         """
         try:
             import psutil
@@ -393,16 +393,16 @@ class SystemHelpers:
     @staticmethod
     def is_docker() -> bool:
         """
-        Verifica se in esecuzione in Docker
-        
+        Check if running in Docker
+
         Returns:
-            True se in Docker
+            True if in Docker
         """
-        # Verifica file .dockerenv
+        # Check .dockerenv file
         if Path('/.dockerenv').exists():
             return True
-        
-        # Verifica cgroup
+
+        # Check cgroup
         try:
             with open('/proc/self/cgroup', 'r') as f:
                 return 'docker' in f.read()
@@ -412,10 +412,10 @@ class SystemHelpers:
     @staticmethod
     def get_environment() -> str:
         """
-        Ottieni ambiente esecuzione
-        
+        Get execution environment
+
         Returns:
-            Nome ambiente (docker/local/unknown)
+            Environment name (docker/local/unknown)
         """
         if SystemHelpers.is_docker():
             return 'docker'
@@ -426,50 +426,50 @@ class SystemHelpers:
 
 
 class RateLimiter:
-    """Rate limiter semplice"""
-    
+    """Simple rate limiter"""
+
     def __init__(self, max_calls: int, period: float):
         """
-        Inizializza rate limiter
-        
+        Initialize rate limiter
+
         Args:
-            max_calls: Numero massimo chiamate
-            period: Periodo in secondi
+            max_calls: Maximum number of calls
+            period: Period in seconds
         """
         self.max_calls = max_calls
         self.period = period
         self.calls = []
-    
+
     async def acquire(self):
-        """Acquisisce permesso per chiamata"""
+        """Acquire permission for call"""
         now = time.time()
-        
-        # Rimuovi chiamate vecchie
+
+        # Remove old calls
         self.calls = [
             call_time for call_time in self.calls
             if now - call_time < self.period
         ]
-        
-        # Se troppo chiamate, attendi
+
+        # If too many calls, wait
         if len(self.calls) >= self.max_calls:
             sleep_time = self.period - (now - self.calls[0])
             if sleep_time > 0:
                 await asyncio.sleep(sleep_time)
                 return await self.acquire()
-        
-        # Registra chiamata
+
+        # Register call
         self.calls.append(now)
     
     def can_proceed(self) -> bool:
         """
-        Verifica se può procedere (non bloccante)
-        
+        Check if can proceed (non-blocking)
+
         Returns:
-            True se può procedere
+            True if can proceed
         """
         now = time.time()
-        
-        # Rimuovi chiamate vecchie
+
+        # Remove old calls
         self.calls = [
             call_time for call_time in self.calls
             if now - call_time < self.period
@@ -478,16 +478,16 @@ class RateLimiter:
         return len(self.calls) < self.max_calls
 
 
-# Funzioni utility standalone
+# Standalone utility functions
 def human_readable_size(size_bytes: int) -> str:
     """
-    Converte bytes in formato leggibile
-    
+    Convert bytes to readable format
+
     Args:
-        size_bytes: Dimensione in bytes
-        
+        size_bytes: Size in bytes
+
     Returns:
-        Stringa formattata (es: "1.5 GB")
+        Formatted string (e.g.: "1.5 GB")
     """
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if size_bytes < 1024.0:
@@ -498,15 +498,15 @@ def human_readable_size(size_bytes: int) -> str:
 
 def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     """
-    Tronca testo con ellipsis
-    
+    Truncate text with ellipsis
+
     Args:
-        text: Testo da troncare
-        max_length: Lunghezza massima
-        suffix: Suffisso da aggiungere
-        
+        text: Text to truncate
+        max_length: Maximum length
+        suffix: Suffix to add
+
     Returns:
-        Testo troncato
+        Truncated text
     """
     if len(text) <= max_length:
         return text
@@ -516,14 +516,14 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
 
 def chunks(lst: list, n: int):
     """
-    Divide lista in chunk
-    
+    Divide list into chunks
+
     Args:
-        lst: Lista da dividere
-        n: Dimensione chunk
-        
+        lst: List to divide
+        n: Chunk size
+
     Yields:
-        Chunk della lista
+        List chunk
     """
     for i in range(0, len(lst), n):
         yield lst[i:i + n]

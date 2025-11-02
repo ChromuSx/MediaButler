@@ -1,5 +1,5 @@
 """
-Gestione spazio disco e monitoraggio
+Disk space management and monitoring
 """
 import shutil
 from pathlib import Path
@@ -10,7 +10,7 @@ from core.config import get_config
 
 @dataclass
 class DiskUsage:
-    """Informazioni utilizzo disco"""
+    """Disk usage information"""
     total_gb: float
     used_gb: float
     free_gb: float
@@ -18,13 +18,13 @@ class DiskUsage:
     
     @property
     def available_for_download(self) -> float:
-        """Spazio disponibile per download (considerando riserva)"""
+        """Available space for downloads (considering reserve)"""
         config = get_config()
         return max(0, self.free_gb - config.limits.min_free_space_gb)
     
     @property
     def status_emoji(self) -> str:
-        """Emoji stato spazio"""
+        """Space status emoji"""
         config = get_config()
         if self.free_gb > config.limits.warning_threshold_gb:
             return "🟢"
@@ -48,13 +48,13 @@ class SpaceManager:
         
     def get_disk_usage(self, path: Path) -> Optional[DiskUsage]:
         """
-        Ottieni informazioni utilizzo disco
-        
+        Get disk usage information
+
         Args:
-            path: Percorso da verificare
-            
+            path: Path to check
+
         Returns:
-            DiskUsage o None se errore
+            DiskUsage or None if error
         """
         try:
             stat = shutil.disk_usage(str(path))
@@ -65,36 +65,36 @@ class SpaceManager:
                 percent_used=(stat.used / stat.total) * 100
             )
         except Exception as e:
-            self.logger.error(f"Errore controllo spazio per {path}: {e}")
+            self.logger.error(f"Error checking space for {path}: {e}")
             return None
     
     def get_free_space_gb(self, path: Path) -> float:
         """
-        Ottieni spazio libero in GB
-        
+        Get free space in GB
+
         Args:
-            path: Percorso da verificare
-            
+            path: Path to check
+
         Returns:
-            Spazio libero in GB
+            Free space in GB
         """
         usage = self.get_disk_usage(path)
         return usage.free_gb if usage else 0.0
     
     def check_space_available(
-        self, 
-        path: Path, 
+        self,
+        path: Path,
         required_gb: float
     ) -> Tuple[bool, float]:
         """
-        Verifica se c'è spazio sufficiente
-        
+        Check if there's sufficient space
+
         Args:
-            path: Percorso dove scaricare
-            required_gb: Spazio richiesto in GB
-            
+            path: Download destination path
+            required_gb: Required space in GB
+
         Returns:
-            (disponibile, spazio_libero_gb)
+            (available, free_space_gb)
         """
         usage = self.get_disk_usage(path)
         if not usage:
@@ -105,10 +105,10 @@ class SpaceManager:
     
     def get_all_disk_usage(self) -> Dict[str, DiskUsage]:
         """
-        Ottieni utilizzo disco per tutti i percorsi
-        
+        Get disk usage for all paths
+
         Returns:
-            Dizionario con utilizzo per ogni percorso
+            Dictionary with usage for each path
         """
         usage = {}
         
@@ -122,7 +122,7 @@ class SpaceManager:
         if tv_usage:
             usage['tv'] = tv_usage
         
-        # Se sono sullo stesso disco, mantieni solo uno
+        # If on the same disk, keep only one
         if 'movies' in usage and 'tv' in usage:
             if usage['movies'].total_gb == usage['tv'].total_gb:
                 usage['media'] = usage['movies']
@@ -133,25 +133,25 @@ class SpaceManager:
     
     def format_disk_status(self) -> str:
         """
-        Formatta stato disco per display
-        
+        Format disk status for display
+
         Returns:
-            Stringa formattata con stato dischi
+            Formatted string with disk status
         """
         usage = self.get_all_disk_usage()
         
         if not usage:
-            return "❌ Impossibile verificare lo spazio disco"
-        
-        status = "💾 **Stato Spazio Disco**\n\n"
-        
+            return "❌ Unable to check disk space"
+
+        status = "💾 **Disk Space Status**\n\n"
+
         for name, disk in usage.items():
             display_name = name.capitalize()
             status += f"{disk.status_emoji} **{display_name}:**\n"
-            status += f"• Totale: {disk.total_gb:.1f} GB\n"
-            status += f"• Usato: {disk.used_gb:.1f} GB ({disk.percent_used:.1f}%)\n"
-            status += f"• Libero: {disk.free_gb:.1f} GB\n"
-            status += f"• Disponibile per download: {disk.available_for_download:.1f} GB\n\n"
+            status += f"• Total: {disk.total_gb:.1f} GB\n"
+            status += f"• Used: {disk.used_gb:.1f} GB ({disk.percent_used:.1f}%)\n"
+            status += f"• Free: {disk.free_gb:.1f} GB\n"
+            status += f"• Available for download: {disk.available_for_download:.1f} GB\n\n"
         
         status += f"⚙️ **Configured thresholds:**\n"
         status += f"• Minimum space: {self.config.limits.min_free_space_gb} GB\n"
@@ -160,23 +160,23 @@ class SpaceManager:
         return status
     
     def format_space_warning(
-        self, 
-        path: Path, 
+        self,
+        path: Path,
         required_gb: float
     ) -> str:
         """
-        Formatta avviso spazio insufficiente
-        
+        Format insufficient space warning
+
         Args:
-            path: Percorso destinazione
-            required_gb: Spazio richiesto
-            
+            path: Destination path
+            required_gb: Required space
+
         Returns:
-            Messaggio di avviso formattato
+            Formatted warning message
         """
         usage = self.get_disk_usage(path)
         if not usage:
-            return "⚠️ Impossibile verificare lo spazio disponibile"
+            return "⚠️ Unable to check available space"
         
         total_required = required_gb + self.config.limits.min_free_space_gb
         missing = total_required - usage.free_gb
@@ -192,50 +192,50 @@ class SpaceManager:
     
     def cleanup_empty_folders(self, folder_path: Path) -> bool:
         """
-        Rimuove cartelle vuote
-        
+        Remove empty folders
+
         Args:
-            folder_path: Percorso cartella da verificare
-            
+            folder_path: Folder path to check
+
         Returns:
-            True se rimossa, False altrimenti
+            True if removed, False otherwise
         """
         try:
             if folder_path.exists() and not any(folder_path.iterdir()):
                 folder_path.rmdir()
-                self.logger.info(f"Cartella vuota rimossa: {folder_path}")
+                self.logger.info(f"Empty folder removed: {folder_path}")
                 return True
         except Exception as e:
-            self.logger.warning(f"Impossibile rimuovere cartella {folder_path}: {e}")
+            self.logger.warning(f"Unable to remove folder {folder_path}: {e}")
         
         return False
     
     def smart_cleanup(self, file_path: Path, is_movie: bool = True):
         """
-        Pulizia intelligente dopo cancellazione download
-        
+        Smart cleanup after download cancellation
+
         Args:
-            file_path: Percorso file cancellato
-            is_movie: True se film, False se serie TV
+            file_path: Cancelled file path
+            is_movie: True if movie, False if TV series
         """
         try:
-            # Rimuovi file parziale se esiste
+            # Remove partial file if exists
             if file_path.exists():
                 file_path.unlink()
-                self.logger.info(f"File parziale eliminato: {file_path}")
-            
-            # Pulizia cartelle vuote
+                self.logger.info(f"Partial file deleted: {file_path}")
+
+            # Clean up empty folders
             if is_movie:
-                # Per i film, rimuovi la cartella del film se vuota
+                # For movies, remove the movie folder if empty
                 movie_folder = file_path.parent
                 self.cleanup_empty_folders(movie_folder)
             else:
-                # Per le serie TV, rimuovi stagione e serie se vuote
+                # For TV series, remove season and series if empty
                 season_folder = file_path.parent
                 series_folder = season_folder.parent
-                
+
                 if self.cleanup_empty_folders(season_folder):
                     self.cleanup_empty_folders(series_folder)
-                    
+
         except Exception as e:
-            self.logger.error(f"Errore durante pulizia: {e}")
+            self.logger.error(f"Error during cleanup: {e}")

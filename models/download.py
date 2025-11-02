@@ -1,5 +1,5 @@
 """
-Modelli dati per MediaButler
+Data models for MediaButler
 """
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List
@@ -8,14 +8,14 @@ from enum import Enum
 
 
 class MediaType(Enum):
-    """Tipo di media"""
+    """Media type"""
     MOVIE = "movie"
     TV_SHOW = "tv"
     UNKNOWN = "unknown"
 
 
 class DownloadStatus(Enum):
-    """Stato del download"""
+    """Download status"""
     PENDING = "pending"
     DOWNLOADING = "downloading"
     COMPLETED = "completed"
@@ -27,24 +27,24 @@ class DownloadStatus(Enum):
 
 @dataclass
 class SeriesInfo:
-    """Informazioni serie TV"""
+    """TV series information"""
     series_name: str
     season: Optional[int] = None
     episode: Optional[int] = None
     episode_title: Optional[str] = None
-    end_episode: Optional[int] = None  # Per multi-episodi (S01E01-E03)
-    confidence: int = 0  # Confidence del riconoscimento (0-120)
+    end_episode: Optional[int] = None  # For multi-episodes (S01E01-E03)
+    confidence: int = 0  # Recognition confidence (0-120)
 
     @property
     def season_folder(self) -> str:
-        """Nome cartella stagione"""
+        """Season folder name"""
         if self.season:
             return f"Season {self.season:02d}"
         return "Season 01"
 
     @property
     def episode_code(self) -> str:
-        """Codice episodio (es: S01E01 o S01E01-E03)"""
+        """Episode code (e.g.: S01E01 or S01E01-E03)"""
         if self.season and self.episode:
             code = f"S{self.season:02d}E{self.episode:02d}"
             if self.end_episode and self.end_episode != self.episode:
@@ -54,18 +54,18 @@ class SeriesInfo:
 
     @property
     def is_multi_episode(self) -> bool:
-        """True se è un multi-episodio"""
+        """True if it's a multi-episode"""
         return self.end_episode is not None and self.end_episode > self.episode
 
     @property
     def is_high_confidence(self) -> bool:
-        """True se il riconoscimento ha alta confidenza (>=70)"""
+        """True if recognition has high confidence (>=70)"""
         return self.confidence >= 70
 
 
 @dataclass
 class TMDBResult:
-    """Risultato ricerca TMDB"""
+    """TMDB search result"""
     id: int
     title: str
     original_title: str
@@ -94,8 +94,8 @@ class TMDBResult:
 
 @dataclass
 class DownloadInfo:
-    """Informazioni complete download"""
-    # Identificativi
+    """Complete download information"""
+    # Identifiers
     message_id: int
     user_id: int
     
@@ -116,41 +116,41 @@ class DownloadInfo:
     selected_tmdb: Optional[TMDBResult] = None
     tmdb_confidence: int = 0
     
-    # Percorsi
+    # Paths
     dest_path: Optional[Path] = None
     final_path: Optional[Path] = None
-    
-    # Stato
+
+    # Status
     status: DownloadStatus = DownloadStatus.PENDING
     progress: float = 0.0
     speed_mbps: float = 0.0
     eta_seconds: Optional[int] = None
     
-    # Messaggi Telegram
+    # Telegram messages
     message: Any = None  # Telethon message object
     progress_msg: Any = None  # Progress message object
     event: Any = None  # Callback event
-    
+
     # Metadata
     created_folders: List[Path] = field(default_factory=list)
     start_time: Optional[float] = None
     end_time: Optional[float] = None
     error_message: Optional[str] = None
-    waiting_for_season: bool = False  # True quando attende input manuale stagione
+    waiting_for_season: bool = False  # True when waiting for manual season input
     
     @property
     def size_gb(self) -> float:
-        """Dimensione in GB"""
+        """Size in GB"""
         return self.size / (1024 * 1024 * 1024)
     
     @property
     def size_mb(self) -> float:
-        """Dimensione in MB"""
+        """Size in MB"""
         return self.size / (1024 * 1024)
     
     @property
     def display_name(self) -> str:
-        """Nome da mostrare all'utente"""
+        """Name to display to user"""
         if self.selected_tmdb:
             return self.selected_tmdb.title
         elif self.series_info and self.series_info.series_name:
@@ -161,7 +161,7 @@ class DownloadInfo:
     
     @property
     def folder_structure(self) -> str:
-        """Struttura cartelle per display"""
+        """Folder structure for display"""
         if self.is_movie:
             return f"{self.movie_folder}/"
         elif self.series_info:
@@ -169,7 +169,7 @@ class DownloadInfo:
         return ""
     
     def get_final_filename(self) -> str:
-        """Calcola il nome file finale"""
+        """Calculate the final filename"""
         if self.selected_tmdb and self.tmdb_confidence >= 60:
             extension = Path(self.original_filename).suffix
             
@@ -178,21 +178,21 @@ class DownloadInfo:
                 year = self.selected_tmdb.year
                 return f"{title} ({year}){extension}" if year else f"{title}{extension}"
             else:
-                # Serie TV
+                # TV Series
                 if self.series_info and self.series_info.episode_code:
                     filename = f"{self.selected_tmdb.title} - {self.series_info.episode_code}"
                     if self.series_info.episode_title:
                         filename += f" - {self.series_info.episode_title}"
                     return f"{filename}{extension}"
-        
+
         return self.filename
 
 
 @dataclass
 class QueueItem:
-    """Elemento in coda download"""
+    """Download queue item"""
     download_info: DownloadInfo
-    priority: int = 0  # Priorità (0 = normale, higher = più priorità)
+    priority: int = 0  # Priority (0 = normal, higher = more priority)
     retry_count: int = 0
     max_retries: int = 3
     

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-MediaButler - Bot Telegram per organizzazione media
-Entry point principale
+MediaButler - Telegram Bot for media organization
+Main entry point
 """
 import sys
 import asyncio
 from pathlib import Path
 
-# Aggiungi directory corrente al path per import relativi
+# Add current directory to path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
 from telethon import TelegramClient
@@ -23,17 +23,17 @@ from handlers.files import FileHandlers
 
 
 class MediaButler:
-    """Classe principale del bot MediaButler"""
+    """Main MediaButler bot class"""
     
     def __init__(self):
-        """Inizializza il bot"""
+        """Initialize the bot"""
         self.config = get_config()
         self.logger = self.config.logger
 
-        # Log configurazione
+        # Log configuration
         self.config.log_config()
 
-        # Inizializza client Telegram
+        # Initialize Telegram client
         self.client = TelegramClient(
             self.config.telegram.session_path,
             self.config.telegram.api_id,
@@ -43,12 +43,12 @@ class MediaButler:
             auto_reconnect=True
         )
 
-        # Inizializza database (will be connected in start())
+        # Initialize database (will be connected in start())
         self.database_manager = None
         if self.config.database.enabled:
             self.database_manager = DatabaseManager(self.config.database.path)
 
-        # Inizializza manager
+        # Initialize managers
         self.auth_manager = AuthManager()
         self.space_manager = SpaceManager()
         self.tmdb_client = TMDBClient() if self.config.tmdb.is_enabled else None
@@ -58,7 +58,7 @@ class MediaButler:
             tmdb_client=self.tmdb_client
         )
         
-        # Inizializza handlers
+        # Initialize handlers
         self.command_handlers = CommandHandlers(
             client=self.client,
             auth_manager=self.auth_manager,
@@ -84,7 +84,7 @@ class MediaButler:
         )
         
     async def start(self):
-        """Avvia il bot"""
+        """Start the bot"""
         self.logger.info("=== MEDIABUTLER ENHANCED - STARTING ===")
 
         # Connect to database
@@ -93,15 +93,15 @@ class MediaButler:
             set_database_manager(self.database_manager)
             self.logger.info("✅ Database initialized")
 
-        # Avvia client Telegram
+        # Start Telegram client
         await self.client.start(bot_token=self.config.telegram.bot_token)
 
-        # Registra handlers
+        # Register handlers
         self.command_handlers.register()
         self.callback_handlers.register()
         self.file_handlers.register()
 
-        # Avvia workers
+        # Start workers
         await self.download_manager.start_workers()
 
         self.logger.info("✅ Bot started and ready!")
@@ -111,17 +111,17 @@ class MediaButler:
         self.logger.info(f"📥 Concurrent downloads: max {self.config.limits.max_concurrent_downloads}")
         self.logger.info(f"💾 Minimum reserved space: {self.config.limits.min_free_space_gb} GB")
 
-        # Mantieni il bot in esecuzione
+        # Keep the bot running
         try:
             await self.client.run_until_disconnected()
         finally:
             await self.stop()
     
     async def stop(self):
-        """Ferma il bot"""
-        self.logger.info("Arresto bot in corso...")
+        """Stop the bot"""
+        self.logger.info("Stopping bot...")
 
-        # Ferma download manager
+        # Stop download manager
         await self.download_manager.stop()
 
         # Close database
@@ -129,25 +129,25 @@ class MediaButler:
             await self.database_manager.close()
             self.logger.info("Database connection closed")
 
-        # Disconnetti client
+        # Disconnect client
         await self.client.disconnect()
 
-        self.logger.info("Bot arrestato")
+        self.logger.info("Bot stopped")
     
     def run(self):
-        """Esegui il bot"""
+        """Run the bot"""
         try:
             self.client.loop.run_until_complete(self.start())
         except KeyboardInterrupt:
-            self.logger.info("Interruzione da tastiera ricevuta")
+            self.logger.info("Keyboard interrupt received")
         except Exception as e:
-            self.logger.error(f"Errore critico: {e}", exc_info=True)
+            self.logger.error(f"Critical error: {e}", exc_info=True)
         finally:
             sys.exit(0)
 
 
 def main():
-    """Entry point principale"""
+    """Main entry point"""
     bot = MediaButler()
     bot.run()
 
