@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Download, CheckCircle, XCircle, Users, HardDrive, Activity } from 'lucide-react';
+import { Download, CheckCircle, XCircle, Users, HardDrive, Activity, Wifi, WifiOff } from 'lucide-react';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { statsAPI } from '../services/api';
-import wsService from '../services/websocket';
+import { useWebSocket, useStatsUpdates, useDownloadUpdates } from '../hooks/useWebSocket';
 import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
@@ -12,32 +12,37 @@ export default function DashboardPage() {
   const [topUsers, setTopUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // WebSocket connection
+  const { isConnected } = useWebSocket(true);
+
+  // Listen for stats updates via WebSocket
+  useStatsUpdates((data) => {
+    setOverviewStats(prev => ({
+      ...prev,
+      ...data
+    }));
+  });
+
+  // Listen for download events
+  useDownloadUpdates({
+    onCompleted: (data) => {
+      toast.success(`✓ Download completed: ${data.filename}`);
+      loadData(); // Refresh all stats
+    },
+    onFailed: (data) => {
+      toast.error(`✗ Download failed: ${data.filename}`);
+      loadData();
+    },
+    onStarted: (data) => {
+      toast(`⬇ Download started: ${data.filename}`, {
+        icon: '📥',
+        duration: 2000
+      });
+    }
+  });
+
   useEffect(() => {
     loadData();
-
-    // Connect to WebSocket for real-time updates
-    wsService.connect();
-
-    wsService.on('connected', () => {
-      console.log('WebSocket connected');
-    });
-
-    wsService.on('stats_update', (data) => {
-      setOverviewStats(data);
-    });
-
-    wsService.on('download_completed', () => {
-      loadData(); // Refresh stats
-      toast.success('Download completed!');
-    });
-
-    wsService.on('download_failed', (data) => {
-      toast.error(`Download failed: ${data.filename}`);
-    });
-
-    return () => {
-      wsService.disconnect();
-    };
   }, []);
 
   const loadData = async () => {
@@ -91,6 +96,27 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* WebSocket Connection Status */}
+      <div className="flex items-center justify-end">
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+          isConnected
+            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+        }`}>
+          {isConnected ? (
+            <>
+              <Wifi size={16} />
+              <span>Live Updates Active</span>
+            </>
+          ) : (
+            <>
+              <WifiOff size={16} />
+              <span>Disconnected</span>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Users as UsersIcon, UserPlus, Edit2, Trash2, Shield, Ban } from 'lucide-react';
 import { usersAPI } from '../services/api';
+import { useUserUpdates } from '../hooks/useWebSocket';
 import toast from 'react-hot-toast';
 
 export default function UsersPage() {
@@ -9,6 +10,18 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  // Listen for real-time user updates
+  useUserUpdates({
+    onUserAdded: (data) => {
+      toast.success(`👤 New user added: ${data.username || data.user_id}`);
+      loadUsers();
+    },
+    onUserRemoved: (data) => {
+      toast(`🚫 User ${data.user_id} removed`);
+      loadUsers();
+    }
+  });
 
   // Form state for adding new user
   const [newUser, setNewUser] = useState({

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Download, Clock, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { Download, Clock, CheckCircle, XCircle, Loader, Wifi, WifiOff, Zap, HardDrive } from 'lucide-react';
 import { downloadsAPI } from '../services/api';
+import { useWebSocket, useDownloadUpdates } from '../hooks/useWebSocket';
 import toast from 'react-hot-toast';
 
 export default function DownloadsPage() {
@@ -8,11 +9,52 @@ export default function DownloadsPage() {
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('active');
+  const [downloadProgress, setDownloadProgress] = useState({});
+
+  // WebSocket connection
+  const { isConnected } = useWebSocket(true);
+
+  // Listen for real-time download updates
+  useDownloadUpdates({
+    onProgress: (data) => {
+      setDownloadProgress(prev => ({
+        ...prev,
+        [data.download_id]: {
+          progress: data.progress,
+          speed_mbps: data.speed_mbps,
+          eta_seconds: data.eta_seconds
+        }
+      }));
+    },
+    onCompleted: (data) => {
+      toast.success(`✓ ${data.filename} completed!`);
+      // Remove from progress tracking
+      setDownloadProgress(prev => {
+        const updated = { ...prev };
+        delete updated[data.download_id];
+        return updated;
+      });
+      // Reload downloads
+      loadData();
+    },
+    onFailed: (data) => {
+      toast.error(`✗ ${data.filename} failed`);
+      // Remove from progress tracking
+      setDownloadProgress(prev => {
+        const updated = { ...prev };
+        delete updated[data.download_id];
+        return updated;
+      });
+      loadData();
+    },
+    onStarted: (data) => {
+      toast(`📥 ${data.filename} started`, { duration: 2000 });
+      loadData();
+    }
+  });
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
   }, []);
 
   const loadData = async () => {
@@ -30,25 +72,73 @@ export default function DownloadsPage() {
     }
   };
 
+  const formatSpeed = (mbps) => {
+    if (mbps >= 1000) {
+      return `${(mbps / 1000).toFixed(1)} GB/s`;
+    }
+    return `${mbps.toFixed(1)} MB/s`;
+  };
+
+  const formatETA = (seconds) => {
+    if (!seconds || seconds === 0) return '--';
+    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+    return `${Math.round(seconds / 3600)}h`;
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
-      COMPLETED: { color: 'bg-green-500/20 text-green-400', icon: CheckCircle },
-      IN_PROGRESS: { color: 'bg-blue-500/20 text-blue-400', icon: Loader },
-      QUEUED: { color: 'bg-yellow-500/20 text-yellow-400', icon: Clock },
-      FAILED: { color: 'bg-red-500/20 text-red-400', icon: XCircle },
-      CANCELLED: { color: 'bg-gray-500/20 text-gray-400', icon: XCircle },
+      completed: { color: 'bg-green-500/20 text-green-400', icon: CheckCircle, label: 'COMPLETED' },
+      downloading: { color: 'bg-blue-500/20 text-blue-400', icon: Loader, label: 'DOWNLOADING' },
+      queued: { color: 'bg-yellow-500/20 text-yellow-400', icon: Clock, label: 'QUEUED' },
+      pending: { color: 'bg-yellow-500/20 text-yellow-400', icon: Clock, label: 'PENDING' },
+      waiting_space: { color: 'bg-orange-500/20 text-orange-400', icon: HardDrive, label: 'WAITING FOR SPACE' },
+      failed: { color: 'bg-red-500/20 text-red-400', icon: XCircle, label: 'FAILED' },
+      cancelled: { color: 'bg-gray-500/20 text-gray-400', icon: XCircle, label: 'CANCELLED' },
     };
-    const badge = badges[status] || badges.QUEUED;
+    const badge = badges[status.toLowerCase()] || badges.pending;
     const Icon = badge.icon;
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${badge.color}`}>
-        <Icon size={14} className="mr-1" />
-        {status}
+        <Icon size={14} className={`mr-1 ${status === 'downloading' ? 'animate-spin' : ''}`} />
+        {badge.label}
       </span>
     );
   };
 
-  const DownloadRow = ({ download }) => (
+  const ProgressBar = ({ downloadId }) => {
+    const progress = downloadProgress[downloadId];
+
+    if (!progress) return null;
+
+    return (
+      <div className="mt-2 space-y-1">
+        {/* Progress Bar */}
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ease-out"
+            style={{ width: `${progress.progress}%` }}
+          >
+            <div className="w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>{progress.progress.toFixed(1)}%</span>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Zap size={12} className="text-purple-400" />
+              {formatSpeed(progress.speed_mbps)}
+            </span>
+            <span>ETA: {formatETA(progress.eta_seconds)}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DownloadRow = ({ download, showProgress }) => (
     <tr className="border-b border-slate-700/50 hover:bg-slate-700/30">
       <td className="py-4 px-4">
         <div className="text-white font-medium truncate max-w-md">{download.filename}</div>
@@ -58,6 +148,7 @@ export default function DownloadsPage() {
             {download.series_name} {download.season && download.episode && `S${download.season}E${download.episode}`}
           </div>
         )}
+        {showProgress && <ProgressBar downloadId={download.id} />}
       </td>
       <td className="py-4 px-4 text-slate-300">{download.size_gb} GB</td>
       <td className="py-4 px-4">{getStatusBadge(download.status)}</td>
@@ -75,6 +166,25 @@ export default function DownloadsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Downloads</h1>
+
+        {/* WebSocket Status Indicator */}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm ${
+          isConnected
+            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+        }`}>
+          {isConnected ? (
+            <>
+              <Wifi size={16} />
+              <span>Real-Time Updates</span>
+            </>
+          ) : (
+            <>
+              <WifiOff size={16} />
+              <span>Disconnected</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -117,9 +227,13 @@ export default function DownloadsPage() {
             </thead>
             <tbody>
               {activeTab === 'active' &&
-                activeDownloads.map((download) => <DownloadRow key={download.id} download={download} />)}
+                activeDownloads.map((download) => (
+                  <DownloadRow key={download.id} download={download} showProgress={true} />
+                ))}
               {activeTab === 'history' &&
-                history.map((download) => <DownloadRow key={download.id} download={download} />)}
+                history.map((download) => (
+                  <DownloadRow key={download.id} download={download} showProgress={false} />
+                ))}
               {((activeTab === 'active' && activeDownloads.length === 0) ||
                 (activeTab === 'history' && history.length === 0)) && (
                 <tr>

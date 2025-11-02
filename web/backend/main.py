@@ -20,6 +20,7 @@ from core.space_manager import SpaceManager
 from core.auth import AuthManager
 from web.backend.routers import auth, stats, downloads, users, settings
 from web.backend import websocket
+from web.backend.websocket import manager as ws_manager
 
 
 # Lifespan context manager for startup/shutdown
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
     app.state.database = db
     app.state.auth_manager = auth_manager
     app.state.space_manager = space_manager
+    app.state.websocket_manager = ws_manager
     app.state.download_manager = None  # Will be set when bot is running
 
     yield

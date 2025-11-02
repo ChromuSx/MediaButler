@@ -107,15 +107,14 @@ async def get_active_downloads(
     current_user: AuthUser = Depends(get_current_user)
 ):
     """Get currently active downloads"""
-    # This would need to integrate with the actual bot's download manager
-    # For now, return downloads with status IN_PROGRESS or QUEUED
+    # Query downloads that are currently active (downloading, queued, or waiting for space)
     query = """
         SELECT
             id, filename, status, user_id, size_bytes,
             created_at, completed_at, error_message,
             media_type, movie_title, series_name, season, episode
         FROM downloads
-        WHERE status IN ('IN_PROGRESS', 'QUEUED', 'WAITING_FOR_SPACE')
+        WHERE status IN ('downloading', 'queued', 'waiting_space', 'pending')
         ORDER BY created_at DESC
     """
 

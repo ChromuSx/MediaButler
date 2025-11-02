@@ -8,6 +8,7 @@ from web.backend.models import UserListItem, UserDetail, UserUpdate, UserCreateR
 from web.backend.auth import require_admin, AuthUser
 from core.database import DatabaseManager
 from core.auth import AuthManager
+from web.backend.websocket import notify_user_added, notify_user_removed
 
 router = APIRouter()
 
@@ -94,6 +95,9 @@ async def create_user(
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to add user")
+
+    # Notify via WebSocket
+    await notify_user_added(user_data.user_id, user_data.telegram_username or f"User {user_data.user_id}")
 
     # Return the created user
     user = await db.get_authorized_user(user_data.user_id)
@@ -209,5 +213,8 @@ async def delete_user(
             status_code=400,
             detail="Cannot remove this user (may be first admin or not found)"
         )
+
+    # Notify via WebSocket
+    await notify_user_removed(user_id)
 
     return {"message": f"User {user_id} removed successfully"}

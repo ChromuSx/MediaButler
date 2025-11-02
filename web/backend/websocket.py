@@ -100,6 +100,51 @@ class ConnectionManager:
         }
         await self.broadcast(message)
 
+    async def broadcast_download_started(self, download_id: int, filename: str, user_id: int):
+        """Broadcast download started"""
+        message = {
+            "type": "download_started",
+            "data": {
+                "download_id": download_id,
+                "filename": filename,
+                "user_id": user_id,
+                "timestamp": None  # Will be set by client
+            }
+        }
+        await self.broadcast(message)
+
+    async def broadcast_user_added(self, user_id: int, username: str):
+        """Broadcast new user added"""
+        message = {
+            "type": "user_added",
+            "data": {
+                "user_id": user_id,
+                "username": username
+            }
+        }
+        await self.broadcast(message)
+
+    async def broadcast_user_removed(self, user_id: int):
+        """Broadcast user removed"""
+        message = {
+            "type": "user_removed",
+            "data": {
+                "user_id": user_id
+            }
+        }
+        await self.broadcast(message)
+
+    async def broadcast_space_warning(self, available_gb: float, threshold_gb: float):
+        """Broadcast low space warning"""
+        message = {
+            "type": "space_warning",
+            "data": {
+                "available_gb": available_gb,
+                "threshold_gb": threshold_gb
+            }
+        }
+        await self.broadcast(message)
+
 
 # Global connection manager instance
 manager = ConnectionManager()
@@ -152,3 +197,28 @@ async def notify_download_completed(download_id: int, filename: str):
 async def notify_download_failed(download_id: int, filename: str, error: str):
     """Notify clients of download failure"""
     await manager.broadcast_download_failed(download_id, filename, error)
+
+
+async def notify_download_started(download_id: int, filename: str, user_id: int):
+    """Notify clients of download start"""
+    await manager.broadcast_download_started(download_id, filename, user_id)
+
+
+async def notify_stats_update(stats: dict):
+    """Notify clients of stats update"""
+    await manager.broadcast_stats_update(stats)
+
+
+async def notify_user_added(user_id: int, username: str):
+    """Notify clients of new user"""
+    await manager.broadcast_user_added(user_id, username)
+
+
+async def notify_user_removed(user_id: int):
+    """Notify clients of removed user"""
+    await manager.broadcast_user_removed(user_id)
+
+
+async def notify_space_warning(available_gb: float, threshold_gb: float):
+    """Notify clients of low space warning"""
+    await manager.broadcast_space_warning(available_gb, threshold_gb)
