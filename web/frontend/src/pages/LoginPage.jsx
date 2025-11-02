@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Film } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage({ onLogin }) {
@@ -27,8 +26,8 @@ export default function LoginPage({ onLogin }) {
         <div className="bg-slate-800 rounded-xl shadow-2xl p-8">
           {/* Logo and title */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-4">
-              <Film size={32} className="text-white" />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl shadow-lg mb-4">
+              <img src="/favicon.png" alt="MediaButler" className="w-12 h-12" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">MediaButler Dashboard</h1>
             <p className="text-slate-400">Sign in to your account</p>

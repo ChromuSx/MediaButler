@@ -34,7 +34,10 @@ export default function Layout({ user, onLogout, children }) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-slate-700">
-            <h1 className="text-xl font-bold text-white">MediaButler</h1>
+            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <img src="/favicon.png" alt="MediaButler" className="w-8 h-8" />
+              <h1 className="text-xl font-bold text-white">MediaButler</h1>
+            </Link>
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden text-slate-400 hover:text-white"
