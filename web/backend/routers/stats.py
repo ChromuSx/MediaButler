@@ -31,12 +31,24 @@ async def get_overview_stats(
     # Get all stats from database
     all_stats = await db.get_all_stats()
 
-    # Get active downloads count from bot state (if available)
-    active_downloads = 0
-    queue_length = 0
-    available_space_gb = 0.0
+    # Get active downloads count from database
+    active_query = """
+        SELECT COUNT(*) FROM downloads
+        WHERE status IN ('downloading', 'waiting_space', 'pending')
+    """
+    async with db._connection.execute(active_query) as cursor:
+        active_downloads = (await cursor.fetchone())[0]
 
-    # Try to get space manager from app state
+    # Get queue length from database
+    queue_query = """
+        SELECT COUNT(*) FROM downloads
+        WHERE status = 'queued'
+    """
+    async with db._connection.execute(queue_query) as cursor:
+        queue_length = (await cursor.fetchone())[0]
+
+    # Get available space from space manager
+    available_space_gb = 0.0
     if hasattr(request.app.state, 'space_manager'):
         space_manager = request.app.state.space_manager
         if space_manager:
@@ -45,13 +57,6 @@ async def get_overview_stats(
             usage = space_manager.get_disk_usage(config.paths.temp)
             if usage:
                 available_space_gb = usage.free_gb
-
-    # Try to get download manager from app state
-    if hasattr(request.app.state, 'download_manager'):
-        download_manager = request.app.state.download_manager
-        if download_manager:
-            active_downloads = len(download_manager.active_downloads)
-            queue_length = download_manager.download_queue.qsize()
 
     return OverviewStats(
         total_downloads=all_stats.get("total_downloads", 0),
