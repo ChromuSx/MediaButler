@@ -3,8 +3,11 @@ class WebSocketService {
     this.ws = null;
     this.listeners = new Map();
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 3000;
+    this.maxReconnectAttempts = Infinity; // Infinite reconnection attempts
+    this.baseReconnectDelay = 1000; // Start with 1 second
+    this.maxReconnectDelay = 30000; // Max 30 seconds
+    this.pingInterval = null;
+    this.pingIntervalTime = 30000; // Send ping every 30 seconds
   }
 
   connect() {
@@ -18,12 +21,18 @@ class WebSocketService {
       this.ws.onopen = () => {
         console.log('WebSocket connected');
         this.reconnectAttempts = 0;
+        this.startPingInterval();
         this.emit('connected', {});
       };
 
       this.ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
+          // Handle pong response (keep-alive acknowledgment)
+          if (message.type === 'pong') {
+            // Connection is alive, no action needed
+            return;
+          }
           this.emit(message.type, message.data);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -37,6 +46,7 @@ class WebSocketService {
 
       this.ws.onclose = () => {
         console.log('WebSocket disconnected');
+        this.stopPingInterval();
         this.emit('disconnected', {});
         this.attemptReconnect();
       };
@@ -48,17 +58,44 @@ class WebSocketService {
   attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
-      setTimeout(() => this.connect(), this.reconnectDelay);
+
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+      const delay = Math.min(
+        this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+        this.maxReconnectDelay
+      );
+
+      console.log(`Reconnecting... Attempt ${this.reconnectAttempts} (waiting ${delay}ms)`);
+      setTimeout(() => this.connect(), delay);
     } else {
       console.error('Max reconnection attempts reached');
     }
   }
 
   disconnect() {
+    this.stopPingInterval();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+  }
+
+  startPingInterval() {
+    // Clear any existing interval
+    this.stopPingInterval();
+
+    // Send ping every 30 seconds to keep connection alive
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.send('ping', {});
+      }
+    }, this.pingIntervalTime);
+  }
+
+  stopPingInterval() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
     }
   }
 
