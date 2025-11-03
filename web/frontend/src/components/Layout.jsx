@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Download, Users, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import Footer from './Footer';
 
 export default function Layout({ user, onLogout, children }) {
   const location = useLocation();
@@ -91,7 +92,7 @@ export default function Layout({ user, onLogout, children }) {
       </div>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-64 flex flex-col min-h-screen">
         {/* Top bar */}
         <div className="sticky top-0 z-30 flex items-center h-16 px-6 bg-slate-800 border-b border-slate-700">
           <button
@@ -106,7 +107,10 @@ export default function Layout({ user, onLogout, children }) {
         </div>
 
         {/* Page content */}
-        <main className="p-6">{children}</main>
+        <main className="flex-1 p-6">{children}</main>
+
+        {/* Footer */}
+        <Footer />
       </div>
     </div>
   );
