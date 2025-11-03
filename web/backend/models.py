@@ -31,6 +31,7 @@ class OverviewStats(BaseModel):
     successful_downloads: int
     failed_downloads: int
     total_size_gb: float
+    avg_file_size_gb: float
     total_users: int
     active_downloads: int
     queue_length: int

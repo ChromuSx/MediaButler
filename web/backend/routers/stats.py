@@ -63,6 +63,7 @@ async def get_overview_stats(
         successful_downloads=all_stats.get("successful_downloads", 0),
         failed_downloads=all_stats.get("failed_downloads", 0),
         total_size_gb=all_stats.get("total_size_gb", 0.0),
+        avg_file_size_gb=all_stats.get("avg_file_size_gb", 0.0),
         total_users=all_stats.get("total_users", 0),
         active_downloads=active_downloads,
         queue_length=queue_length,

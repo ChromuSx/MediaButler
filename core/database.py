@@ -464,9 +464,9 @@ class DatabaseManager:
         )
         total_bytes = (await cursor.fetchone())['total_bytes'] or 0
 
-        # Total users
+        # Total users (count from authorized_users table)
         cursor = await self._connection.execute(
-            "SELECT COUNT(DISTINCT user_id) as total_users FROM user_stats"
+            "SELECT COUNT(*) as total_users FROM authorized_users WHERE is_banned = 0"
         )
         total_users = (await cursor.fetchone())['total_users']
 
@@ -504,6 +504,9 @@ class DatabaseManager:
         failed_downloads = status_counts.get(DownloadStatus.FAILED.value, 0)
         total_size_gb = total_bytes / (1024**3) if total_bytes else 0.0
 
+        # Calculate average file size (only from completed downloads)
+        avg_file_size_gb = total_size_gb / successful_downloads if successful_downloads > 0 else 0.0
+
         result = {
             'total_downloads': total,
             'successful_downloads': successful_downloads,
@@ -511,6 +514,7 @@ class DatabaseManager:
             'status_counts': status_counts,
             'total_bytes': total_bytes,
             'total_size_gb': total_size_gb,
+            'avg_file_size_gb': avg_file_size_gb,
             'total_users': total_users,
             'top_users': top_users,
             'recent_24h': recent_24h,

@@ -160,12 +160,8 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Avg File Size"
-          value={
-            overviewStats?.total_downloads > 0
-              ? `${(overviewStats.total_size_gb / overviewStats.total_downloads).toFixed(1)} GB`
-              : '0 GB'
-          }
-          subtitle="Per download"
+          value={`${overviewStats?.avg_file_size_gb?.toFixed(1) || 0} GB`}
+          subtitle="Per completed download"
           icon={Download}
           color="bg-indigo-600"
         />
