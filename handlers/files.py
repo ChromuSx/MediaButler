@@ -348,7 +348,7 @@ class FileHandlers:
             # Queue download
             position = await self.downloads.queue_download(download_info)
 
-            active_downloads = len(self.downloads.get_active_downloads())
+            len(self.downloads.get_active_downloads())
 
             await msg.edit(
                 f"🎬 **Movie** selected\n\n"

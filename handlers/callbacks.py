@@ -7,7 +7,6 @@ from core.auth import AuthManager
 from core.downloader import DownloadManager
 from core.space_manager import SpaceManager
 from models.download import MediaType
-from utils.naming import FileNameParser
 
 
 class CallbackHandlers:

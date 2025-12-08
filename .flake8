@@ -1,0 +1,24 @@
+[flake8]
+max-line-length = 120
+exclude =
+    venv,
+    env,
+    .venv,
+    __pycache__,
+    .git,
+    web/frontend,
+    build,
+    dist
+# E203: whitespace before ':' (conflicts with Black)
+# E722: bare except (used intentionally for broad error handling)
+# E501: line too long (handled by Black, some strings need to be long)
+# F541: f-string without placeholders (valid for template consistency)
+# W503: line break before binary operator (conflicts with Black and PEP 8)
+# E226/E228: missing whitespace around operators (stylistic, handled by Black)
+ignore = E203,E722,F541,W503,E226,E228
+per-file-ignores =
+    # E402: module level import not at top of file (needed for sys.path manipulation)
+    main.py:E402
+    web/backend/main.py:E402
+    # Test files can have unused imports and different import patterns
+    tests/*:F401,E402

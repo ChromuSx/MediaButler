@@ -3,7 +3,7 @@ User-specific configuration with fallback to global defaults
 """
 
 from pathlib import Path
-from typing import Optional, List, Any
+from typing import List
 from core.config import get_config
 from core.database import DatabaseManager
 from utils.helpers import ValidationHelpers

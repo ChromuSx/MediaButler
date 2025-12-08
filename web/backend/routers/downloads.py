@@ -7,7 +7,6 @@ from typing import List, Optional
 from datetime import datetime
 from web.backend.models import (
     DownloadItem,
-    DownloadHistoryFilter,
     DownloadHistoryResponse,
 )
 from web.backend.auth import get_current_user, require_admin, AuthUser

@@ -2,7 +2,7 @@
 Message and output formatting utilities
 """
 
-from typing import Optional, List
+from typing import List
 from models.download import DownloadInfo, DownloadStatus
 
 

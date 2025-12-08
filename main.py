@@ -4,7 +4,6 @@ MediaButler - Telegram Bot for media organization
 Main entry point
 """
 import sys
-import asyncio
 from pathlib import Path
 
 # Add current directory to path for relative imports

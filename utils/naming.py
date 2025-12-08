@@ -5,7 +5,7 @@ Naming and file name parsing utilities
 import re
 import os
 from pathlib import Path
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple
 from models.download import SeriesInfo, TMDBResult
 
 
@@ -617,7 +617,6 @@ class FileNameParser:
             Clean series name
         """
         # List of separators that might indicate start of extra metadata
-        separators = [".", "-", "_", " "]
 
         # Try to find a natural cutting point
         # First look for common patterns that indicate end of title

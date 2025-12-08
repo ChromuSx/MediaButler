@@ -4,15 +4,11 @@ Handles persistent storage of download history, statistics, and user preferences
 """
 
 import aiosqlite
-import asyncio
-import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
-from dataclasses import asdict
 
 from core.config import get_config
-from models.download import DownloadInfo, DownloadStatus, MediaType
+from models.download import DownloadInfo, DownloadStatus
 
 
 class DatabaseManager:

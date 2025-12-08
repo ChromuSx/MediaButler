@@ -6,7 +6,6 @@ import asyncio
 import time
 from pathlib import Path
 from typing import Dict, Optional, Set, List
-from collections import defaultdict
 from telethon import TelegramClient
 from core.config import get_config
 from core.space_manager import SpaceManager
@@ -14,7 +13,7 @@ from core.tmdb_client import TMDBClient
 from core.subtitle_manager import SubtitleManager
 from core.user_config import UserConfig
 from models.download import DownloadInfo, DownloadStatus, QueueItem
-from utils.helpers import RetryHelpers, FileHelpers, AsyncHelpers
+from utils.helpers import RetryHelpers, FileHelpers
 from utils.naming import FileNameParser
 
 
@@ -643,7 +642,7 @@ class DownloadManager:
             folder_path = download_info.dest_path / folder_name
             folder_path.mkdir(parents=True, exist_ok=True)
 
-            if not folder_path in download_info.created_folders:
+            if folder_path not in download_info.created_folders:
                 download_info.created_folders.append(folder_path)
 
             filepath = folder_path / filename

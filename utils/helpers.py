@@ -6,7 +6,7 @@ import os
 import asyncio
 import hashlib
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Union
 from functools import wraps
 import time
 

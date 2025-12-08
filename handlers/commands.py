@@ -11,7 +11,6 @@ from core.downloader import DownloadManager
 from core.config import get_config
 from core.database import DatabaseManager
 from core.user_config import UserConfig
-from utils.helpers import human_readable_size, FileHelpers
 
 
 class CommandHandlers:
@@ -517,7 +516,12 @@ class CommandHandlers:
                         Button.inline("❌ Cancel", "menu_back"),
                     ]
                 ]
-                content = "🛑 **Confirm Bot Stop**\n\n⚠️ This action:\n• Will cancel all downloads\n• Will stop the bot\n• Will require manual restart\n\nConfirm?"
+                content = (
+                    "🛑 **Confirm Bot Stop**\n\n⚠️ This action:\n"
+                    "• Will cancel all downloads\n"
+                    "• Will stop the bot\n"
+                    "• Will require manual restart\n\nConfirm?"
+                )
             else:
                 buttons = [[Button.inline("📱 Menu", "menu_back")]]
 

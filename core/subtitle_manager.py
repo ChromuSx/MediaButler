@@ -2,17 +2,13 @@
 Subtitle download management for MediaButler
 """
 
-import os
-import asyncio
 import aiohttp
-import hashlib
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
 from core.config import get_config
-from utils.helpers import RetryHelpers
 
 
 @dataclass
