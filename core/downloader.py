@@ -143,9 +143,33 @@ class DownloadManager:
         download_info.status = DownloadStatus.WAITING_SPACE
         return len(self.space_waiting_queue)
     
+    def _cleanup_download_folders(self, download_info: DownloadInfo):
+        """
+        Cleanup empty folders created for a download
+
+        Args:
+            download_info: Download info with created_folders list
+        """
+        if not hasattr(download_info, 'created_folders') or not download_info.created_folders:
+            return
+
+        # Iterate in reverse order (deepest folders first)
+        for folder_path in reversed(download_info.created_folders):
+            try:
+                # Only remove if folder exists and is empty
+                if folder_path.exists() and folder_path.is_dir():
+                    # Check if folder is empty
+                    if not any(folder_path.iterdir()):
+                        folder_path.rmdir()
+                        self.logger.info(f"Removed empty folder: {folder_path}")
+                    else:
+                        self.logger.debug(f"Folder not empty, keeping: {folder_path}")
+            except Exception as e:
+                self.logger.warning(f"Could not remove folder {folder_path}: {e}")
+
     def cancel_download(self, message_id: int) -> bool:
         """
-        Cancel a download
+        Cancel a download and cleanup created folders
 
         Args:
             message_id: Message ID
@@ -154,15 +178,27 @@ class DownloadManager:
             True if cancelled
         """
         self.cancelled_downloads.add(message_id)
-        
+
+        # Get download info for cleanup
+        download_info = self.active_downloads.get(message_id)
+
         if message_id in self.download_tasks:
             self.download_tasks[message_id].cancel()
+
+            # Cleanup folders if download was cancelled
+            if download_info:
+                self._cleanup_download_folders(download_info)
+
             return True
-        
+
         if message_id in self.active_downloads:
             self.active_downloads[message_id].status = DownloadStatus.CANCELLED
+
+            # Cleanup folders
+            self._cleanup_download_folders(download_info)
+
             return True
-        
+
         return False
     
     def cancel_all_downloads(self) -> int:
