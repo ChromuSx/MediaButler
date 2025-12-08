@@ -1,6 +1,7 @@
 """
 Unit tests for naming.py - File name parsing and pattern matching
 """
+
 import pytest
 from pathlib import Path
 from utils.naming import FileNameParser
@@ -13,31 +14,31 @@ class TestSanitizeFilename:
         """Test removal of invalid characters"""
         filename = 'test<>:"|?*file.mp4'
         result = FileNameParser.sanitize_filename(filename)
-        assert result == 'testfile.mp4'
+        assert result == "testfile.mp4"
 
     def test_clean_multiple_dots(self):
         """Test cleaning of multiple dots"""
-        filename = 'test...file...mp4'
+        filename = "test...file...mp4"
         result = FileNameParser.sanitize_filename(filename)
-        assert result == 'test.file.mp4'
+        assert result == "test.file.mp4"
 
     def test_clean_multiple_spaces(self):
         """Test cleaning of multiple spaces"""
-        filename = 'test    file    name.mp4'
+        filename = "test    file    name.mp4"
         result = FileNameParser.sanitize_filename(filename)
-        assert result == 'test file name.mp4'
+        assert result == "test file name.mp4"
 
     def test_limit_length(self):
         """Test filename length limitation"""
-        long_name = 'a' * 250 + '.mp4'
+        long_name = "a" * 250 + ".mp4"
         result = FileNameParser.sanitize_filename(long_name)
         assert len(result) <= 200
 
     def test_preserve_extension_when_limiting_length(self):
         """Test that extension is preserved when limiting length"""
-        long_name = 'a' * 250 + '.mkv'
+        long_name = "a" * 250 + ".mkv"
         result = FileNameParser.sanitize_filename(long_name)
-        assert result.endswith('.mkv')
+        assert result.endswith(".mkv")
 
 
 class TestExtractSeriesInfo:
@@ -233,9 +234,7 @@ class TestFindSimilarFolder:
         (temp_dir / "Game of Thrones").mkdir()
 
         result = FileNameParser.find_similar_folder(
-            "Breaking Bad",
-            temp_dir,
-            threshold=0.7
+            "Breaking Bad", temp_dir, threshold=0.7
         )
 
         assert result == "Breaking Bad"
@@ -246,9 +245,7 @@ class TestFindSimilarFolder:
         (temp_dir / "Breaking Bad [ITA]").mkdir()
 
         result = FileNameParser.find_similar_folder(
-            "Breaking Bad",
-            temp_dir,
-            threshold=0.7
+            "Breaking Bad", temp_dir, threshold=0.7
         )
 
         assert result == "Breaking Bad [ITA]"
@@ -259,9 +256,7 @@ class TestFindSimilarFolder:
         (temp_dir / "Breaking Bad (2008)").mkdir()
 
         result = FileNameParser.find_similar_folder(
-            "Breaking Bad",
-            temp_dir,
-            threshold=0.7
+            "Breaking Bad", temp_dir, threshold=0.7
         )
 
         assert result == "Breaking Bad (2008)"
@@ -271,9 +266,7 @@ class TestFindSimilarFolder:
         (temp_dir / "Completely Different Show").mkdir()
 
         result = FileNameParser.find_similar_folder(
-            "Breaking Bad",
-            temp_dir,
-            threshold=0.9  # High threshold
+            "Breaking Bad", temp_dir, threshold=0.9  # High threshold
         )
 
         assert result is None
@@ -281,9 +274,7 @@ class TestFindSimilarFolder:
     def test_nonexistent_directory(self):
         """Test handling of nonexistent directory"""
         result = FileNameParser.find_similar_folder(
-            "Test",
-            Path("/nonexistent/path"),
-            threshold=0.7
+            "Test", Path("/nonexistent/path"), threshold=0.7
         )
 
         assert result is None
@@ -296,22 +287,23 @@ class TestFindSimilarFolder:
         (temp_dir / "Breaking").mkdir()
 
         result = FileNameParser.find_similar_folder(
-            "Breaking Bad",
-            temp_dir,
-            threshold=0.7
+            "Breaking Bad", temp_dir, threshold=0.7
         )
 
         # Should match exact name or very close variant
         assert "Breaking Bad" in result
 
 
-@pytest.mark.parametrize("filename,expected_season,expected_episode", [
-    ("Show.S01E01.mp4", 1, 1),
-    ("Show.S05E12.mp4", 5, 12),
-    ("Show.1x01.mp4", 1, 1),
-    ("Show.3x15.mp4", 3, 15),
-    ("Show.Season.2.Episode.5.mp4", 2, 5),
-])
+@pytest.mark.parametrize(
+    "filename,expected_season,expected_episode",
+    [
+        ("Show.S01E01.mp4", 1, 1),
+        ("Show.S05E12.mp4", 5, 12),
+        ("Show.1x01.mp4", 1, 1),
+        ("Show.3x15.mp4", 3, 15),
+        ("Show.Season.2.Episode.5.mp4", 2, 5),
+    ],
+)
 def test_various_series_formats(filename, expected_season, expected_episode):
     """Parametrized test for various series formats"""
     info = FileNameParser.extract_series_info(filename)
@@ -327,7 +319,9 @@ class TestSecuritySanitization:
         """Test that path traversal attempts are sanitized"""
         filename = "../../../etc/passwd"
         result = FileNameParser.sanitize_filename(filename)
-        assert ".." not in result or result.count(".") <= 1  # Only extension dot allowed
+        assert (
+            ".." not in result or result.count(".") <= 1
+        )  # Only extension dot allowed
 
     def test_null_byte_handling(self):
         """Test null byte handling"""

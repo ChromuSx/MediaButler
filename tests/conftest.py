@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures for MediaButler tests
 """
+
 import pytest
 import asyncio
 import tempfile
@@ -52,11 +53,7 @@ def test_paths(temp_dir):
     tv_path.mkdir(parents=True, exist_ok=True)
     temp_path.mkdir(parents=True, exist_ok=True)
 
-    return PathsConfig(
-        movies=movies_path,
-        tv=tv_path,
-        temp=temp_path
-    )
+    return PathsConfig(movies=movies_path, tv=tv_path, temp=temp_path)
 
 
 @pytest.fixture
@@ -69,7 +66,7 @@ def test_limits():
         min_free_space_gb=1.0,
         warning_threshold_gb=2.0,
         space_check_interval=10,
-        max_file_size_gb=5.0
+        max_file_size_gb=5.0,
     )
 
 
@@ -78,10 +75,7 @@ def test_tmdb_config():
     """
     Create test TMDB configuration.
     """
-    return TMDBConfig(
-        api_key="test_api_key",
-        language="en-US"
-    )
+    return TMDBConfig(api_key="test_api_key", language="en-US")
 
 
 @pytest.fixture
@@ -89,10 +83,7 @@ def test_auth_config():
     """
     Create test auth configuration.
     """
-    return AuthConfig(
-        authorized_users=[123456, 789012],
-        admin_mode=False
-    )
+    return AuthConfig(authorized_users=[123456, 789012], admin_mode=False)
 
 
 @pytest.fixture
@@ -137,22 +128,26 @@ def mock_tmdb_client():
     Create a mock TMDB client for testing.
     """
     client = AsyncMock()
-    client.search_movie = AsyncMock(return_value=[
-        {
-            "id": 550,
-            "title": "Fight Club",
-            "release_date": "1999-10-15",
-            "confidence": 95
-        }
-    ])
-    client.search_tv = AsyncMock(return_value=[
-        {
-            "id": 1396,
-            "name": "Breaking Bad",
-            "first_air_date": "2008-01-20",
-            "confidence": 98
-        }
-    ])
+    client.search_movie = AsyncMock(
+        return_value=[
+            {
+                "id": 550,
+                "title": "Fight Club",
+                "release_date": "1999-10-15",
+                "confidence": 95,
+            }
+        ]
+    )
+    client.search_tv = AsyncMock(
+        return_value=[
+            {
+                "id": 1396,
+                "name": "Breaking Bad",
+                "first_air_date": "2008-01-20",
+                "confidence": 98,
+            }
+        ]
+    )
     return client
 
 
@@ -196,7 +191,7 @@ def sample_download_data():
         "size_bytes": 1024 * 1024 * 100,  # 100MB
         "media_type": "MOVIE",
         "tmdb_id": 550,
-        "final_path": "/media/movies/Test Movie (2023)/Test Movie (2023).mp4"
+        "final_path": "/media/movies/Test Movie (2023)/Test Movie (2023).mp4",
     }
 
 
@@ -210,5 +205,5 @@ def sample_user_data():
         "username": "test_user",
         "first_name": "Test",
         "last_name": "User",
-        "is_admin": False
+        "is_admin": False,
     }

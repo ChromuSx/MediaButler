@@ -1,6 +1,7 @@
 """
 Unit tests for helpers.py - Validation, retry logic, and utility functions
 """
+
 import pytest
 import asyncio
 from pathlib import Path
@@ -9,7 +10,7 @@ from utils.helpers import (
     FileHelpers,
     RetryHelpers,
     human_readable_size,
-    truncate_text
+    truncate_text,
 )
 
 
@@ -69,7 +70,9 @@ class TestValidationHelpers:
     def test_validate_file_size_too_large(self):
         """Test file size too large"""
         size = 20 * 1024**3  # 20GB
-        is_valid, msg = ValidationHelpers.validate_file_size(size, max_size=10 * 1024**3)
+        is_valid, msg = ValidationHelpers.validate_file_size(
+            size, max_size=10 * 1024**3
+        )
         assert is_valid is False
         assert "too large" in msg.lower()
 
@@ -126,8 +129,7 @@ class TestValidateUserPath:
         # This test requires symlink creation which may not work on all systems
         # Just test the path resolution logic
         is_valid, msg = ValidationHelpers.validate_user_path(
-            temp_dir / "outside",
-            allowed_bases
+            temp_dir / "outside", allowed_bases
         )
 
         assert is_valid is False
@@ -140,22 +142,19 @@ class TestValidateUserPath:
 
         # Path in first base
         is_valid1, _ = ValidationHelpers.validate_user_path(
-            base1 / "subfolder",
-            allowed_bases
+            base1 / "subfolder", allowed_bases
         )
         assert is_valid1 is True
 
         # Path in second base
         is_valid2, _ = ValidationHelpers.validate_user_path(
-            base2 / "subfolder",
-            allowed_bases
+            base2 / "subfolder", allowed_bases
         )
         assert is_valid2 is True
 
         # Path outside both bases
         is_valid3, _ = ValidationHelpers.validate_user_path(
-            temp_dir / "other",
-            allowed_bases
+            temp_dir / "other", allowed_bases
         )
         assert is_valid3 is False
 
@@ -165,8 +164,7 @@ class TestValidateUserPath:
 
         # Test with string path
         is_valid, _ = ValidationHelpers.validate_user_path(
-            str(temp_dir / "subfolder"),
-            allowed_bases
+            str(temp_dir / "subfolder"), allowed_bases
         )
         assert is_valid is True
 
@@ -176,8 +174,7 @@ class TestValidateUserPath:
 
         # Test with invalid path characters (on Windows)
         is_valid, msg = ValidationHelpers.validate_user_path(
-            "invalid<>path",
-            allowed_bases
+            "invalid<>path", allowed_bases
         )
 
         # Should either reject or handle gracefully
@@ -194,7 +191,7 @@ class TestFileHelpers:
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
 
-        hash_result = FileHelpers.get_file_hash(test_file, algorithm='md5')
+        hash_result = FileHelpers.get_file_hash(test_file, algorithm="md5")
 
         assert isinstance(hash_result, str)
         assert len(hash_result) == 32  # MD5 is 32 hex chars
@@ -204,7 +201,7 @@ class TestFileHelpers:
         test_file = temp_dir / "test.txt"
         test_file.write_text("test content")
 
-        hash_result = FileHelpers.get_file_hash(test_file, algorithm='sha256')
+        hash_result = FileHelpers.get_file_hash(test_file, algorithm="sha256")
 
         assert isinstance(hash_result, str)
         assert len(hash_result) == 64  # SHA256 is 64 hex chars
