@@ -42,7 +42,7 @@ jobs:
         run: black --check .
 
       - name: Run Flake8 (linting)
-        run: flake8 . --max-line-length=100 --exclude=venv,env,.venv,__pycache__,.git,web/frontend
+        run: flake8 .
 
       - name: Run MyPy (type checking)
         run: mypy . --ignore-missing-imports
