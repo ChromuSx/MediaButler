@@ -1,13 +1,14 @@
 """
 Settings router
 """
+
 from fastapi import APIRouter, Depends, Request
 from web.backend.models import (
     SettingsResponse,
     PathSettings,
     LimitSettings,
     TMDBSettings,
-    SettingsUpdate
+    SettingsUpdate,
 )
 from web.backend.auth import require_admin, get_current_user, AuthUser
 from core.config import Config
@@ -23,25 +24,25 @@ def get_config(request: Request) -> Config:
 @router.get("/", response_model=SettingsResponse)
 async def get_settings(
     config: Config = Depends(get_config),
-    current_user: AuthUser = Depends(get_current_user)
+    current_user: AuthUser = Depends(get_current_user),
 ):
     """Get current settings"""
     return SettingsResponse(
         paths=PathSettings(
             movies_path=str(config.paths.movies),
             tv_path=str(config.paths.tv),
-            download_path=str(config.paths.temp)
+            download_path=str(config.paths.temp),
         ),
         limits=LimitSettings(
             max_concurrent_downloads=config.limits.max_concurrent_downloads,
             min_free_space_gb=config.limits.min_free_space_gb,
-            max_file_size_gb=None  # Not currently implemented
+            max_file_size_gb=None,  # Not currently implemented
         ),
         tmdb=TMDBSettings(
             enabled=config.tmdb.is_enabled,
             api_key="***" if config.tmdb.api_key else None,  # Masked
-            language=config.tmdb.language
-        )
+            language=config.tmdb.language,
+        ),
     )
 
 
@@ -49,7 +50,7 @@ async def get_settings(
 async def update_settings(
     updates: SettingsUpdate,
     config: Config = Depends(get_config),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """Update settings (admin only)"""
     # In production, this would update .env file or database
@@ -67,7 +68,9 @@ async def update_settings(
     # Update limits
     if updates.limits:
         if updates.limits.max_concurrent_downloads:
-            config.limits.max_concurrent_downloads = updates.limits.max_concurrent_downloads
+            config.limits.max_concurrent_downloads = (
+                updates.limits.max_concurrent_downloads
+            )
         if updates.limits.min_free_space_gb:
             config.limits.min_free_space_gb = updates.limits.min_free_space_gb
 
@@ -82,25 +85,25 @@ async def update_settings(
         paths=PathSettings(
             movies_path=str(config.paths.movies),
             tv_path=str(config.paths.tv),
-            download_path=str(config.paths.temp)
+            download_path=str(config.paths.temp),
         ),
         limits=LimitSettings(
             max_concurrent_downloads=config.limits.max_concurrent_downloads,
             min_free_space_gb=config.limits.min_free_space_gb,
-            max_file_size_gb=None
+            max_file_size_gb=None,
         ),
         tmdb=TMDBSettings(
             enabled=config.tmdb.enabled,
             api_key="***" if config.tmdb.api_key else None,
-            language=config.tmdb.language
-        )
+            language=config.tmdb.language,
+        ),
     )
 
 
 @router.post("/test-tmdb")
 async def test_tmdb_connection(
     config: Config = Depends(get_config),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """Test TMDB API connection (admin only)"""
     if not config.tmdb.enabled or not config.tmdb.api_key:

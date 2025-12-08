@@ -1,6 +1,7 @@
 """
 FastAPI Web Dashboard for MediaButler
 """
+
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -74,12 +75,13 @@ app = FastAPI(
     title="MediaButler Dashboard",
     description="Web Dashboard for MediaButler Telegram Bot",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add rate limiter to app state
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # CORS middleware configuration
 def get_allowed_origins() -> list:
@@ -91,14 +93,16 @@ def get_allowed_origins() -> list:
     - In development, allows localhost with common ports
     - Warns if using permissive settings
     """
-    cors_origins_env = os.getenv('CORS_ORIGINS', '')
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
 
     if cors_origins_env:
         # Parse comma-separated origins
-        origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+        origins = [
+            origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
+        ]
 
         # Warn if wildcard is explicitly set
-        if '*' in origins:
+        if "*" in origins:
             logger.warning(
                 "SECURITY WARNING: CORS is configured to allow all origins (*). "
                 "This should only be used in development!"
@@ -155,7 +159,9 @@ async def health_check(request: Request):
 frontend_dist = project_root / "web" / "frontend" / "dist"
 if frontend_dist.exists():
     # Serve static assets (JS, CSS, images, etc.)
-    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+    app.mount(
+        "/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets"
+    )
 
     @app.get("/")
     async def serve_frontend():
@@ -176,7 +182,9 @@ if frontend_dist.exists():
 
         # Otherwise, serve index.html for SPA routing
         return FileResponse(str(frontend_dist / "index.html"))
+
 else:
+
     @app.get("/")
     async def root():
         """Root endpoint when frontend is not built"""
@@ -184,16 +192,13 @@ else:
             "name": "MediaButler Dashboard API",
             "version": "1.0.0",
             "status": "running",
-            "message": "Frontend not built. Build frontend with 'npm run build' in web/frontend/"
+            "message": "Frontend not built. Build frontend with 'npm run build' in web/frontend/",
         }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        "web.backend.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        "web.backend.main:app", host="0.0.0.0", port=8000, reload=True, log_level="info"
     )

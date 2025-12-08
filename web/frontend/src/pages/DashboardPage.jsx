@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, CheckCircle, XCircle, Users, HardDrive, Activity, Wifi, WifiOff } from 'lucide-react';
+import { Download, CheckCircle, Users, HardDrive, Activity, Wifi, WifiOff } from 'lucide-react';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { statsAPI } from '../services/api';
 import { useWebSocket, useStatsUpdates, useDownloadUpdates } from '../hooks/useWebSocket';

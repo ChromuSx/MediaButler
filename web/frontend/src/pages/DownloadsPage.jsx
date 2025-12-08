@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Clock, CheckCircle, XCircle, Loader, Wifi, WifiOff, Zap, HardDrive } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, Loader, Wifi, WifiOff, Zap, HardDrive } from 'lucide-react';
 import { downloadsAPI } from '../services/api';
 import { useWebSocket, useDownloadUpdates } from '../hooks/useWebSocket';
 import toast from 'react-hot-toast';

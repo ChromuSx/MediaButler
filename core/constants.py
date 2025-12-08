@@ -64,9 +64,9 @@ FILE_HASH_CHUNK_SIZE = 4096
 MAX_FILENAME_LENGTH = 200
 
 # File hash algorithms
-HASH_ALGORITHM_MD5 = 'md5'
-HASH_ALGORITHM_SHA1 = 'sha1'
-HASH_ALGORITHM_SHA256 = 'sha256'
+HASH_ALGORITHM_MD5 = "md5"
+HASH_ALGORITHM_SHA1 = "sha1"
+HASH_ALGORITHM_SHA256 = "sha256"
 
 
 # =============================================================================
@@ -162,4 +162,4 @@ DEFAULT_TRUNCATE_SUFFIX = "..."
 LOG_LEVEL = "INFO"
 
 # Log format
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

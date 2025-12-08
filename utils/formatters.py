@@ -1,13 +1,14 @@
 """
 Message and output formatting utilities
 """
+
 from typing import Optional, List
 from models.download import DownloadInfo, DownloadStatus
 
 
 class MessageFormatter:
     """Message formatter for Telegram"""
-    
+
     @staticmethod
     def format_progress_bar(progress: float, width: int = 20) -> str:
         """
@@ -23,7 +24,7 @@ class MessageFormatter:
         filled = int((progress / 100) * width)
         empty = width - filled
         return "█" * filled + "░" * empty
-    
+
     @staticmethod
     def format_time(seconds: int) -> str:
         """
@@ -45,7 +46,7 @@ class MessageFormatter:
             hours = seconds // 3600
             minutes = (seconds % 3600) // 60
             return f"{hours}h {minutes}m"
-    
+
     @staticmethod
     def format_size(size_bytes: int) -> str:
         """
@@ -57,15 +58,15 @@ class MessageFormatter:
         Returns:
             Formatted size string
         """
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
             if size_bytes < 1024.0:
-                if unit in ['B', 'KB']:
+                if unit in ["B", "KB"]:
                     return f"{size_bytes:.0f} {unit}"
                 else:
                     return f"{size_bytes:.1f} {unit}"
             size_bytes /= 1024.0
         return f"{size_bytes:.1f} PB"
-    
+
     @staticmethod
     def format_speed(bytes_per_second: float) -> str:
         """
@@ -83,7 +84,7 @@ class MessageFormatter:
             return f"{kbps:.1f} KB/s"
         else:
             return f"{mbps:.1f} MB/s"
-    
+
     @staticmethod
     def format_download_status(download_info: DownloadInfo) -> str:
         """
@@ -102,11 +103,11 @@ class MessageFormatter:
             DownloadStatus.FAILED: "❌",
             DownloadStatus.CANCELLED: "🚫",
             DownloadStatus.WAITING_SPACE: "⏸️",
-            DownloadStatus.QUEUED: "📋"
+            DownloadStatus.QUEUED: "📋",
         }
-        
+
         emoji = status_emoji.get(download_info.status, "❓")
-        
+
         text = f"{emoji} **{download_info.status.value.capitalize()}**\n\n"
         text += f"📁 **File:** `{download_info.filename}`\n"
         text += f"📏 **Size:** {MessageFormatter.format_size(download_info.size)}\n"
@@ -120,11 +121,14 @@ class MessageFormatter:
             if download_info.eta_seconds:
                 text += f"⏱ **Time remaining:** {MessageFormatter.format_time(download_info.eta_seconds)}\n"
 
-        elif download_info.status == DownloadStatus.FAILED and download_info.error_message:
+        elif (
+            download_info.status == DownloadStatus.FAILED
+            and download_info.error_message
+        ):
             text += f"\n❌ **Error:** {download_info.error_message}\n"
-        
+
         return text
-    
+
     @staticmethod
     def format_queue_position(position: int, total: int) -> str:
         """
@@ -138,13 +142,10 @@ class MessageFormatter:
             Formatted position string
         """
         return f"📊 Queue position: **{position}/{total}**"
-    
+
     @staticmethod
     def format_disk_space(
-        free_gb: float,
-        total_gb: float,
-        warning_threshold: float,
-        min_free: float
+        free_gb: float, total_gb: float, warning_threshold: float, min_free: float
     ) -> str:
         """
         Format disk space info
@@ -176,9 +177,9 @@ class MessageFormatter:
         text += f"• Used: {total_gb - free_gb:.1f} GB ({percent_used:.1f}%)\n"
         text += f"• Free: {free_gb:.1f} GB\n"
         text += f"• Available for download: {max(0, free_gb - min_free):.1f} GB"
-        
+
         return text
-    
+
     @staticmethod
     def format_download_list(downloads: List[DownloadInfo]) -> str:
         """
@@ -194,27 +195,27 @@ class MessageFormatter:
             return "📭 No active downloads"
 
         text = f"📥 **Active downloads ({len(downloads)}):**\n\n"
-        
+
         for idx, dl in enumerate(downloads, 1):
             text += f"{idx}. `{dl.filename[:30]}...`\n"
-            
+
             if dl.status == DownloadStatus.DOWNLOADING:
                 text += f"   {MessageFormatter.format_progress_bar(dl.progress, 10)} {dl.progress:.0f}%\n"
-                
+
                 if dl.speed_mbps > 0:
                     text += f"   ⚡ {dl.speed_mbps:.1f} MB/s"
-                
+
                 if dl.eta_seconds:
                     text += f" - {MessageFormatter.format_time(dl.eta_seconds)}\n"
                 else:
                     text += "\n"
             else:
                 text += f"   Status: {dl.status.value}\n"
-            
+
             text += "\n"
-        
+
         return text
-    
+
     @staticmethod
     def format_error(error_type: str, error_message: str) -> str:
         """
@@ -228,18 +229,18 @@ class MessageFormatter:
             Formatted error
         """
         emoji_map = {
-            'space': '💾',
-            'network': '🌐',
-            'permission': '🔒',
-            'file': '📁',
-            'tmdb': '🎬',
-            'generic': '⚠️'
+            "space": "💾",
+            "network": "🌐",
+            "permission": "🔒",
+            "file": "📁",
+            "tmdb": "🎬",
+            "generic": "⚠️",
         }
-        
-        emoji = emoji_map.get(error_type, '❌')
+
+        emoji = emoji_map.get(error_type, "❌")
 
         return f"{emoji} **Error {error_type.capitalize()}**\n\n{error_message}"
-    
+
     @staticmethod
     def escape_markdown(text: str) -> str:
         """
@@ -251,22 +252,39 @@ class MessageFormatter:
         Returns:
             Escaped text
         """
-        escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
-        
+        escape_chars = [
+            "_",
+            "*",
+            "[",
+            "]",
+            "(",
+            ")",
+            "~",
+            "`",
+            ">",
+            "#",
+            "+",
+            "-",
+            "=",
+            "|",
+            "{",
+            "}",
+            ".",
+            "!",
+        ]
+
         for char in escape_chars:
-            text = text.replace(char, f'\\{char}')
-        
+            text = text.replace(char, f"\\{char}")
+
         return text
 
 
 class TableFormatter:
     """Table formatter for text output"""
-    
+
     @staticmethod
     def create_table(
-        headers: List[str],
-        rows: List[List[str]],
-        align: str = 'left'
+        headers: List[str], rows: List[List[str]], align: str = "left"
     ) -> str:
         """
         Create formatted table
@@ -297,9 +315,9 @@ class TableFormatter:
         # Format header
         header_row = "|"
         for i, header in enumerate(headers):
-            if align == 'center':
+            if align == "center":
                 header_row += f" {header.center(col_widths[i])} |"
-            elif align == 'right':
+            elif align == "right":
                 header_row += f" {header.rjust(col_widths[i])} |"
             else:
                 header_row += f" {header.ljust(col_widths[i])} |"
@@ -312,15 +330,15 @@ class TableFormatter:
             row_str = "|"
             for i, cell in enumerate(row):
                 if i < len(col_widths):
-                    cell_str = str(cell)[:col_widths[i]]
-                    if align == 'center':
+                    cell_str = str(cell)[: col_widths[i]]
+                    if align == "center":
                         row_str += f" {cell_str.center(col_widths[i])} |"
-                    elif align == 'right':
+                    elif align == "right":
                         row_str += f" {cell_str.rjust(col_widths[i])} |"
                     else:
                         row_str += f" {cell_str.ljust(col_widths[i])} |"
             table += f"{row_str}\n"
-        
+
         table += f"{separator}\n```"
-        
+
         return table

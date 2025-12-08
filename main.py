@@ -24,7 +24,7 @@ from handlers.files import FileHandlers
 
 class MediaButler:
     """Main MediaButler bot class"""
-    
+
     def __init__(self):
         """Initialize the bot"""
         self.config = get_config()
@@ -40,7 +40,7 @@ class MediaButler:
             self.config.telegram.api_hash,
             connection_retries=5,
             retry_delay=1,
-            auto_reconnect=True
+            auto_reconnect=True,
         )
 
         # Initialize database (will be connected in start())
@@ -55,34 +55,34 @@ class MediaButler:
         self.download_manager = DownloadManager(
             client=self.client,
             space_manager=self.space_manager,
-            tmdb_client=self.tmdb_client
+            tmdb_client=self.tmdb_client,
         )
-        
+
         # Initialize handlers
         self.command_handlers = CommandHandlers(
             client=self.client,
             auth_manager=self.auth_manager,
             space_manager=self.space_manager,
             download_manager=self.download_manager,
-            database_manager=self.database_manager
+            database_manager=self.database_manager,
         )
-        
+
         self.callback_handlers = CallbackHandlers(
             client=self.client,
             auth_manager=self.auth_manager,
             download_manager=self.download_manager,
-            space_manager=self.space_manager
+            space_manager=self.space_manager,
         )
-        
+
         self.file_handlers = FileHandlers(
             client=self.client,
             auth_manager=self.auth_manager,
             download_manager=self.download_manager,
             tmdb_client=self.tmdb_client,
             space_manager=self.space_manager,
-            database_manager=self.database_manager
+            database_manager=self.database_manager,
         )
-        
+
     async def start(self):
         """Start the bot"""
         self.logger.info("=== MEDIABUTLER ENHANCED - STARTING ===")
@@ -112,18 +112,26 @@ class MediaButler:
         await self.download_manager.start_workers()
 
         self.logger.info("✅ Bot started and ready!")
-        self.logger.info(f"👥 Authorized users: {len(self.auth_manager.authorized_users)}")
+        self.logger.info(
+            f"👥 Authorized users: {len(self.auth_manager.authorized_users)}"
+        )
         self.logger.info(f"🎯 TMDB: {'Active' if self.tmdb_client else 'Disabled'}")
-        self.logger.info(f"💾 Database: {'Active' if self.database_manager else 'Disabled'}")
-        self.logger.info(f"📥 Concurrent downloads: max {self.config.limits.max_concurrent_downloads}")
-        self.logger.info(f"💾 Minimum reserved space: {self.config.limits.min_free_space_gb} GB")
+        self.logger.info(
+            f"💾 Database: {'Active' if self.database_manager else 'Disabled'}"
+        )
+        self.logger.info(
+            f"📥 Concurrent downloads: max {self.config.limits.max_concurrent_downloads}"
+        )
+        self.logger.info(
+            f"💾 Minimum reserved space: {self.config.limits.min_free_space_gb} GB"
+        )
 
         # Keep the bot running
         try:
             await self.client.run_until_disconnected()
         finally:
             await self.stop()
-    
+
     async def stop(self):
         """Stop the bot"""
         self.logger.info("Stopping bot...")
@@ -140,7 +148,7 @@ class MediaButler:
         await self.client.disconnect()
 
         self.logger.info("Bot stopped")
-    
+
     def run(self):
         """Run the bot"""
         try:
@@ -159,5 +167,5 @@ def main():
     bot.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

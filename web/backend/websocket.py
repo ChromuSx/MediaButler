@@ -1,6 +1,7 @@
 """
 WebSocket manager for real-time updates
 """
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from typing import List, Dict
 import json
@@ -71,8 +72,11 @@ class ConnectionManager:
         if user_id in self.user_connections:
             # Send to all user connections in parallel
             await asyncio.gather(
-                *[self._send_safe(conn, message) for conn in self.user_connections[user_id]],
-                return_exceptions=True
+                *[
+                    self._send_safe(conn, message)
+                    for conn in self.user_connections[user_id]
+                ],
+                return_exceptions=True,
             )
 
     async def broadcast(self, message: dict):
@@ -96,10 +100,12 @@ class ConnectionManager:
         # Broadcast to all connections in parallel
         await asyncio.gather(
             *[self._send_safe(conn, message) for conn in self.active_connections],
-            return_exceptions=True
+            return_exceptions=True,
         )
 
-    async def broadcast_download_progress(self, download_id: int, progress: float, speed_mbps: float, eta_seconds: int):
+    async def broadcast_download_progress(
+        self, download_id: int, progress: float, speed_mbps: float, eta_seconds: int
+    ):
         """Broadcast download progress update"""
         message = {
             "type": "download_progress",
@@ -107,8 +113,8 @@ class ConnectionManager:
                 "download_id": download_id,
                 "progress": progress,
                 "speed_mbps": speed_mbps,
-                "eta_seconds": eta_seconds
-            }
+                "eta_seconds": eta_seconds,
+            },
         }
         await self.broadcast(message)
 
@@ -116,34 +122,28 @@ class ConnectionManager:
         """Broadcast download completion"""
         message = {
             "type": "download_completed",
-            "data": {
-                "download_id": download_id,
-                "filename": filename
-            }
+            "data": {"download_id": download_id, "filename": filename},
         }
         await self.broadcast(message)
 
-    async def broadcast_download_failed(self, download_id: int, filename: str, error: str):
+    async def broadcast_download_failed(
+        self, download_id: int, filename: str, error: str
+    ):
         """Broadcast download failure"""
         message = {
             "type": "download_failed",
-            "data": {
-                "download_id": download_id,
-                "filename": filename,
-                "error": error
-            }
+            "data": {"download_id": download_id, "filename": filename, "error": error},
         }
         await self.broadcast(message)
 
     async def broadcast_stats_update(self, stats: dict):
         """Broadcast statistics update"""
-        message = {
-            "type": "stats_update",
-            "data": stats
-        }
+        message = {"type": "stats_update", "data": stats}
         await self.broadcast(message)
 
-    async def broadcast_download_started(self, download_id: int, filename: str, user_id: int):
+    async def broadcast_download_started(
+        self, download_id: int, filename: str, user_id: int
+    ):
         """Broadcast download started"""
         message = {
             "type": "download_started",
@@ -151,8 +151,8 @@ class ConnectionManager:
                 "download_id": download_id,
                 "filename": filename,
                 "user_id": user_id,
-                "timestamp": None  # Will be set by client
-            }
+                "timestamp": None,  # Will be set by client
+            },
         }
         await self.broadcast(message)
 
@@ -160,31 +160,20 @@ class ConnectionManager:
         """Broadcast new user added"""
         message = {
             "type": "user_added",
-            "data": {
-                "user_id": user_id,
-                "username": username
-            }
+            "data": {"user_id": user_id, "username": username},
         }
         await self.broadcast(message)
 
     async def broadcast_user_removed(self, user_id: int):
         """Broadcast user removed"""
-        message = {
-            "type": "user_removed",
-            "data": {
-                "user_id": user_id
-            }
-        }
+        message = {"type": "user_removed", "data": {"user_id": user_id}}
         await self.broadcast(message)
 
     async def broadcast_space_warning(self, available_gb: float, threshold_gb: float):
         """Broadcast low space warning"""
         message = {
             "type": "space_warning",
-            "data": {
-                "available_gb": available_gb,
-                "threshold_gb": threshold_gb
-            }
+            "data": {"available_gb": available_gb, "threshold_gb": threshold_gb},
         }
         await self.broadcast(message)
 
@@ -200,10 +189,12 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         # Send initial connection confirmation
-        await websocket.send_json({
-            "type": "connected",
-            "data": {"message": "Connected to MediaButler updates"}
-        })
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "data": {"message": "Connected to MediaButler updates"},
+            }
+        )
 
         # Keep connection alive and handle incoming messages
         while True:
@@ -227,9 +218,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # Helper function to be called from download manager
-async def notify_download_progress(download_id: int, progress: float, speed_mbps: float, eta_seconds: int):
+async def notify_download_progress(
+    download_id: int, progress: float, speed_mbps: float, eta_seconds: int
+):
     """Notify clients of download progress"""
-    await manager.broadcast_download_progress(download_id, progress, speed_mbps, eta_seconds)
+    await manager.broadcast_download_progress(
+        download_id, progress, speed_mbps, eta_seconds
+    )
 
 
 async def notify_download_completed(download_id: int, filename: str):

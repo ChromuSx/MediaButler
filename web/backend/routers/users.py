@@ -1,6 +1,7 @@
 """
 Users router - Manages authorized users
 """
+
 from fastapi import APIRouter, Depends, Request, HTTPException
 from typing import List
 from datetime import datetime
@@ -26,7 +27,7 @@ def get_auth_manager(request: Request) -> AuthManager:
 @router.get("/", response_model=List[UserListItem])
 async def list_users(
     db: DatabaseManager = Depends(get_db),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """List all authorized users with their stats (admin only)"""
     query = """
@@ -50,17 +51,19 @@ async def list_users(
 
     users = []
     for row in rows:
-        users.append(UserListItem(
-            user_id=row[0],
-            telegram_id=row[0],
-            username=row[1] or f"User {row[0]}",
-            is_admin=bool(row[2]),
-            is_banned=bool(row[3]),
-            last_active=datetime.fromisoformat(row[4]) if row[4] else None,
-            notes=row[5],
-            total_downloads=row[6],
-            total_size_gb=round(row[7], 2)
-        ))
+        users.append(
+            UserListItem(
+                user_id=row[0],
+                telegram_id=row[0],
+                username=row[1] or f"User {row[0]}",
+                is_admin=bool(row[2]),
+                is_banned=bool(row[3]),
+                last_active=datetime.fromisoformat(row[4]) if row[4] else None,
+                notes=row[5],
+                total_downloads=row[6],
+                total_size_gb=round(row[7], 2),
+            )
+        )
 
     return users
 
@@ -70,13 +73,13 @@ async def create_user(
     user_data: UserCreateRequest,
     db: DatabaseManager = Depends(get_db),
     auth_manager: AuthManager = Depends(get_auth_manager),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """Add a new authorized user (admin only)"""
     # Check if user already exists
     existing = await db.get_authorized_user(user_data.user_id)
     if existing:
-        if existing.get('is_banned'):
+        if existing.get("is_banned"):
             # Unban the user
             await db.update_authorized_user(user_data.user_id, is_banned=False)
             await auth_manager.reload_users()
@@ -90,27 +93,31 @@ async def create_user(
         telegram_username=user_data.telegram_username,
         is_admin=user_data.is_admin,
         added_by=current_user.user_id,
-        notes=user_data.notes
+        notes=user_data.notes,
     )
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to add user")
 
     # Notify via WebSocket
-    await notify_user_added(user_data.user_id, user_data.telegram_username or f"User {user_data.user_id}")
+    await notify_user_added(
+        user_data.user_id, user_data.telegram_username or f"User {user_data.user_id}"
+    )
 
     # Return the created user
     user = await db.get_authorized_user(user_data.user_id)
     return UserListItem(
-        user_id=user['user_id'],
-        telegram_id=user['user_id'],
-        username=user['telegram_username'] or f"User {user['user_id']}",
-        is_admin=bool(user['is_admin']),
-        is_banned=bool(user.get('is_banned', False)),
-        last_active=datetime.fromisoformat(user['last_seen']) if user.get('last_seen') else None,
-        notes=user.get('notes'),
+        user_id=user["user_id"],
+        telegram_id=user["user_id"],
+        username=user["telegram_username"] or f"User {user['user_id']}",
+        is_admin=bool(user["is_admin"]),
+        is_banned=bool(user.get("is_banned", False)),
+        last_active=(
+            datetime.fromisoformat(user["last_seen"]) if user.get("last_seen") else None
+        ),
+        notes=user.get("notes"),
         total_downloads=0,
-        total_size_gb=0.0
+        total_size_gb=0.0,
     )
 
 
@@ -118,7 +125,7 @@ async def create_user(
 async def get_user_details(
     user_id: int,
     db: DatabaseManager = Depends(get_db),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """Get detailed user information (admin only)"""
     # Get authorized user info
@@ -140,20 +147,30 @@ async def get_user_details(
     return UserDetail(
         user_id=user_id,
         telegram_id=user_id,
-        username=auth_user['telegram_username'] or f"User {user_id}",
-        is_admin=bool(auth_user['is_admin']),
-        is_banned=bool(auth_user.get('is_banned', False)),
-        notes=auth_user.get('notes'),
+        username=auth_user["telegram_username"] or f"User {user_id}",
+        is_admin=bool(auth_user["is_admin"]),
+        is_banned=bool(auth_user.get("is_banned", False)),
+        notes=auth_user.get("notes"),
         total_downloads=total,
-        total_size_gb=round(stats.get("total_bytes", 0) / 1073741824.0, 2) if stats else 0.0,
-        last_active=datetime.fromisoformat(auth_user['last_seen']) if auth_user.get('last_seen') else None,
+        total_size_gb=(
+            round(stats.get("total_bytes", 0) / 1073741824.0, 2) if stats else 0.0
+        ),
+        last_active=(
+            datetime.fromisoformat(auth_user["last_seen"])
+            if auth_user.get("last_seen")
+            else None
+        ),
         success_rate=round(success_rate, 1),
         failed_downloads=stats.get("failed_downloads", 0) if stats else 0,
         cancelled_downloads=stats.get("cancelled_downloads", 0) if stats else 0,
         avg_file_size_gb=0.0,  # Would need to calculate from downloads table
         preferences=prefs,
-        added_at=datetime.fromisoformat(auth_user['added_at']) if auth_user.get('added_at') else None,
-        added_by=auth_user.get('added_by')
+        added_at=(
+            datetime.fromisoformat(auth_user["added_at"])
+            if auth_user.get("added_at")
+            else None
+        ),
+        added_by=auth_user.get("added_by"),
     )
 
 
@@ -163,7 +180,7 @@ async def update_user(
     update: UserUpdate,
     db: DatabaseManager = Depends(get_db),
     auth_manager: AuthManager = Depends(get_auth_manager),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """Update user settings (admin only)"""
     # Check if user exists
@@ -176,7 +193,7 @@ async def update_user(
         user_id=user_id,
         telegram_username=update.telegram_username,
         is_admin=update.is_admin,
-        notes=update.notes
+        notes=update.notes,
     )
 
     # Handle ban separately (doesn't go through AuthManager)
@@ -189,7 +206,10 @@ async def update_user(
     if not success and update.is_banned is None:
         raise HTTPException(status_code=500, detail="Failed to update user")
 
-    return {"message": f"User {user_id} updated", "updates": update.dict(exclude_none=True)}
+    return {
+        "message": f"User {user_id} updated",
+        "updates": update.dict(exclude_none=True),
+    }
 
 
 @router.delete("/{user_id}")
@@ -197,7 +217,7 @@ async def delete_user(
     user_id: int,
     db: DatabaseManager = Depends(get_db),
     auth_manager: AuthManager = Depends(get_auth_manager),
-    current_user: AuthUser = Depends(require_admin)
+    current_user: AuthUser = Depends(require_admin),
 ):
     """Remove authorized user (admin only)"""
     # Check if user exists
@@ -211,7 +231,7 @@ async def delete_user(
     if not success:
         raise HTTPException(
             status_code=400,
-            detail="Cannot remove this user (may be first admin or not found)"
+            detail="Cannot remove this user (may be first admin or not found)",
         )
 
     # Notify via WebSocket

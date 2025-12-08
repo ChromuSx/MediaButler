@@ -1,6 +1,7 @@
 """
 Authentication and authorization management
 """
+
 from typing import Optional, List, TYPE_CHECKING
 from telethon import events
 from core.config import get_config
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
 class AuthManager:
     """User authentication manager with database-backed dynamic user management"""
 
-    def __init__(self, db_manager: Optional['DatabaseManager'] = None):
+    def __init__(self, db_manager: Optional["DatabaseManager"] = None):
         self.config = get_config()
         self.db_manager = db_manager
         self.authorized_users = self.config.auth.authorized_users.copy()
@@ -29,12 +30,16 @@ class AuthManager:
 
         # Sync users from .env to database
         if self.authorized_users:
-            await self.db_manager.sync_authorized_users_from_config(self.authorized_users)
+            await self.db_manager.sync_authorized_users_from_config(
+                self.authorized_users
+            )
 
         # Load all authorized users from database
         await self.reload_users()
         self._initialized = True
-        self.config.logger.info(f"AuthManager initialized with {len(self.authorized_users)} users")
+        self.config.logger.info(
+            f"AuthManager initialized with {len(self.authorized_users)} users"
+        )
 
     async def reload_users(self):
         """Reload authorized users from database"""
@@ -42,9 +47,13 @@ class AuthManager:
             return
 
         db_users = await self.db_manager.get_authorized_users()
-        self.authorized_users = [user['user_id'] for user in db_users if not user.get('is_banned', False)]
-        self.config.logger.info(f"Reloaded {len(self.authorized_users)} authorized users from database")
-        
+        self.authorized_users = [
+            user["user_id"] for user in db_users if not user.get("is_banned", False)
+        ]
+        self.config.logger.info(
+            f"Reloaded {len(self.authorized_users)} authorized users from database"
+        )
+
     async def check_authorized(self, event: events.NewMessage.Event) -> bool:
         """
         Check if user is authorized
@@ -62,7 +71,9 @@ class AuthManager:
         # Admin mode: first user becomes admin
         if self.admin_mode and len(self.authorized_users) == 0:
             self.authorized_users.append(user_id)
-            self.config.logger.info(f"First user added as admin: {username} (ID: {user_id})")
+            self.config.logger.info(
+                f"First user added as admin: {username} (ID: {user_id})"
+            )
 
             # Add to database if available
             if self.db_manager:
@@ -70,7 +81,7 @@ class AuthManager:
                     user_id=user_id,
                     telegram_username=username,
                     is_admin=True,
-                    notes="First user - auto-added as admin"
+                    notes="First user - auto-added as admin",
                 )
 
             await event.reply(
@@ -99,17 +110,18 @@ class AuthManager:
         if self.db_manager:
             # Update username if changed
             db_user = await self.db_manager.get_authorized_user(user_id)
-            if db_user and db_user.get('telegram_username') != username:
-                await self.db_manager.update_authorized_user(user_id, telegram_username=username)
+            if db_user and db_user.get("telegram_username") != username:
+                await self.db_manager.update_authorized_user(
+                    user_id, telegram_username=username
+                )
 
             # Update last seen
             await self.db_manager.update_user_last_seen(user_id)
 
         return True
-    
+
     async def check_callback_authorized(
-        self, 
-        event: events.CallbackQuery.Event
+        self, event: events.CallbackQuery.Event
     ) -> bool:
         """
         Check authorization for callback
@@ -124,7 +136,7 @@ class AuthManager:
             await event.answer("❌ Not authorized", alert=True)
             return False
         return True
-    
+
     def is_admin(self, user_id: int) -> bool:
         """
         Check if user is admin
@@ -138,7 +150,7 @@ class AuthManager:
         if not self.authorized_users:
             return False
         return user_id == self.authorized_users[0]
-    
+
     def is_authorized(self, user_id: int) -> bool:
         """
         Check if user is authorized
@@ -150,14 +162,14 @@ class AuthManager:
             True if authorized
         """
         return user_id in self.authorized_users
-    
+
     async def add_user(
         self,
         user_id: int,
         telegram_username: Optional[str] = None,
         is_admin: bool = False,
         added_by: Optional[int] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
     ) -> bool:
         """
         Add an authorized user (with database sync)
@@ -182,14 +194,16 @@ class AuthManager:
                 telegram_username=telegram_username,
                 is_admin=is_admin,
                 added_by=added_by,
-                notes=notes
+                notes=notes,
             )
             if not success:
                 return False
 
         # Add to in-memory list
         self.authorized_users.append(user_id)
-        self.config.logger.info(f"Added authorized user: {user_id} ({telegram_username})")
+        self.config.logger.info(
+            f"Added authorized user: {user_id} ({telegram_username})"
+        )
         return True
 
     async def remove_user(self, user_id: int) -> bool:
@@ -225,7 +239,7 @@ class AuthManager:
         user_id: int,
         telegram_username: Optional[str] = None,
         is_admin: Optional[bool] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
     ) -> bool:
         """
         Update authorized user information
@@ -248,11 +262,11 @@ class AuthManager:
                 user_id=user_id,
                 telegram_username=telegram_username,
                 is_admin=is_admin,
-                notes=notes
+                notes=notes,
             )
 
         return False
-    
+
     def get_authorized_users(self) -> List[int]:
         """
         Get list of authorized users
@@ -261,7 +275,7 @@ class AuthManager:
             List of authorized user IDs
         """
         return self.authorized_users.copy()
-    
+
     def get_admin_id(self) -> Optional[int]:
         """
         Get admin ID
@@ -270,11 +284,8 @@ class AuthManager:
             Admin ID or None
         """
         return self.authorized_users[0] if self.authorized_users else None
-    
-    async def require_admin(
-        self, 
-        event: events.NewMessage.Event
-    ) -> bool:
+
+    async def require_admin(self, event: events.NewMessage.Event) -> bool:
         """
         Require admin privileges
 
@@ -285,18 +296,14 @@ class AuthManager:
             True if admin, False otherwise
         """
         user_id = event.sender_id
-        
+
         if not self.is_admin(user_id):
             await event.reply("❌ Only the administrator can execute this command")
             return False
-        
+
         return True
-    
-    def can_manage_download(
-        self, 
-        user_id: int, 
-        download_user_id: int
-    ) -> bool:
+
+    def can_manage_download(self, user_id: int, download_user_id: int) -> bool:
         """
         Check if a user can manage a download
 

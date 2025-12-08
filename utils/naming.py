@@ -1,6 +1,7 @@
 """
 Naming and file name parsing utilities
 """
+
 import re
 import os
 from pathlib import Path
@@ -14,40 +15,79 @@ class FileNameParser:
     # Patterns to identify TV series with confidence scoring
     TV_PATTERNS = [
         # High confidence patterns (90-100)
-        (r'[Ss](\d{1,2})[Ee](\d{1,3})', 'standard', 100),              # S01E01
-        (r'[Ss](\d{1,2})\s*[Ee](\d{1,3})', 'spaced', 95),              # S01 E01
-        (r'Season\s*(\d{1,2})\s*Episode\s*(\d{1,3})', 'verbose', 90),  # Season 1 Episode 1
-
+        (r"[Ss](\d{1,2})[Ee](\d{1,3})", "standard", 100),  # S01E01
+        (r"[Ss](\d{1,2})\s*[Ee](\d{1,3})", "spaced", 95),  # S01 E01
+        (
+            r"Season[\s\.](\d{1,2})[\s\.]Episode[\s\.](\d{1,3})",
+            "verbose_sep",
+            92,
+        ),  # Season.2.Episode.5
+        (
+            r"Season\s*(\d{1,2})\s*Episode\s*(\d{1,3})",
+            "verbose",
+            90,
+        ),  # Season 1 Episode 1
         # Medium confidence patterns (70-89)
-        (r'^(\d{1,2})x(\d{1,3})', 'x_format_leading', 92),            # 12x06 at start of filename
-        (r'(\d{1,2})\s+x\s+(\d{1,3})', 'x_format_spaced', 88),        # 12 x 5
-        (r'(\d{1,2})x(\d{1,3})', 'x_format', 85),                      # 1x01
-        (r'[\.\s\-_](\d{1,2})x(\d{1,3})', 'x_format_sep', 80),        # .1x01
-        (r'[Ss](\d{1,2})[Ee](\d{1,3})-[Ee](\d{1,3})', 'multi_episode', 75), # S01E01-E03
-
+        (r"^(\d{1,2})x(\d{1,3})", "x_format_leading", 92),  # 12x06 at start of filename
+        (r"(\d{1,2})\s+x\s+(\d{1,3})", "x_format_spaced", 88),  # 12 x 5
+        (r"(\d{1,2})x(\d{1,3})", "x_format", 85),  # 1x01
+        (r"[\.\s\-_](\d{1,2})x(\d{1,3})", "x_format_sep", 80),  # .1x01
+        (
+            r"[Ss](\d{1,2})[Ee](\d{1,3})-[Ee](\d{1,3})",
+            "multi_episode",
+            75,
+        ),  # S01E01-E03
         # New patterns
-        (r'(\d{1,2})\.(\d{1,3})', 'dot_format', 70),                   # 1.01
-        (r'[\[\(](\d{1,3})[\]\)]', 'anime_bracket', 75),               # [01] per anime
-        (r'(?:Episode|Ep)[\s\.]?(\d{1,3})', 'episode_word', 65),       # Episode 1
-        (r'[Pp]art[\s\.]?(\d{1,3})', 'part_format', 60),              # Part 1
-
+        (r"(\d{1,2})\.(\d{1,3})", "dot_format", 70),  # 1.01
+        (r"[\[\(](\d{1,3})[\]\)]", "anime_bracket", 75),  # [01] per anime
+        (r"(?:Episode|Ep)[\s\.]?(\d{1,3})", "episode_word", 65),  # Episode 1
+        (r"[Pp]art[\s\.]?(\d{1,3})", "part_format", 60),  # Part 1
         # Low confidence patterns (50-69)
-        (r'(\d)(\d{2})(?![0-9])', 'concatenated', 55),                 # 101 (1x01)
-        (r'[Ee][Pp][\.\s]?(\d{1,3})', 'episode_only', 50),            # EP01
+        (r"(?<![0-9])(\d)(\d{2})(?![0-9])", "concatenated", 55),  # 101 (1x01)
+        (r"[Ee][Pp][\.\s]?(\d{1,3})", "episode_only", 50),  # EP01
     ]
 
     # Quality tags to remove
     QUALITY_TAGS = [
-        '1080p', '720p', '2160p', '4K', 'BluRay', 'WEBRip', 'WEB-DL',
-        'HDTV', 'DVDRip', 'BRRip', 'x264', 'x265', 'HEVC', 'HDR',
-        'ITA', 'ENG', 'SUBITA', 'DDP5.1', 'AC3', 'AAC', 'AMZN',
-        'NF', 'DSNP', 'DLMux', 'BDMux', 'HDR10', 'DV', 'Atmos',
-        'MULTI', 'DUAL', 'SUB', 'EXTENDED', 'REMASTERED', 'DIRECTORS.CUT'
+        "1080p",
+        "720p",
+        "2160p",
+        "4K",
+        "BluRay",
+        "WEBRip",
+        "WEB-DL",
+        "HDTV",
+        "DVDRip",
+        "BRRip",
+        "x264",
+        "x265",
+        "HEVC",
+        "HDR",
+        "ITA",
+        "ENG",
+        "SUBITA",
+        "DDP5.1",
+        "AC3",
+        "AAC",
+        "AMZN",
+        "NF",
+        "DSNP",
+        "DLMux",
+        "BDMux",
+        "HDR10",
+        "DV",
+        "Atmos",
+        "MULTI",
+        "DUAL",
+        "SUB",
+        "EXTENDED",
+        "REMASTERED",
+        "DIRECTORS.CUT",
     ]
 
     # Invalid characters for filenames
     INVALID_CHARS = '<>:"|?*'
-    
+
     @classmethod
     def sanitize_filename(cls, filename: str) -> str:
         """
@@ -59,25 +99,30 @@ class FileNameParser:
         Returns:
             Cleaned filename
         """
+        # Remove null bytes
+        filename = filename.replace("\x00", "")
+
         # Remove invalid characters
         for char in cls.INVALID_CHARS:
-            filename = filename.replace(char, '')
+            filename = filename.replace(char, "")
 
         # Clean multiple dots
-        filename = re.sub(r'\.+', '.', filename)
+        filename = re.sub(r"\.+", ".", filename)
 
         # Clean multiple spaces
-        filename = re.sub(r'\s+', ' ', filename).strip()
+        filename = re.sub(r"\s+", " ", filename).strip()
 
         # Limit length
         if len(filename) > 200:
             name, ext = os.path.splitext(filename)
-            filename = name[:200-len(ext)] + ext
-        
+            filename = name[: 200 - len(ext)] + ext
+
         return filename
-    
+
     @classmethod
-    def find_similar_folder(cls, target_name: str, search_path: Path, threshold: float = 0.7) -> Optional[str]:
+    def find_similar_folder(
+        cls, target_name: str, search_path: Path, threshold: float = 0.7
+    ) -> Optional[str]:
         """
         Find existing folder with similar name using fuzzy matching
 
@@ -127,16 +172,16 @@ class FileNameParser:
         text = text.lower()
 
         # Remove year and brackets
-        text = re.sub(r'\s*[\(\[]?\d{4}[\)\]]?', '', text)
+        text = re.sub(r"\s*[\(\[]?\d{4}[\)\]]?", "", text)
 
         # Remove language tags
-        text = re.sub(r'\s*\[(?:ita|eng|multi)\]', '', text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*\[(?:ita|eng|multi)\]", "", text, flags=re.IGNORECASE)
 
         # Remove special characters and separators
-        text = re.sub(r'[._\-@]', ' ', text)
+        text = re.sub(r"[._\-@]", " ", text)
 
         # Remove extra spaces
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = re.sub(r"\s+", " ", text).strip()
 
         return text
 
@@ -195,7 +240,7 @@ class FileNameParser:
         # Detect years in filename to avoid false TV series matches
         # Store positions of years to exclude them from pattern matching
         year_positions = []
-        year_pattern = r'[\(\[](\d{4})[\)\]]'
+        year_pattern = r"[\(\[](\d{4})[\)\]]"
         for year_match in re.finditer(year_pattern, filename_no_ext):
             year_value = int(year_match.group(1))
             # Check if it's a valid year (1900-2099)
@@ -223,20 +268,26 @@ class FileNameParser:
                 end_episode = None
 
                 # Handle specific patterns
-                if pattern_type == 'episode_only' or pattern_type == 'episode_word' or pattern_type == 'part_format':
+                if (
+                    pattern_type == "episode_only"
+                    or pattern_type == "episode_word"
+                    or pattern_type == "part_format"
+                ):
                     season = 1
                     episode = int(match.group(1))
-                elif pattern_type == 'anime_bracket':
+                elif pattern_type == "anime_bracket":
                     season = 1
                     episode = int(match.group(1))
-                elif pattern_type == 'concatenated':
+                elif pattern_type == "concatenated":
                     # 101 = S1E01
                     season = int(match.group(1))
                     episode = int(match.group(2))
-                elif pattern_type == 'multi_episode':
+                elif pattern_type == "multi_episode":
                     season = int(match.group(1))
                     episode = int(match.group(2))
-                    end_episode = int(match.group(3)) if len(match.groups()) >= 3 else None
+                    end_episode = (
+                        int(match.group(3)) if len(match.groups()) >= 3 else None
+                    )
                 else:
                     season = int(match.group(1))
                     episode = int(match.group(2))
@@ -249,23 +300,25 @@ class FileNameParser:
                 total_confidence = confidence
 
                 # Bonus for context
-                total_confidence += cls._calculate_context_bonus(filename_no_ext, match, pattern_type)
+                total_confidence += cls._calculate_context_bonus(
+                    filename_no_ext, match, pattern_type
+                )
 
                 if total_confidence > best_confidence:
                     best_confidence = total_confidence
 
                     # Special handling for pattern at start of filename (12x06 American Horror Story)
-                    if pattern_type == 'x_format_leading' and match.start() == 0:
+                    if pattern_type == "x_format_leading" and match.start() == 0:
                         # Pattern is at start, series name comes AFTER the pattern
-                        series_name_raw = filename_no_ext[match.end():].strip()
+                        series_name_raw = filename_no_ext[match.end() :].strip()
                         # Remove common separators at the start
-                        series_name_raw = re.sub(r'^[\.\-_\s@]+', '', series_name_raw)
+                        series_name_raw = re.sub(r"^[\.\-_\s@]+", "", series_name_raw)
                     else:
                         # Extract only the series name part (before SE pattern)
-                        series_name_raw = filename_no_ext[:match.start()].strip()
+                        series_name_raw = filename_no_ext[: match.start()].strip()
 
                     # Remove common trailing separators (./-/_)
-                    series_name_raw = re.sub(r'[\.\-_\s]+$', '', series_name_raw)
+                    series_name_raw = re.sub(r"[\.\-_\s]+$", "", series_name_raw)
 
                     # If the name still seems to contain extra info (years, quality, etc),
                     # try to clean it further
@@ -275,38 +328,38 @@ class FileNameParser:
                     episode_title = cls._extract_episode_title(filename_no_ext, match)
 
                     best_match = {
-                        'series_name': series_name,
-                        'season': season,
-                        'episode': episode,
-                        'end_episode': end_episode,
-                        'episode_title': episode_title,
-                        'confidence': total_confidence
+                        "series_name": series_name,
+                        "season": season,
+                        "episode": episode,
+                        "end_episode": end_episode,
+                        "episode_title": episode_title,
+                        "confidence": total_confidence,
                     }
 
         # If nothing found, use filename without extension
         if not best_match:
             series_name = os.path.splitext(filename)[0]
             best_match = {
-                'series_name': series_name,
-                'season': None,
-                'episode': None,
-                'end_episode': None,
-                'episode_title': None,
-                'confidence': 0
+                "series_name": series_name,
+                "season": None,
+                "episode": None,
+                "end_episode": None,
+                "episode_title": None,
+                "confidence": 0,
             }
 
         # Clean series name
-        clean_name = cls.clean_media_name(best_match['series_name'])
+        clean_name = cls.clean_media_name(best_match["series_name"])
 
         return SeriesInfo(
             series_name=cls.sanitize_filename(clean_name),
-            season=best_match['season'],
-            episode=best_match['episode'],
-            episode_title=best_match['episode_title'],
-            end_episode=best_match['end_episode'],
-            confidence=best_match['confidence']
+            season=best_match["season"],
+            episode=best_match["episode"],
+            episode_title=best_match["episode_title"],
+            end_episode=best_match["end_episode"],
+            confidence=best_match["confidence"],
         )
-    
+
     @classmethod
     def extract_movie_info(cls, filename: str) -> Tuple[str, Optional[str]]:
         """
@@ -321,18 +374,18 @@ class FileNameParser:
         name = os.path.splitext(filename)[0]
 
         # Search for year
-        year_match = re.search(r'[\(\[]?(\d{4})[\)\]]?', name)
+        year_match = re.search(r"[\(\[]?(\d{4})[\)\]]?", name)
         year = year_match.group(1) if year_match else None
 
         # Remove year and everything after
         if year:
-            name = re.sub(r'[\(\[]?\d{4}[\)\]]?.*', '', name).strip()
+            name = re.sub(r"[\(\[]?\d{4}[\)\]]?.*", "", name).strip()
 
         # Clean name
         name = cls.clean_media_name(name)
-        
+
         return cls.sanitize_filename(name), year
-    
+
     @classmethod
     def clean_media_name(cls, name: str) -> str:
         """
@@ -346,24 +399,24 @@ class FileNameParser:
         """
         # Remove quality tags
         for tag in cls.QUALITY_TAGS:
-            name = re.sub(rf'\b{tag}\b', '', name, flags=re.IGNORECASE)
+            name = re.sub(rf"\b{tag}\b", "", name, flags=re.IGNORECASE)
 
         # Replace common separators
-        name = re.sub(r'(?<!\s)\.(?!\s)', ' ', name)  # Dots not surrounded by spaces
-        name = name.replace('_', ' ')
+        name = re.sub(r"(?<!\s)\.(?!\s)", " ", name)  # Dots not surrounded by spaces
+        name = name.replace("_", " ")
 
         # Remove empty parentheses
-        name = re.sub(r'\(\s*\)', '', name)
-        name = re.sub(r'\[\s*\]', '', name)
+        name = re.sub(r"\(\s*\)", "", name)
+        name = re.sub(r"\[\s*\]", "", name)
 
         # Clean trailing characters
-        name = re.sub(r'[\-\.\s]+$', '', name).strip()
+        name = re.sub(r"[\-\.\s]+$", "", name).strip()
 
         # Multiple spaces
-        name = re.sub(r'\s+', ' ', name).strip()
-        
+        name = re.sub(r"\s+", " ", name).strip()
+
         return name
-    
+
     @classmethod
     def detect_italian_content(cls, filename: str) -> bool:
         """
@@ -375,15 +428,12 @@ class FileNameParser:
         Returns:
             True if probably Italian
         """
-        italian_tags = ['ITA', 'ITALIAN', 'SUBITA', 'iTALiAN', 'DLMux']
+        italian_tags = ["ITA", "ITALIAN", "SUBITA", "iTALiAN", "DLMux"]
         return any(tag in filename.upper() for tag in italian_tags)
-    
+
     @classmethod
     def create_folder_name(
-        cls,
-        title: str,
-        year: Optional[str] = None,
-        is_italian: bool = False
+        cls, title: str, year: Optional[str] = None, is_italian: bool = False
     ) -> str:
         """
         Create folder name for media
@@ -397,15 +447,15 @@ class FileNameParser:
             Folder name
         """
         folder_name = title
-        
+
         if year:
             folder_name = f"{title} ({year})"
-        
+
         if is_italian:
             folder_name += " [ITA]"
-        
+
         return cls.sanitize_filename(folder_name)
-    
+
     @classmethod
     def create_episode_filename(
         cls,
@@ -413,7 +463,7 @@ class FileNameParser:
         season: int,
         episode: int,
         episode_title: Optional[str] = None,
-        extension: str = '.mp4'
+        extension: str = ".mp4",
     ) -> str:
         """
         Create filename for episode
@@ -434,15 +484,15 @@ class FileNameParser:
             # Clean episode title
             episode_title = cls.sanitize_filename(episode_title)
             filename += f" - {episode_title}"
-        
+
         return filename + extension
-    
+
     @classmethod
     def create_tmdb_filename(
         cls,
         tmdb_result: TMDBResult,
         original_filename: str,
-        series_info: Optional[SeriesInfo] = None
+        series_info: Optional[SeriesInfo] = None,
     ) -> Tuple[str, str]:
         """
         Create filename and folder based on TMDB data
@@ -457,35 +507,32 @@ class FileNameParser:
         """
         extension = Path(original_filename).suffix
         is_italian = cls.detect_italian_content(original_filename)
-        
+
         if tmdb_result.is_movie:
             # Movie
             folder_name = cls.create_folder_name(
-                tmdb_result.title,
-                tmdb_result.year,
-                is_italian
+                tmdb_result.title, tmdb_result.year, is_italian
             )
             filename = folder_name + extension
 
         else:
             # TV Series
             folder_name = cls.create_folder_name(
-                tmdb_result.title,
-                is_italian=is_italian
+                tmdb_result.title, is_italian=is_italian
             )
-            
+
             if series_info and series_info.season and series_info.episode:
                 filename = cls.create_episode_filename(
                     tmdb_result.title,
                     series_info.season,
                     series_info.episode,
                     series_info.episode_title,
-                    extension
+                    extension,
                 )
             else:
                 # Fallback to original name
                 filename = cls.sanitize_filename(original_filename)
-        
+
         return folder_name, filename
 
     @classmethod
@@ -532,16 +579,16 @@ class FileNameParser:
         bonus = 0
 
         # Bonus if pattern is surrounded by separators
-        start_char = filename[match.start()-1] if match.start() > 0 else ' '
-        end_char = filename[match.end()] if match.end() < len(filename) else ' '
+        start_char = filename[match.start() - 1] if match.start() > 0 else " "
+        end_char = filename[match.end()] if match.end() < len(filename) else " "
 
-        if start_char in [' ', '.', '-', '_', '[', '(']:
+        if start_char in [" ", ".", "-", "_", "[", "("]:
             bonus += 5
-        if end_char in [' ', '.', '-', '_', ']', ')']:
+        if end_char in [" ", ".", "-", "_", "]", ")"]:
             bonus += 5
 
         # Bonus for presence of TV series keywords
-        tv_keywords = ['series', 'season', 'episode', 'ep', 'stagione']
+        tv_keywords = ["series", "season", "episode", "ep", "stagione"]
         filename_lower = filename.lower()
 
         for keyword in tv_keywords:
@@ -550,7 +597,7 @@ class FileNameParser:
                 break
 
         # Penalty for formats that could be years
-        if pattern_type == 'concatenated':
+        if pattern_type == "concatenated":
             # If it looks like a year (1900-2030), reduce confidence
             full_num = int(match.group(0)) if match.group(0).isdigit() else 0
             if 1900 <= full_num <= 2030:
@@ -570,17 +617,17 @@ class FileNameParser:
             Clean series name
         """
         # List of separators that might indicate start of extra metadata
-        separators = ['.', '-', '_', ' ']
+        separators = [".", "-", "_", " "]
 
         # Try to find a natural cutting point
         # First look for common patterns that indicate end of title
         end_patterns = [
-            r'@\w+',  # Tags like @Serietvfilms, @username
-            r'(?i)\b(?:' + '|'.join(cls.QUALITY_TAGS) + r')\b',  # Quality tags
-            r'\b\d{4}\b',  # Year
-            r'\b(?:season|s)\d+\b',  # Season
-            r'\b(?:complete|completa)\b',  # Complete series
-            r'\b(?:multi|dual)\b',  # Multi audio
+            r"@\w+",  # Tags like @Serietvfilms, @username
+            r"(?i)\b(?:" + "|".join(cls.QUALITY_TAGS) + r")\b",  # Quality tags
+            r"\b\d{4}\b",  # Year
+            r"\b(?:season|s)\d+\b",  # Season
+            r"\b(?:complete|completa)\b",  # Complete series
+            r"\b(?:multi|dual)\b",  # Multi audio
         ]
 
         clean_name = raw_name
@@ -589,8 +636,8 @@ class FileNameParser:
             match = re.search(pattern, clean_name)
             if match:
                 # Cut at first match and clean
-                clean_name = clean_name[:match.start()].strip()
-                clean_name = re.sub(r'[\.\-_\s]+$', '', clean_name)
+                clean_name = clean_name[: match.start()].strip()
+                clean_name = re.sub(r"[\.\-_\s]+$", "", clean_name)
                 break
 
         # If name is still empty or too short, use original
@@ -612,14 +659,16 @@ class FileNameParser:
             Episode title if found
         """
         # Search after SE pattern until quality tags or end
-        after_match = filename[match.end():].strip()
+        after_match = filename[match.end() :].strip()
 
         # Patterns to find title (until quality tags or parentheses)
         title_patterns = [
-            r'^[\s\-\.]*(.+?)[\[\(]',  # Until [ or (
-            r'^[\s\-\.]*(.+?)\s+(?:' + '|'.join(cls.QUALITY_TAGS) + r')',  # Until quality tag
-            r'^[\s\-\.]*(.+?)\.(?:mkv|mp4|avi|mov|wmv|flv|webm|ts)$',  # Until extension
-            r'^[\s\-\.]*(.+?)$'  # Rest of string
+            r"^[\s\-\.]*(.+?)[\[\(]",  # Until [ or (
+            r"^[\s\-\.]*(.+?)\s+(?:"
+            + "|".join(cls.QUALITY_TAGS)
+            + r")",  # Until quality tag
+            r"^[\s\-\.]*(.+?)\.(?:mkv|mp4|avi|mov|wmv|flv|webm|ts)$",  # Until extension
+            r"^[\s\-\.]*(.+?)$",  # Rest of string
         ]
 
         for pattern in title_patterns:
@@ -627,7 +676,7 @@ class FileNameParser:
             if title_match:
                 title = title_match.group(1).strip()
                 # Clean the title
-                title = re.sub(r'[\-\.]+$', '', title).strip()
+                title = re.sub(r"[\-\.]+$", "", title).strip()
                 if len(title) > 3:  # Minimum 3 characters to be valid
                     return cls.sanitize_filename(title)
 

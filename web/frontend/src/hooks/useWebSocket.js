@@ -8,7 +8,6 @@ import wsService from '../services/websocket';
  */
 export function useWebSocket(autoConnect = true) {
   const [isConnected, setIsConnected] = useState(false);
-  const [lastMessage, setLastMessage] = useState(null);
   const listenersRef = useRef(new Map());
 
   useEffect(() => {
@@ -24,16 +23,19 @@ export function useWebSocket(autoConnect = true) {
       wsService.connect();
     }
 
+    // Save current listeners for cleanup
+    const currentListeners = listenersRef.current;
+
     // Cleanup on unmount
     return () => {
       wsService.off('connected', handleConnected);
       wsService.off('disconnected', handleDisconnected);
 
       // Remove all event listeners registered by this hook
-      listenersRef.current.forEach((callback, event) => {
+      currentListeners.forEach((callback, event) => {
         wsService.off(event, callback);
       });
-      listenersRef.current.clear();
+      currentListeners.clear();
     };
   }, [autoConnect]);
 
@@ -82,7 +84,6 @@ export function useWebSocket(autoConnect = true) {
 
   return {
     isConnected,
-    lastMessage,
     on,
     off,
     send,
@@ -110,7 +111,8 @@ export function useWebSocketEvent(eventType, callback, deps = []) {
     return () => {
       off(eventType, handler);
     };
-  }, [eventType, on, off, ...deps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventType, on, off, callback, ...deps]);
 }
 
 /**

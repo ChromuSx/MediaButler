@@ -1,6 +1,7 @@
 """
 Pydantic models for API requests/responses
 """
+
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime

@@ -1,6 +1,7 @@
 """
 Authentication router
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from datetime import timedelta
 from slowapi import Limiter
@@ -12,7 +13,7 @@ from web.backend.auth import (
     verify_password,
     get_password_hash,
     ACCESS_TOKEN_EXPIRE_MINUTES,
-    AuthUser
+    AuthUser,
 )
 
 router = APIRouter()
@@ -29,7 +30,7 @@ USERS_DB = {
         "username": "admin",
         "password_hash": get_password_hash("admin"),
         "is_admin": True,
-        "telegram_id": None
+        "telegram_id": None,
     }
 }
 
@@ -58,15 +59,15 @@ async def login(request: Request, credentials: LoginRequest):
             "user_id": user["user_id"],
             "username": user["username"],
             "is_admin": user["is_admin"],
-            "telegram_id": user.get("telegram_id")
+            "telegram_id": user.get("telegram_id"),
         },
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
     )
 
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
 
@@ -77,7 +78,7 @@ async def get_current_user_info(current_user: AuthUser = Depends(get_current_use
         user_id=current_user.user_id,
         username=current_user.username,
         is_admin=current_user.is_admin,
-        telegram_id=current_user.telegram_id
+        telegram_id=current_user.telegram_id,
     )
 
 
