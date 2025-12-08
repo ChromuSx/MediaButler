@@ -117,11 +117,48 @@ class FileHandlers:
         else:
             await self._process_without_tmdb(event, download_info)
     
+    def _clean_caption(self, caption: str) -> str:
+        """
+        Clean caption text from emojis and special characters
+
+        Args:
+            caption: Raw caption text from message
+
+        Returns:
+            Cleaned caption with only meaningful text
+        """
+        import re
+
+        # Remove emoji and special Unicode characters
+        # Keep only: letters, numbers, spaces, basic punctuation (.,!?-'")
+        cleaned = re.sub(r'[^\w\s.,!?\-\'"]+', '', caption, flags=re.UNICODE)
+
+        # Remove extra whitespace
+        cleaned = ' '.join(cleaned.split())
+
+        # Remove common video/download markers
+        markers = ['film', 'movie', 'video', 'download', 'HD', '4K', '1080p', '720p']
+        for marker in markers:
+            # Case insensitive removal of standalone markers
+            cleaned = re.sub(rf'\b{marker}\b', '', cleaned, flags=re.IGNORECASE)
+
+        # Clean up again after removals
+        cleaned = ' '.join(cleaned.split()).strip()
+
+        return cleaned
+
     def _extract_filename(self, event) -> str:
-        """Extract filename from message"""
+        """
+        Extract filename from message, prioritizing caption over filename
+
+        Priority:
+        1. Message caption (if present and valid)
+        2. File name from file attributes
+        3. Generated name
+        """
         filename = "unknown"
-        
-        # Try from file
+
+        # Try from file attributes first
         if hasattr(event.file, 'name') and event.file.name:
             filename = event.file.name
         # Try from document attributes
@@ -130,21 +167,37 @@ class FileHandlers:
                 if isinstance(attr, DocumentAttributeFilename):
                     filename = attr.file_name
                     break
-        
+
         # If still unknown, generate name
         if not filename or filename == "unknown":
             filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
-        
-        # Check if there's text in the message (for forwarded files)
+
+        # Get file extension for later use
+        file_ext = os.path.splitext(filename)[1] or '.mp4'
+
+        # ALWAYS check for message caption/text (prioritize it!)
         message_text = event.message.message if event.message.message else ""
-        if message_text and (filename.startswith("video_") or filename == "unknown"):
-            detected_name = message_text.strip()
-            if not any(detected_name.endswith(ext) for ext in ['.mp4', '.mkv', '.avi', '.mov']):
-                ext = os.path.splitext(filename)[1] or '.mp4'
-                detected_name += ext
-            self.logger.info(f"Name detected from text: {detected_name}")
-            return detected_name
-        
+
+        if message_text:
+            # Clean the caption
+            cleaned_caption = self._clean_caption(message_text)
+
+            # Check if cleaned caption has meaningful content (at least 3 alphanumeric chars)
+            alphanumeric_count = sum(c.isalnum() for c in cleaned_caption)
+
+            if alphanumeric_count >= 3:
+                # Use caption as filename
+                detected_name = cleaned_caption.strip()
+
+                # Add extension if not present
+                if not any(detected_name.lower().endswith(ext) for ext in ['.mp4', '.mkv', '.avi', '.mov', '.ts', '.webm', '.flv']):
+                    detected_name += file_ext
+
+                self.logger.info(f"Using caption as filename: '{message_text}' -> '{detected_name}'")
+                return detected_name
+            else:
+                self.logger.info(f"Caption too short or invalid: '{message_text}' (cleaned: '{cleaned_caption}')")
+
         return filename
     
     async def _process_with_tmdb(self, event, download_info: DownloadInfo):

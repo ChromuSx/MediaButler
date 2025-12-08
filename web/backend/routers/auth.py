@@ -3,6 +3,8 @@ Authentication router
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from datetime import timedelta
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from web.backend.models import LoginRequest, TokenResponse, UserInfo
 from web.backend.auth import (
     create_access_token,
@@ -14,6 +16,9 @@ from web.backend.auth import (
 )
 
 router = APIRouter()
+
+# Rate limiter for this router
+limiter = Limiter(key_func=get_remote_address)
 
 
 # In-memory user store for demo - in production, use database
@@ -30,8 +35,13 @@ USERS_DB = {
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("5/minute")  # Strict rate limit to prevent brute force attacks
 async def login(request: Request, credentials: LoginRequest):
-    """Login endpoint - returns JWT token"""
+    """
+    Login endpoint - returns JWT token
+
+    Rate limited to 5 attempts per minute per IP to prevent brute force attacks.
+    """
     user = USERS_DB.get(credentials.username)
 
     if not user or not verify_password(credentials.password, user["password_hash"]):

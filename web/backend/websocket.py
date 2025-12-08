@@ -39,22 +39,65 @@ class ConnectionManager:
         """Send a message to a specific connection"""
         await websocket.send_json(message)
 
+    async def _send_safe(self, connection: WebSocket, message: dict):
+        """
+        Safely send message to a connection, handling errors gracefully.
+
+        Args:
+            connection: WebSocket connection
+            message: Message to send
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        try:
+            await connection.send_json(message)
+            return True
+        except Exception:
+            # Connection might be closed or broken
+            return False
+
     async def send_to_user(self, message: dict, user_id: int):
-        """Send a message to all connections of a specific user"""
+        """
+        Send a message to all connections of a specific user in parallel.
+
+        Uses asyncio.gather to send to all user connections simultaneously,
+        improving performance for users with multiple active sessions.
+
+        Args:
+            message: Message dict to send
+            user_id: Target user ID
+        """
         if user_id in self.user_connections:
-            for connection in self.user_connections[user_id]:
-                try:
-                    await connection.send_json(message)
-                except Exception:
-                    pass  # Connection might be closed
+            # Send to all user connections in parallel
+            await asyncio.gather(
+                *[self._send_safe(conn, message) for conn in self.user_connections[user_id]],
+                return_exceptions=True
+            )
 
     async def broadcast(self, message: dict):
-        """Broadcast a message to all connected clients"""
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except Exception:
-                pass  # Connection might be closed
+        """
+        Broadcast a message to all connected clients in parallel.
+
+        Optimized to send messages concurrently using asyncio.gather instead
+        of sequential sends. This significantly improves performance when
+        broadcasting to many connected clients.
+
+        Args:
+            message: Message dict to send to all clients
+
+        Performance:
+            - Sequential (old): O(n) where n = number of connections
+            - Parallel (new): O(1) with concurrent sends
+        """
+        if not self.active_connections:
+            return
+
+        # Broadcast to all connections in parallel
+        await asyncio.gather(
+            *[self._send_safe(conn, message) for conn in self.active_connections],
+            return_exceptions=True
+        )
 
     async def broadcast_download_progress(self, download_id: int, progress: float, speed_mbps: float, eta_seconds: int):
         """Broadcast download progress update"""

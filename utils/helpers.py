@@ -12,11 +12,11 @@ import time
 
 class FileHelpers:
     """Helper for file operations"""
-    
+
     @staticmethod
     def get_file_hash(filepath: Path, algorithm: str = 'md5') -> str:
         """
-        Calculate file hash
+        Calculate file hash (synchronous, blocking)
 
         Args:
             filepath: File path
@@ -24,14 +24,58 @@ class FileHelpers:
 
         Returns:
             Hexadecimal hash
+
+        Note:
+            This is a blocking operation. For async contexts, use get_file_hash_async()
         """
         hash_func = getattr(hashlib, algorithm)()
-        
+
         with open(filepath, 'rb') as f:
             for chunk in iter(lambda: f.read(4096), b''):
                 hash_func.update(chunk)
-        
+
         return hash_func.hexdigest()
+
+    @staticmethod
+    async def get_file_hash_async(
+        filepath: Path,
+        algorithm: str = 'md5',
+        timeout: float = 30.0
+    ) -> str:
+        """
+        Calculate file hash asynchronously (non-blocking)
+
+        Uses asyncio.to_thread to offload CPU-intensive hashing to thread pool.
+        This prevents blocking the event loop for large files.
+
+        Args:
+            filepath: File path
+            algorithm: Hash algorithm (md5, sha1, sha256)
+            timeout: Timeout in seconds (default: 30)
+
+        Returns:
+            Hexadecimal hash, or "unknown" if timeout/error
+
+        Example:
+            >>> file_hash = await FileHelpers.get_file_hash_async(Path("video.mp4"))
+            >>> print(file_hash)  # "5d41402abc4b2a76b9719d911017c592"
+        """
+        try:
+            # Run blocking hash calculation in thread pool
+            hash_result = await asyncio.wait_for(
+                asyncio.to_thread(
+                    FileHelpers.get_file_hash,
+                    filepath,
+                    algorithm
+                ),
+                timeout=timeout
+            )
+            return hash_result
+        except asyncio.TimeoutError:
+            return "timeout"
+        except Exception as e:
+            print(f"Error calculating file hash: {e}")
+            return "unknown"
     
     @staticmethod
     def safe_move(source: Path, destination: Path) -> bool:
@@ -213,7 +257,7 @@ class RetryHelpers:
 
 class ValidationHelpers:
     """Helper for validations"""
-    
+
     @staticmethod
     def is_valid_telegram_id(user_id: Any) -> bool:
         """
@@ -230,7 +274,7 @@ class ValidationHelpers:
             return user_id > 0
         except (ValueError, TypeError):
             return False
-    
+
     @staticmethod
     def sanitize_path(path_str: str) -> str:
         """
@@ -250,8 +294,56 @@ class ValidationHelpers:
 
         # Remove multiple spaces
         path_str = ' '.join(path_str.split())
-        
+
         return path_str.strip()
+
+    @staticmethod
+    def validate_user_path(
+        user_path: Union[str, Path],
+        allowed_base_paths: list[Path]
+    ) -> tuple[bool, str]:
+        """
+        Validate that user-provided path is within allowed base directories.
+        Prevents path traversal attacks.
+
+        Args:
+            user_path: User-provided path to validate
+            allowed_base_paths: List of allowed base directories
+
+        Returns:
+            (is_valid, error_message) tuple
+
+        Example:
+            >>> validate_user_path('/media/movies/subfolder', [Path('/media')])
+            (True, 'OK')
+            >>> validate_user_path('/etc/passwd', [Path('/media')])
+            (False, 'Path is outside allowed directories')
+        """
+        try:
+            # Convert to Path and resolve to absolute path
+            path = Path(user_path).resolve()
+
+            # Check if path is within any allowed base
+            for base_path in allowed_base_paths:
+                base_resolved = base_path.resolve()
+                try:
+                    # is_relative_to is available in Python 3.9+
+                    if path.is_relative_to(base_resolved):
+                        return True, "OK"
+                except AttributeError:
+                    # Fallback for Python < 3.9
+                    try:
+                        path.relative_to(base_resolved)
+                        return True, "OK"
+                    except ValueError:
+                        continue
+
+            # Path is not within any allowed base
+            allowed_paths_str = ', '.join(str(p) for p in allowed_base_paths)
+            return False, f"Path must be within allowed directories: {allowed_paths_str}"
+
+        except (ValueError, RuntimeError, OSError) as e:
+            return False, f"Invalid path: {str(e)}"
     
     @staticmethod
     def validate_file_size(

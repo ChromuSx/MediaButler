@@ -17,3 +17,11 @@ python-jose[cryptography]==3.3.0
 bcrypt==4.1.2
 python-multipart==0.0.6
 websockets==12.0
+slowapi==0.1.9
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx==0.25.2

@@ -4,6 +4,8 @@ Statistics router
 from fastapi import APIRouter, Depends, Request
 from typing import List
 from datetime import datetime, timedelta
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from web.backend.models import (
     OverviewStats,
     DownloadStats,
@@ -14,6 +16,7 @@ from web.backend.auth import get_current_user, AuthUser
 from core.database import DatabaseManager
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 def get_db(request: Request) -> DatabaseManager:
@@ -22,6 +25,7 @@ def get_db(request: Request) -> DatabaseManager:
 
 
 @router.get("/overview", response_model=OverviewStats)
+@limiter.limit("30/minute")
 async def get_overview_stats(
     request: Request,
     db: DatabaseManager = Depends(get_db),
@@ -72,7 +76,9 @@ async def get_overview_stats(
 
 
 @router.get("/downloads-trend", response_model=List[DownloadStats])
+@limiter.limit("30/minute")
 async def get_downloads_trend(
+    request: Request,
     days: int = 7,
     db: DatabaseManager = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user)
@@ -109,7 +115,9 @@ async def get_downloads_trend(
 
 
 @router.get("/media-types", response_model=MediaTypeStats)
+@limiter.limit("30/minute")
 async def get_media_type_stats(
+    request: Request,
     db: DatabaseManager = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user)
 ):
@@ -153,7 +161,9 @@ async def get_media_type_stats(
 
 
 @router.get("/top-users", response_model=List[UserStats])
+@limiter.limit("30/minute")
 async def get_top_users(
+    request: Request,
     limit: int = 10,
     db: DatabaseManager = Depends(get_db),
     current_user: AuthUser = Depends(get_current_user)

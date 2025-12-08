@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, List, Any
 from core.config import get_config
 from core.database import DatabaseManager
+from utils.helpers import ValidationHelpers
 
 
 class UserConfig:
@@ -163,11 +164,49 @@ class UserConfig:
         return bool(compact) if compact is not None else False
 
     async def set_movies_path(self, path: str):
-        """Set custom movies path"""
+        """
+        Set custom movies path with security validation
+
+        Args:
+            path: Custom path for movies
+
+        Raises:
+            ValueError: If path is outside allowed directories
+        """
+        # Get allowed base paths (movies and tv paths from global config)
+        allowed_bases = [
+            self.global_config.paths.movies.parent,  # Allow within movies parent
+            self.global_config.paths.movies,         # Allow movies path itself
+        ]
+
+        # Validate path
+        is_valid, error_msg = ValidationHelpers.validate_user_path(path, allowed_bases)
+        if not is_valid:
+            raise ValueError(f"Invalid movies path: {error_msg}")
+
         await self.database.set_user_setting(self.user_id, 'movies_path', path)
 
     async def set_tv_path(self, path: str):
-        """Set custom TV shows path"""
+        """
+        Set custom TV shows path with security validation
+
+        Args:
+            path: Custom path for TV shows
+
+        Raises:
+            ValueError: If path is outside allowed directories
+        """
+        # Get allowed base paths
+        allowed_bases = [
+            self.global_config.paths.tv.parent,  # Allow within tv parent
+            self.global_config.paths.tv,         # Allow tv path itself
+        ]
+
+        # Validate path
+        is_valid, error_msg = ValidationHelpers.validate_user_path(path, allowed_bases)
+        if not is_valid:
+            raise ValueError(f"Invalid TV path: {error_msg}")
+
         await self.database.set_user_setting(self.user_id, 'tv_path', path)
 
     async def set_max_concurrent_downloads(self, limit: int):

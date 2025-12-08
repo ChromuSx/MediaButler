@@ -5,14 +5,21 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 import sys
+import os
+import logging
 from pathlib import Path
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+logger = logging.getLogger(__name__)
 
 from core.config import Config
 from core.database import DatabaseManager
@@ -21,6 +28,9 @@ from core.auth import AuthManager
 from web.backend.routers import auth, stats, downloads, users, settings
 from web.backend import websocket
 from web.backend.websocket import manager as ws_manager
+
+# Rate limiter setup
+limiter = Limiter(key_func=get_remote_address)
 
 
 # Lifespan context manager for startup/shutdown
@@ -67,12 +77,59 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - allow frontend to access API
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS middleware configuration
+def get_allowed_origins() -> list:
+    """
+    Get allowed CORS origins from environment with secure defaults.
+
+    Security:
+    - In production, requires explicit CORS_ORIGINS configuration
+    - In development, allows localhost with common ports
+    - Warns if using permissive settings
+    """
+    cors_origins_env = os.getenv('CORS_ORIGINS', '')
+
+    if cors_origins_env:
+        # Parse comma-separated origins
+        origins = [origin.strip() for origin in cors_origins_env.split(',') if origin.strip()]
+
+        # Warn if wildcard is explicitly set
+        if '*' in origins:
+            logger.warning(
+                "SECURITY WARNING: CORS is configured to allow all origins (*). "
+                "This should only be used in development!"
+            )
+
+        logger.info(f"CORS origins loaded from environment: {origins}")
+        return origins
+
+    # Development defaults (localhost with common ports)
+    default_origins = [
+        "http://localhost:3000",  # React dev server
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+
+    logger.warning(
+        f"CORS_ORIGINS not configured. Using development defaults: {default_origins}. "
+        f"For production, set CORS_ORIGINS in .env file!"
+    )
+
+    return default_origins
+
+
+allowed_origins = get_allowed_origins()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins since frontend is served from same server
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -88,7 +145,8 @@ app.include_router(websocket.router, prefix="/ws")
 
 
 @app.get("/api/health")
-async def health_check():
+@limiter.limit("60/minute")  # Limit health checks to prevent abuse
+async def health_check(request: Request):
     """Health check endpoint"""
     return {"status": "healthy"}
 

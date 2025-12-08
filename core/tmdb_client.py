@@ -5,6 +5,13 @@ import aiohttp
 import asyncio
 from typing import Optional, List, Dict, Any
 from core.config import get_config
+from core.constants import (
+    TMDB_RATE_LIMIT_CALLS,
+    TMDB_RATE_LIMIT_PERIOD,
+    DEFAULT_RETRY_ATTEMPTS,
+    DEFAULT_RETRY_DELAY,
+    API_REQUEST_TIMEOUT
+)
 from models.download import TMDBResult, SeriesInfo
 from utils.helpers import RetryHelpers, AsyncHelpers, RateLimiter
 
@@ -19,12 +26,19 @@ class TMDBClient:
         self.logger = self.config.logger
         
         # Rate limiter: TMDB allows 40 requests every 10 seconds
-        self.rate_limiter = RateLimiter(max_calls=40, period=10)
+        self.rate_limiter = RateLimiter(
+            max_calls=TMDB_RATE_LIMIT_CALLS,
+            period=TMDB_RATE_LIMIT_PERIOD
+        )
 
         if not self.api_key:
             self.logger.warning("TMDB API key not configured")
     
-    @RetryHelpers.async_retry(max_attempts=3, delay=1, exceptions=(aiohttp.ClientError, asyncio.TimeoutError))
+    @RetryHelpers.async_retry(
+        max_attempts=DEFAULT_RETRY_ATTEMPTS,
+        delay=DEFAULT_RETRY_DELAY,
+        exceptions=(aiohttp.ClientError, asyncio.TimeoutError)
+    )
     async def search(
         self,
         query: str,
@@ -86,7 +100,7 @@ class TMDBClient:
                 # Use helper for timeout
                 response = await AsyncHelpers.run_with_timeout(
                     session.get(url, params=params),
-                    timeout=5,
+                    timeout=API_REQUEST_TIMEOUT,
                     default=None
                 )
                 
@@ -101,7 +115,7 @@ class TMDBClient:
             self.logger.error(f"TMDB search error: {e}")
             return None
     
-    @RetryHelpers.async_retry(max_attempts=2, delay=1)
+    @RetryHelpers.async_retry(max_attempts=2, delay=DEFAULT_RETRY_DELAY)
     async def get_episode_details(
         self,
         tv_id: int,
@@ -134,7 +148,7 @@ class TMDBClient:
             url = f"{self.base_url}/tv/{tv_id}/season/{season}/episode/{episode}"
             
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params, timeout=5) as response:
+                async with session.get(url, params=params, timeout=API_REQUEST_TIMEOUT) as response:
                     if response.status == 200:
                         return await response.json()
                     else:

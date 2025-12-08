@@ -365,7 +365,8 @@ class DownloadManager:
             
             # Check if file already exists (avoid duplicates)
             if filepath.exists():
-                existing_hash = FileHelpers.get_file_hash(filepath)
+                # Use async hash calculation to avoid blocking event loop
+                existing_hash = await FileHelpers.get_file_hash_async(filepath)
                 self.logger.warning(f"File already exists: {filepath} (hash: {existing_hash})")
                 
                 # Notifica utente
@@ -439,11 +440,7 @@ class DownloadManager:
             download_info.end_time = time.time()
 
             # Calculate hash for future deduplication
-            file_hash = await AsyncHelpers.run_with_timeout(
-                asyncio.to_thread(FileHelpers.get_file_hash, filepath),
-                timeout=30,
-                default="unknown"
-            )
+            file_hash = await FileHelpers.get_file_hash_async(filepath, timeout=30)
             self.logger.info(f"File completed: {filepath} (hash: {file_hash})")
 
             # Save to database
