@@ -70,9 +70,7 @@ class TestValidationHelpers:
     def test_validate_file_size_too_large(self):
         """Test file size too large"""
         size = 20 * 1024**3  # 20GB
-        is_valid, msg = ValidationHelpers.validate_file_size(
-            size, max_size=10 * 1024**3
-        )
+        is_valid, msg = ValidationHelpers.validate_file_size(size, max_size=10 * 1024**3)
         assert is_valid is False
         assert "too large" in msg.lower()
 
@@ -128,9 +126,7 @@ class TestValidateUserPath:
 
         # This test requires symlink creation which may not work on all systems
         # Just test the path resolution logic
-        is_valid, msg = ValidationHelpers.validate_user_path(
-            temp_dir / "outside", allowed_bases
-        )
+        is_valid, msg = ValidationHelpers.validate_user_path(temp_dir / "outside", allowed_bases)
 
         assert is_valid is False
 
@@ -141,21 +137,15 @@ class TestValidateUserPath:
         allowed_bases = [base1, base2]
 
         # Path in first base
-        is_valid1, _ = ValidationHelpers.validate_user_path(
-            base1 / "subfolder", allowed_bases
-        )
+        is_valid1, _ = ValidationHelpers.validate_user_path(base1 / "subfolder", allowed_bases)
         assert is_valid1 is True
 
         # Path in second base
-        is_valid2, _ = ValidationHelpers.validate_user_path(
-            base2 / "subfolder", allowed_bases
-        )
+        is_valid2, _ = ValidationHelpers.validate_user_path(base2 / "subfolder", allowed_bases)
         assert is_valid2 is True
 
         # Path outside both bases
-        is_valid3, _ = ValidationHelpers.validate_user_path(
-            temp_dir / "other", allowed_bases
-        )
+        is_valid3, _ = ValidationHelpers.validate_user_path(temp_dir / "other", allowed_bases)
         assert is_valid3 is False
 
     def test_absolute_vs_relative_paths(self, temp_dir):
@@ -163,9 +153,7 @@ class TestValidateUserPath:
         allowed_bases = [temp_dir.resolve()]
 
         # Test with string path
-        is_valid, _ = ValidationHelpers.validate_user_path(
-            str(temp_dir / "subfolder"), allowed_bases
-        )
+        is_valid, _ = ValidationHelpers.validate_user_path(str(temp_dir / "subfolder"), allowed_bases)
         assert is_valid is True
 
     def test_invalid_path_error_handling(self):
@@ -173,9 +161,7 @@ class TestValidateUserPath:
         allowed_bases = [Path("/media")]
 
         # Test with invalid path characters (on Windows)
-        is_valid, msg = ValidationHelpers.validate_user_path(
-            "invalid<>path", allowed_bases
-        )
+        is_valid, msg = ValidationHelpers.validate_user_path("invalid<>path", allowed_bases)
 
         # Should either reject or handle gracefully
         assert isinstance(is_valid, bool)

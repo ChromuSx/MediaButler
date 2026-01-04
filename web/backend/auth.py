@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 # JWT settings
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_EXPIRE_MINUTES", "43200")
-)  # Default: 30 days
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "43200"))  # Default: 30 days
 
 
 def _load_or_generate_secret_key() -> str:
@@ -82,14 +80,11 @@ def _load_or_generate_secret_key() -> str:
         secret_file.chmod(0o600)  # Read/write for owner only
         logger.info(f"Generated new JWT secret key and saved to {secret_file}")
         logger.warning(
-            "IMPORTANT: For production, set JWT_SECRET_KEY in .env file. "
-            "Using auto-generated key from file."
+            "IMPORTANT: For production, set JWT_SECRET_KEY in .env file. " "Using auto-generated key from file."
         )
     except Exception as e:
         logger.error(f"Could not persist JWT secret key: {e}")
-        logger.warning(
-            "Using ephemeral JWT secret key - tokens will expire on restart!"
-        )
+        logger.warning("Using ephemeral JWT secret key - tokens will expire on restart!")
 
     return new_key
 
@@ -118,9 +113,7 @@ class AuthUser:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
-    return bcrypt.checkpw(
-        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-    )
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
 def get_password_hash(password: str) -> str:
@@ -177,15 +170,11 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return AuthUser(
-        user_id=user_id, username=username, is_admin=is_admin, telegram_id=telegram_id
-    )
+    return AuthUser(user_id=user_id, username=username, is_admin=is_admin, telegram_id=telegram_id)
 
 
 async def require_admin(current_user: AuthUser = Depends(get_current_user)) -> AuthUser:
     """Require the current user to be an admin"""
     if not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
     return current_user

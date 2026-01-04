@@ -83,9 +83,7 @@ class SpaceManager:
         usage = self.get_disk_usage(path)
         return usage.free_gb if usage else 0.0
 
-    def check_space_available(
-        self, path: Path, required_gb: float
-    ) -> Tuple[bool, float]:
+    def check_space_available(self, path: Path, required_gb: float) -> Tuple[bool, float]:
         """
         Check if there's sufficient space
 
@@ -151,9 +149,7 @@ class SpaceManager:
             status += f"• Total: {disk.total_gb:.1f} GB\n"
             status += f"• Used: {disk.used_gb:.1f} GB ({disk.percent_used:.1f}%)\n"
             status += f"• Free: {disk.free_gb:.1f} GB\n"
-            status += (
-                f"• Available for download: {disk.available_for_download:.1f} GB\n\n"
-            )
+            status += f"• Available for download: {disk.available_for_download:.1f} GB\n\n"
 
         status += f"⚙️ **Configured thresholds:**\n"
         status += f"• Minimum space: {self.config.limits.min_free_space_gb} GB\n"

@@ -111,19 +111,11 @@ class MediaButler:
         await self.download_manager.start_workers()
 
         self.logger.info("✅ Bot started and ready!")
-        self.logger.info(
-            f"👥 Authorized users: {len(self.auth_manager.authorized_users)}"
-        )
+        self.logger.info(f"👥 Authorized users: {len(self.auth_manager.authorized_users)}")
         self.logger.info(f"🎯 TMDB: {'Active' if self.tmdb_client else 'Disabled'}")
-        self.logger.info(
-            f"💾 Database: {'Active' if self.database_manager else 'Disabled'}"
-        )
-        self.logger.info(
-            f"📥 Concurrent downloads: max {self.config.limits.max_concurrent_downloads}"
-        )
-        self.logger.info(
-            f"💾 Minimum reserved space: {self.config.limits.min_free_space_gb} GB"
-        )
+        self.logger.info(f"💾 Database: {'Active' if self.database_manager else 'Disabled'}")
+        self.logger.info(f"📥 Concurrent downloads: max {self.config.limits.max_concurrent_downloads}")
+        self.logger.info(f"💾 Minimum reserved space: {self.config.limits.min_free_space_gb} GB")
 
         # Keep the bot running
         try:

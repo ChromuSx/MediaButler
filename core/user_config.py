@@ -43,9 +43,7 @@ class UserConfig:
 
     async def get_max_concurrent_downloads(self) -> int:
         """Get max concurrent downloads for this user"""
-        user_limit = await self.database.get_user_setting(
-            self.user_id, "max_concurrent_downloads"
-        )
+        user_limit = await self.database.get_user_setting(self.user_id, "max_concurrent_downloads")
         if user_limit is not None:
             return int(user_limit)
         return self.global_config.limits.max_concurrent_downloads
@@ -55,9 +53,7 @@ class UserConfig:
         Get auto-confirm threshold for TMDB matches
         If TMDB confidence >= threshold, skip user confirmation
         """
-        threshold = await self.database.get_user_setting(
-            self.user_id, "auto_confirm_threshold", default=70
-        )
+        threshold = await self.database.get_user_setting(self.user_id, "auto_confirm_threshold", default=70)
         return int(threshold) if threshold is not None else 70
 
     async def get_tmdb_language(self) -> str:
@@ -83,9 +79,7 @@ class UserConfig:
 
     async def get_subtitle_auto_download(self) -> bool:
         """Get auto-download subtitles preference"""
-        auto_dl = await self.database.get_user_setting(
-            self.user_id, "subtitle_auto_download"
-        )
+        auto_dl = await self.database.get_user_setting(self.user_id, "subtitle_auto_download")
         if auto_dl is not None:
             return bool(auto_dl)
         return self.global_config.subtitles.auto_download
@@ -99,37 +93,27 @@ class UserConfig:
 
     async def get_notify_download_complete(self) -> bool:
         """Get notification preference for completed downloads"""
-        notify = await self.database.get_user_setting(
-            self.user_id, "notify_download_complete", default=True
-        )
+        notify = await self.database.get_user_setting(self.user_id, "notify_download_complete", default=True)
         return bool(notify) if notify is not None else True
 
     async def get_notify_download_failed(self) -> bool:
         """Get notification preference for failed downloads"""
-        notify = await self.database.get_user_setting(
-            self.user_id, "notify_download_failed", default=True
-        )
+        notify = await self.database.get_user_setting(self.user_id, "notify_download_failed", default=True)
         return bool(notify) if notify is not None else True
 
     async def get_notify_low_space(self) -> bool:
         """Get notification preference for low space warnings"""
-        notify = await self.database.get_user_setting(
-            self.user_id, "notify_low_space", default=True
-        )
+        notify = await self.database.get_user_setting(self.user_id, "notify_low_space", default=True)
         return bool(notify) if notify is not None else True
 
     async def get_ui_language(self) -> str:
         """Get UI language preference"""
-        lang = await self.database.get_user_setting(
-            self.user_id, "ui_language", default="en"
-        )
+        lang = await self.database.get_user_setting(self.user_id, "ui_language", default="en")
         return str(lang) if lang else "en"
 
     async def get_compact_messages(self) -> bool:
         """Get compact messages preference (concise vs detailed)"""
-        compact = await self.database.get_user_setting(
-            self.user_id, "compact_messages", default=False
-        )
+        compact = await self.database.get_user_setting(self.user_id, "compact_messages", default=False)
         return bool(compact) if compact is not None else False
 
     async def set_movies_path(self, path: str):
@@ -180,16 +164,12 @@ class UserConfig:
 
     async def set_max_concurrent_downloads(self, limit: int):
         """Set max concurrent downloads limit"""
-        await self.database.set_user_setting(
-            self.user_id, "max_concurrent_downloads", limit
-        )
+        await self.database.set_user_setting(self.user_id, "max_concurrent_downloads", limit)
 
     async def set_auto_confirm_threshold(self, threshold: int):
         """Set auto-confirm threshold (0-100)"""
         if 0 <= threshold <= 100:
-            await self.database.set_user_setting(
-                self.user_id, "auto_confirm_threshold", threshold
-            )
+            await self.database.set_user_setting(self.user_id, "auto_confirm_threshold", threshold)
 
     async def set_tmdb_language(self, language: str):
         """Set TMDB language (e.g., 'it-IT', 'en-US')"""
@@ -202,15 +182,11 @@ class UserConfig:
     async def set_subtitle_languages(self, languages: List[str]):
         """Set preferred subtitle languages"""
         langs_str = ",".join(languages)
-        await self.database.set_user_setting(
-            self.user_id, "subtitle_languages", langs_str
-        )
+        await self.database.set_user_setting(self.user_id, "subtitle_languages", langs_str)
 
     async def set_subtitle_auto_download(self, enabled: bool):
         """Enable/disable auto-download subtitles"""
-        await self.database.set_user_setting(
-            self.user_id, "subtitle_auto_download", enabled
-        )
+        await self.database.set_user_setting(self.user_id, "subtitle_auto_download", enabled)
 
     async def set_subtitle_format(self, format: str):
         """Set preferred subtitle format"""
@@ -218,15 +194,11 @@ class UserConfig:
 
     async def set_notify_download_complete(self, enabled: bool):
         """Enable/disable download complete notifications"""
-        await self.database.set_user_setting(
-            self.user_id, "notify_download_complete", enabled
-        )
+        await self.database.set_user_setting(self.user_id, "notify_download_complete", enabled)
 
     async def set_notify_download_failed(self, enabled: bool):
         """Enable/disable download failed notifications"""
-        await self.database.set_user_setting(
-            self.user_id, "notify_download_failed", enabled
-        )
+        await self.database.set_user_setting(self.user_id, "notify_download_failed", enabled)
 
     async def set_notify_low_space(self, enabled: bool):
         """Enable/disable low space notifications"""

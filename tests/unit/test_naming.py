@@ -233,9 +233,7 @@ class TestFindSimilarFolder:
         (temp_dir / "Breaking Bad").mkdir()
         (temp_dir / "Game of Thrones").mkdir()
 
-        result = FileNameParser.find_similar_folder(
-            "Breaking Bad", temp_dir, threshold=0.7
-        )
+        result = FileNameParser.find_similar_folder("Breaking Bad", temp_dir, threshold=0.7)
 
         assert result == "Breaking Bad"
 
@@ -244,9 +242,7 @@ class TestFindSimilarFolder:
         # Create test folder with different formatting
         (temp_dir / "Breaking Bad [ITA]").mkdir()
 
-        result = FileNameParser.find_similar_folder(
-            "Breaking Bad", temp_dir, threshold=0.7
-        )
+        result = FileNameParser.find_similar_folder("Breaking Bad", temp_dir, threshold=0.7)
 
         assert result == "Breaking Bad [ITA]"
 
@@ -255,9 +251,7 @@ class TestFindSimilarFolder:
         # Create test folder with year
         (temp_dir / "Breaking Bad (2008)").mkdir()
 
-        result = FileNameParser.find_similar_folder(
-            "Breaking Bad", temp_dir, threshold=0.7
-        )
+        result = FileNameParser.find_similar_folder("Breaking Bad", temp_dir, threshold=0.7)
 
         assert result == "Breaking Bad (2008)"
 
@@ -265,17 +259,13 @@ class TestFindSimilarFolder:
         """Test that no match is returned if below threshold"""
         (temp_dir / "Completely Different Show").mkdir()
 
-        result = FileNameParser.find_similar_folder(
-            "Breaking Bad", temp_dir, threshold=0.9  # High threshold
-        )
+        result = FileNameParser.find_similar_folder("Breaking Bad", temp_dir, threshold=0.9)  # High threshold
 
         assert result is None
 
     def test_nonexistent_directory(self):
         """Test handling of nonexistent directory"""
-        result = FileNameParser.find_similar_folder(
-            "Test", Path("/nonexistent/path"), threshold=0.7
-        )
+        result = FileNameParser.find_similar_folder("Test", Path("/nonexistent/path"), threshold=0.7)
 
         assert result is None
 
@@ -286,9 +276,7 @@ class TestFindSimilarFolder:
         (temp_dir / "Breaking Bad (2008)").mkdir()
         (temp_dir / "Breaking").mkdir()
 
-        result = FileNameParser.find_similar_folder(
-            "Breaking Bad", temp_dir, threshold=0.7
-        )
+        result = FileNameParser.find_similar_folder("Breaking Bad", temp_dir, threshold=0.7)
 
         # Should match exact name or very close variant
         assert "Breaking Bad" in result
@@ -319,9 +307,7 @@ class TestSecuritySanitization:
         """Test that path traversal attempts are sanitized"""
         filename = "../../../etc/passwd"
         result = FileNameParser.sanitize_filename(filename)
-        assert (
-            ".." not in result or result.count(".") <= 1
-        )  # Only extension dot allowed
+        assert ".." not in result or result.count(".") <= 1  # Only extension dot allowed
 
     def test_null_byte_handling(self):
         """Test null byte handling"""

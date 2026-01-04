@@ -28,9 +28,7 @@ class TMDBClient:
         self.logger = self.config.logger
 
         # Rate limiter: TMDB allows 40 requests every 10 seconds
-        self.rate_limiter = RateLimiter(
-            max_calls=TMDB_RATE_LIMIT_CALLS, period=TMDB_RATE_LIMIT_PERIOD
-        )
+        self.rate_limiter = RateLimiter(max_calls=TMDB_RATE_LIMIT_CALLS, period=TMDB_RATE_LIMIT_PERIOD)
 
         if not self.api_key:
             self.logger.warning("TMDB API key not configured")
@@ -106,9 +104,7 @@ class TMDBClient:
                     data = await response.json()
                     return self._parse_results(data.get("results", []))
                 else:
-                    self.logger.warning(
-                        f"TMDB API error: {response.status if response else 'timeout'}"
-                    )
+                    self.logger.warning(f"TMDB API error: {response.status if response else 'timeout'}")
                     return None
 
         except Exception as e:
@@ -116,9 +112,7 @@ class TMDBClient:
             return None
 
     @RetryHelpers.async_retry(max_attempts=2, delay=DEFAULT_RETRY_DELAY)
-    async def get_episode_details(
-        self, tv_id: int, season: int, episode: int
-    ) -> Optional[Dict[str, Any]]:
+    async def get_episode_details(self, tv_id: int, season: int, episode: int) -> Optional[Dict[str, Any]]:
         """
         Get episode details with retry
 
@@ -142,15 +136,11 @@ class TMDBClient:
             url = f"{self.base_url}/tv/{tv_id}/season/{season}/episode/{episode}"
 
             async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url, params=params, timeout=API_REQUEST_TIMEOUT
-                ) as response:
+                async with session.get(url, params=params, timeout=API_REQUEST_TIMEOUT) as response:
                     if response.status == 200:
                         return await response.json()
                     else:
-                        self.logger.warning(
-                            f"TMDB episode API error: {response.status}"
-                        )
+                        self.logger.warning(f"TMDB episode API error: {response.status}")
                         return None
 
         except Exception as e:
@@ -288,9 +278,7 @@ class TMDBClient:
 
         return parsed
 
-    def calculate_confidence(
-        self, result: TMDBResult, search_query: str, original_filename: str = ""
-    ) -> int:
+    def calculate_confidence(self, result: TMDBResult, search_query: str, original_filename: str = "") -> int:
         """
         Calculate match confidence
 
@@ -326,9 +314,7 @@ class TMDBClient:
 
         return confidence
 
-    def format_result(
-        self, result: TMDBResult, series_info: Optional[SeriesInfo] = None
-    ) -> tuple[str, Optional[str]]:
+    def format_result(self, result: TMDBResult, series_info: Optional[SeriesInfo] = None) -> tuple[str, Optional[str]]:
         """
         Format result for display
 
@@ -348,9 +334,7 @@ class TMDBClient:
             media_type_str = "Movie"
 
         # Rating
-        rating_str = (
-            f"⭐ {result.vote_average:.1f}/10" if result.vote_average > 0 else ""
-        )
+        rating_str = f"⭐ {result.vote_average:.1f}/10" if result.vote_average > 0 else ""
 
         # Overview (truncate if too long)
         overview = result.overview

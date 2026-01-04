@@ -256,9 +256,7 @@ class Config:
         self.logger.info(f"Database enabled: {self.database.enabled}")
         self.logger.info(f"Database path: {self.database.path}")
         self.logger.info(f"Archive extraction enabled: {self.extraction.enabled}")
-        self.logger.info(
-            f"Delete archives after extraction: {self.extraction.delete_after_extract}"
-        )
+        self.logger.info(f"Delete archives after extraction: {self.extraction.delete_after_extract}")
         self.logger.info(f"Max concurrent downloads: {self.limits.max_concurrent_downloads}")
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
 

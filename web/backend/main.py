@@ -96,9 +96,7 @@ def get_allowed_origins() -> list:
 
     if cors_origins_env:
         # Parse comma-separated origins
-        origins = [
-            origin.strip() for origin in cors_origins_env.split(",") if origin.strip()
-        ]
+        origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
 
         # Warn if wildcard is explicitly set
         if "*" in origins:
@@ -158,9 +156,7 @@ async def health_check(request: Request):
 frontend_dist = project_root / "web" / "frontend" / "dist"
 if frontend_dist.exists():
     # Serve static assets (JS, CSS, images, etc.)
-    app.mount(
-        "/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets"
-    )
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
 
     @app.get("/")
     async def serve_frontend():
@@ -198,6 +194,4 @@ else:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        "web.backend.main:app", host="0.0.0.0", port=8000, reload=True, log_level="info"
-    )
+    uvicorn.run("web.backend.main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

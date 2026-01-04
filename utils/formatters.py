@@ -121,10 +121,7 @@ class MessageFormatter:
             if download_info.eta_seconds:
                 text += f"⏱ **Time remaining:** {MessageFormatter.format_time(download_info.eta_seconds)}\n"
 
-        elif (
-            download_info.status == DownloadStatus.FAILED
-            and download_info.error_message
-        ):
+        elif download_info.status == DownloadStatus.FAILED and download_info.error_message:
             text += f"\n❌ **Error:** {download_info.error_message}\n"
 
         return text
@@ -144,9 +141,7 @@ class MessageFormatter:
         return f"📊 Queue position: **{position}/{total}**"
 
     @staticmethod
-    def format_disk_space(
-        free_gb: float, total_gb: float, warning_threshold: float, min_free: float
-    ) -> str:
+    def format_disk_space(free_gb: float, total_gb: float, warning_threshold: float, min_free: float) -> str:
         """
         Format disk space info
 
@@ -283,9 +278,7 @@ class TableFormatter:
     """Table formatter for text output"""
 
     @staticmethod
-    def create_table(
-        headers: List[str], rows: List[List[str]], align: str = "left"
-    ) -> str:
+    def create_table(headers: List[str], rows: List[List[str]], align: str = "left") -> str:
         """
         Create formatted table
 

@@ -101,9 +101,7 @@ async def get_downloads_trend(
 
     results = []
     for row in rows:
-        results.append(
-            DownloadStats(date=row[0], count=row[1], size_gb=round(row[2], 2))
-        )
+        results.append(DownloadStats(date=row[0], count=row[1], size_gb=round(row[2], 2)))
 
     return results
 

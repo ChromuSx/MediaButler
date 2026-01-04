@@ -100,9 +100,7 @@ async def create_user(
         raise HTTPException(status_code=500, detail="Failed to add user")
 
     # Notify via WebSocket
-    await notify_user_added(
-        user_data.user_id, user_data.telegram_username or f"User {user_data.user_id}"
-    )
+    await notify_user_added(user_data.user_id, user_data.telegram_username or f"User {user_data.user_id}")
 
     # Return the created user
     user = await db.get_authorized_user(user_data.user_id)
@@ -112,9 +110,7 @@ async def create_user(
         username=user["telegram_username"] or f"User {user['user_id']}",
         is_admin=bool(user["is_admin"]),
         is_banned=bool(user.get("is_banned", False)),
-        last_active=(
-            datetime.fromisoformat(user["last_seen"]) if user.get("last_seen") else None
-        ),
+        last_active=(datetime.fromisoformat(user["last_seen"]) if user.get("last_seen") else None),
         notes=user.get("notes"),
         total_downloads=0,
         total_size_gb=0.0,
@@ -152,24 +148,14 @@ async def get_user_details(
         is_banned=bool(auth_user.get("is_banned", False)),
         notes=auth_user.get("notes"),
         total_downloads=total,
-        total_size_gb=(
-            round(stats.get("total_bytes", 0) / 1073741824.0, 2) if stats else 0.0
-        ),
-        last_active=(
-            datetime.fromisoformat(auth_user["last_seen"])
-            if auth_user.get("last_seen")
-            else None
-        ),
+        total_size_gb=(round(stats.get("total_bytes", 0) / 1073741824.0, 2) if stats else 0.0),
+        last_active=(datetime.fromisoformat(auth_user["last_seen"]) if auth_user.get("last_seen") else None),
         success_rate=round(success_rate, 1),
         failed_downloads=stats.get("failed_downloads", 0) if stats else 0,
         cancelled_downloads=stats.get("cancelled_downloads", 0) if stats else 0,
         avg_file_size_gb=0.0,  # Would need to calculate from downloads table
         preferences=prefs,
-        added_at=(
-            datetime.fromisoformat(auth_user["added_at"])
-            if auth_user.get("added_at")
-            else None
-        ),
+        added_at=(datetime.fromisoformat(auth_user["added_at"]) if auth_user.get("added_at") else None),
         added_by=auth_user.get("added_by"),
     )
 

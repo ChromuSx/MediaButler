@@ -40,9 +40,7 @@ class FileHandlers:
     def register(self):
         """Register file handlers"""
         self.client.on(events.NewMessage(func=lambda e: e.file))(self.file_handler)
-        self.client.on(events.NewMessage(func=lambda e: e.text and not e.text.startswith("/")))(
-            self.text_handler
-        )
+        self.client.on(events.NewMessage(func=lambda e: e.text and not e.text.startswith("/")))(self.text_handler)
         self.logger.info("File handlers registered")
 
     async def file_handler(self, event: events.NewMessage.Event):
@@ -50,10 +48,7 @@ class FileHandlers:
         if not await self.auth.check_authorized(event):
             return
 
-        self.logger.info(
-            f"File received from user {event.sender_id}, "
-            f"size: {event.file.size / (1024*1024):.1f} MB"
-        )
+        self.logger.info(f"File received from user {event.sender_id}, " f"size: {event.file.size / (1024*1024):.1f} MB")
 
         # Validate file size
         size_valid, error_msg = ValidationHelpers.validate_file_size(
@@ -197,9 +192,7 @@ class FileHandlers:
             ]
 
             # Caption is metadata if it matches any pattern
-            is_metadata = any(
-                re.search(pattern, message_text.lower()) for pattern in metadata_patterns
-            )
+            is_metadata = any(re.search(pattern, message_text.lower()) for pattern in metadata_patterns)
 
             # Clean the caption
             cleaned_caption = self._clean_caption(message_text)
@@ -234,15 +227,10 @@ class FileHandlers:
                 ):
                     detected_name += file_ext
 
-                self.logger.info(
-                    f"Using caption as filename: '{message_text}' -> '{detected_name}'"
-                )
+                self.logger.info(f"Using caption as filename: '{message_text}' -> '{detected_name}'")
                 return (detected_name, original_filename)
             else:
-                self.logger.info(
-                    f"Caption appears to be metadata, "
-                    f"using file attribute instead: '{message_text}'"
-                )
+                self.logger.info(f"Caption appears to be metadata, " f"using file attribute instead: '{message_text}'")
 
         return (original_filename, original_filename)
 
@@ -275,18 +263,14 @@ class FileHandlers:
             download_info.tmdb_confidence = confidence
 
         # RETRY with original filename if confidence is low and we used caption
-        if (not tmdb_result or confidence < 60) and (
-            download_info.filename != download_info.original_filename
-        ):
+        if (not tmdb_result or confidence < 60) and (download_info.filename != download_info.original_filename):
             self.logger.info(
                 f"Low confidence ({confidence}) with caption-based filename. "
                 f"Retrying with original filename: {download_info.original_filename}"
             )
 
             # Re-extract info from original filename
-            retry_movie_name, retry_year = FileNameParser.extract_movie_info(
-                download_info.original_filename
-            )
+            retry_movie_name, retry_year = FileNameParser.extract_movie_info(download_info.original_filename)
             retry_series_info = FileNameParser.extract_series_info(download_info.original_filename)
 
             # Determine search query for retry
@@ -305,9 +289,7 @@ class FileHandlers:
 
             # Use retry result if better
             if retry_result and retry_confidence > confidence:
-                self.logger.info(
-                    f"Retry successful! New confidence: {retry_confidence} (was {confidence})"
-                )
+                self.logger.info(f"Retry successful! New confidence: {retry_confidence} (was {confidence})")
                 tmdb_result = retry_result
                 confidence = retry_confidence
                 download_info.tmdb_results = [retry_result]
@@ -326,30 +308,22 @@ class FileHandlers:
         if tmdb_result and confidence >= auto_confirm_threshold:
             # Auto-confirm download
             download_info.event = initial_msg
-            await self._auto_confirm_download(
-                initial_msg, download_info, tmdb_result, confidence, space_warning
-            )
+            await self._auto_confirm_download(initial_msg, download_info, tmdb_result, confidence, space_warning)
         # Mostra risultati per conferma manuale
         elif tmdb_result and confidence >= 60:
-            await self._show_high_confidence_match(
-                initial_msg, download_info, tmdb_result, confidence, space_warning
-            )
+            await self._show_high_confidence_match(initial_msg, download_info, tmdb_result, confidence, space_warning)
         elif tmdb_result and confidence >= 40:
             await self._show_medium_confidence_match(initial_msg, download_info, space_warning)
         else:
             await self._show_manual_selection(initial_msg, download_info, space_warning)
 
-    async def _auto_confirm_download(
-        self, msg, download_info, tmdb_result, confidence, space_warning
-    ):
+    async def _auto_confirm_download(self, msg, download_info, tmdb_result, confidence, space_warning):
         """Auto-confirm download when confidence >= threshold"""
         # Update message to show auto-confirmation
         text, poster_url = self.tmdb.format_result(tmdb_result, download_info.series_info)
 
         info_text = f"📁 **File:** `{download_info.filename}`\n"
-        info_text += (
-            f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
-        )
+        info_text += f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
         info_text += f"⚡ **Auto-confirmed** (confidence {confidence}%)\n\n"
         info_text += text
 
@@ -372,9 +346,7 @@ class FileHandlers:
 
                 # Check space and proceed
                 size_gb = download_info.size_gb
-                space_ok, free_gb = self.space.check_space_available(
-                    download_info.dest_path, size_gb
-                )
+                space_ok, free_gb = self.space.check_space_available(download_info.dest_path, size_gb)
 
                 if not space_ok:
                     position = self.downloads.queue_for_space(download_info)
@@ -470,16 +442,12 @@ class FileHandlers:
 
         download_info.progress_msg = msg
 
-    async def _show_high_confidence_match(
-        self, msg, download_info, tmdb_result, confidence, space_warning
-    ):
+    async def _show_high_confidence_match(self, msg, download_info, tmdb_result, confidence, space_warning):
         """Show high confidence TMDB match"""
         text, poster_url = self.tmdb.format_result(tmdb_result, download_info.series_info)
 
         info_text = f"📁 **File:** `{download_info.filename}`\n"
-        info_text += (
-            f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
-        )
+        info_text += f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
         info_text += f"✅ **TMDB Match** (confidence {confidence}%)\n\n"
         info_text += text
 
@@ -509,9 +477,7 @@ class FileHandlers:
             download_info.tmdb_results = results[:3]
 
         info_text = f"📁 **File:** `{download_info.filename}`\n"
-        info_text += (
-            f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
-        )
+        info_text += f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
         info_text += f"🔍 **Possible matches:**\n\n"
 
         # Show first 3 results
@@ -528,9 +494,7 @@ class FileHandlers:
         # Buttons for each result
         for idx, result in enumerate(download_info.tmdb_results, 1):
             title = result.title[:17] + "..." if len(result.title) > 20 else result.title
-            buttons.append(
-                [Button.inline(f"{idx}. {title}", f"tmdb_{idx}_{download_info.message_id}")]
-            )
+            buttons.append([Button.inline(f"{idx}. {title}", f"tmdb_{idx}_{download_info.message_id}")])
 
         buttons.append(
             [
@@ -591,9 +555,7 @@ class FileHandlers:
                 info_text += f", Episode {download_info.series_info.episode}"
         else:
             info_text = f"\n\n🎬 **Possible title:** {download_info.movie_folder}"
-            if any(
-                x in download_info.filename.lower() for x in ["ep", "episode", "x0", "x1", "x2"]
-            ):
+            if any(x in download_info.filename.lower() for x in ["ep", "episode", "x0", "x1", "x2"]):
                 info_text += f"\n⚠️ Looks like a TV series but can't identify the season"
 
         return info_text
@@ -666,9 +628,7 @@ class FileHandlers:
 
             # Check space and proceed with download
             size_gb = waiting_download.size_gb
-            space_ok, free_gb = self.space.check_space_available(
-                waiting_download.dest_path, size_gb
-            )
+            space_ok, free_gb = self.space.check_space_available(waiting_download.dest_path, size_gb)
 
             if not space_ok:
                 # Queue for space
@@ -742,9 +702,7 @@ class FileHandlers:
 
         await event.reply(text, buttons=buttons)
 
-    async def _handle_rename_input(
-        self, event: events.NewMessage.Event, download_info: DownloadInfo
-    ):
+    async def _handle_rename_input(self, event: events.NewMessage.Event, download_info: DownloadInfo):
         """Handle rename filename input from user"""
         new_filename = event.text.strip()
 
@@ -755,9 +713,7 @@ class FileHandlers:
 
         # Check if filename has extension
         if "." not in new_filename:
-            await event.reply(
-                "❌ Filename must include an extension (e.g., .mkv, .mp4). Please try again."
-            )
+            await event.reply("❌ Filename must include an extension (e.g., .mkv, .mp4). Please try again.")
             return
 
         # Update filename

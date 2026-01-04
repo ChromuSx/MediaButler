@@ -186,9 +186,7 @@ class DownloadInfo:
             else:
                 # TV Series
                 if self.series_info and self.series_info.episode_code:
-                    filename = (
-                        f"{self.selected_tmdb.title} - {self.series_info.episode_code}"
-                    )
+                    filename = f"{self.selected_tmdb.title} - {self.series_info.episode_code}"
                     if self.series_info.episode_title:
                         filename += f" - {self.series_info.episode_title}"
                     return f"{filename}{extension}"

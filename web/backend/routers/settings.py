@@ -68,9 +68,7 @@ async def update_settings(
     # Update limits
     if updates.limits:
         if updates.limits.max_concurrent_downloads:
-            config.limits.max_concurrent_downloads = (
-                updates.limits.max_concurrent_downloads
-            )
+            config.limits.max_concurrent_downloads = updates.limits.max_concurrent_downloads
         if updates.limits.min_free_space_gb:
             config.limits.min_free_space_gb = updates.limits.min_free_space_gb
 

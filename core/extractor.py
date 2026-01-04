@@ -138,15 +138,13 @@ class ArchiveExtractor:
             # For .rar multi-part, check if rarfile is available
             if ".rar" in filename and not self.has_rarfile:
                 self.logger.warning(
-                    f"Multi-part RAR file detected but rarfile library "
-                    f"not available: {file_path.name}"
+                    f"Multi-part RAR file detected but rarfile library " f"not available: {file_path.name}"
                 )
                 return False
             # For .7z multi-part, check if py7zr is available
             if re.search(r"\.\d{3}$", filename) and not self.has_py7zr:
                 self.logger.warning(
-                    f"Multi-part 7z file detected but py7zr library "
-                    f"not available: {file_path.name}"
+                    f"Multi-part 7z file detected but py7zr library " f"not available: {file_path.name}"
                 )
                 return False
             return True
@@ -157,15 +155,11 @@ class ArchiveExtractor:
 
         # Check library availability for specific formats
         if suffix == ".rar" and not self.has_rarfile:
-            self.logger.warning(
-                f"RAR file detected but rarfile library not available: {file_path.name}"
-            )
+            self.logger.warning(f"RAR file detected but rarfile library not available: {file_path.name}")
             return False
 
         if suffix == ".7z" and not self.has_py7zr:
-            self.logger.warning(
-                f"7z file detected but py7zr library not available: {file_path.name}"
-            )
+            self.logger.warning(f"7z file detected but py7zr library not available: {file_path.name}")
             return False
 
         return True
@@ -339,26 +333,17 @@ class ArchiveExtractor:
             def check_sync():
                 if suffix == ".zip":
                     with zipfile.ZipFile(archive_path, "r") as zip_ref:
-                        return any(
-                            Path(name).suffix.lower() in self.VIDEO_EXTENSIONS
-                            for name in zip_ref.namelist()
-                        )
+                        return any(Path(name).suffix.lower() in self.VIDEO_EXTENSIONS for name in zip_ref.namelist())
                 elif suffix == ".rar" and self.has_rarfile:
                     import rarfile
 
                     with rarfile.RarFile(archive_path, "r") as rar_ref:
-                        return any(
-                            Path(name).suffix.lower() in self.VIDEO_EXTENSIONS
-                            for name in rar_ref.namelist()
-                        )
+                        return any(Path(name).suffix.lower() in self.VIDEO_EXTENSIONS for name in rar_ref.namelist())
                 elif suffix == ".7z" and self.has_py7zr:
                     import py7zr
 
                     with py7zr.SevenZipFile(archive_path, "r") as sz_ref:
-                        return any(
-                            Path(name).suffix.lower() in self.VIDEO_EXTENSIONS
-                            for name in sz_ref.getnames()
-                        )
+                        return any(Path(name).suffix.lower() in self.VIDEO_EXTENSIONS for name in sz_ref.getnames())
                 return False
 
             # Run check in executor

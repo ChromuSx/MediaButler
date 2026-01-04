@@ -124,9 +124,7 @@ class FileNameParser:
         return filename
 
     @classmethod
-    def find_similar_folder(
-        cls, target_name: str, search_path: Path, threshold: float = 0.7
-    ) -> Optional[str]:
+    def find_similar_folder(cls, target_name: str, search_path: Path, threshold: float = 0.7) -> Optional[str]:
         """
         Find existing folder with similar name using fuzzy matching
 
@@ -265,10 +263,7 @@ class FileNameParser:
             year_value = int(year_match.group(1))
             if 1900 <= year_value <= 2099:
                 # Avoid overlapping with already detected bracketed years
-                overlap = any(
-                    year_match.start() >= start and year_match.end() <= end
-                    for start, end in year_positions
-                )
+                overlap = any(year_match.start() >= start and year_match.end() <= end for start, end in year_positions)
                 if not overlap:
                     year_positions.append((year_match.start(), year_match.end()))
 
@@ -296,10 +291,7 @@ class FileNameParser:
 
             if 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59:
                 # Avoid overlapping
-                overlap = any(
-                    ts_match.start() >= start and ts_match.end() <= end
-                    for start, end in year_positions
-                )
+                overlap = any(ts_match.start() >= start and ts_match.end() <= end for start, end in year_positions)
                 if not overlap:
                     year_positions.append((ts_match.start(), ts_match.end()))
 
@@ -324,11 +316,7 @@ class FileNameParser:
                 end_episode = None
 
                 # Handle specific patterns
-                if (
-                    pattern_type == "episode_only"
-                    or pattern_type == "episode_word"
-                    or pattern_type == "part_format"
-                ):
+                if pattern_type == "episode_only" or pattern_type == "episode_word" or pattern_type == "part_format":
                     season = 1
                     episode = int(match.group(1))
                 elif pattern_type == "anime_bracket":
@@ -354,9 +342,7 @@ class FileNameParser:
                 total_confidence = confidence
 
                 # Bonus for context
-                total_confidence += cls._calculate_context_bonus(
-                    filename_no_ext, match, pattern_type
-                )
+                total_confidence += cls._calculate_context_bonus(filename_no_ext, match, pattern_type)
 
                 if total_confidence > best_confidence:
                     best_confidence = total_confidence
@@ -487,9 +473,7 @@ class FileNameParser:
         return any(tag in filename.upper() for tag in italian_tags)
 
     @classmethod
-    def create_folder_name(
-        cls, title: str, year: Optional[str] = None, is_italian: bool = False
-    ) -> str:
+    def create_folder_name(cls, title: str, year: Optional[str] = None, is_italian: bool = False) -> str:
         """
         Create folder name for media
 

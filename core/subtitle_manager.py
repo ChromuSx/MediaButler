@@ -37,9 +37,7 @@ class OpenSubtitlesAPI:
 
     async def __aenter__(self):
         """Async context manager entry"""
-        self.session = aiohttp.ClientSession(
-            headers={"User-Agent": self.config.subtitles.opensubtitles_user_agent}
-        )
+        self.session = aiohttp.ClientSession(headers={"User-Agent": self.config.subtitles.opensubtitles_user_agent})
 
         if self.config.subtitles.is_opensubtitles_configured:
             await self._authenticate()
@@ -62,9 +60,7 @@ class OpenSubtitlesAPI:
         }
 
         try:
-            async with self.session.post(
-                f"{self.BASE_URL}/login", json=login_data
-            ) as response:
+            async with self.session.post(f"{self.BASE_URL}/login", json=login_data) as response:
                 if response.status == 200:
                     data = await response.json()
                     self.auth_token = data.get("token")
@@ -72,9 +68,7 @@ class OpenSubtitlesAPI:
                     self.logger.info("✅ Autenticazione OpenSubtitles riuscita")
                     return True
                 else:
-                    self.logger.error(
-                        f"❌ Errore autenticazione OpenSubtitles: {response.status}"
-                    )
+                    self.logger.error(f"❌ Errore autenticazione OpenSubtitles: {response.status}")
                     return False
         except Exception as e:
             self.logger.error(f"❌ Errore connessione OpenSubtitles: {e}")
@@ -121,9 +115,7 @@ class OpenSubtitlesAPI:
                     data = await response.json()
                     return self._parse_subtitle_results(data)
                 else:
-                    self.logger.warning(
-                        f"⚠️ Ricerca sottotitoli fallita: {response.status}"
-                    )
+                    self.logger.warning(f"⚠️ Ricerca sottotitoli fallita: {response.status}")
                     return []
 
         except Exception as e:
@@ -159,9 +151,7 @@ class OpenSubtitlesAPI:
         subtitles.sort(key=lambda x: (x.rating, x.download_count), reverse=True)
         return subtitles
 
-    async def download_subtitle(
-        self, subtitle_info: SubtitleInfo, output_path: Path
-    ) -> bool:
+    async def download_subtitle(self, subtitle_info: SubtitleInfo, output_path: Path) -> bool:
         """Download a subtitle"""
         try:
             async with self.session.get(subtitle_info.download_url) as response:
@@ -175,9 +165,7 @@ class OpenSubtitlesAPI:
                     self.logger.info(f"✅ Sottotitolo scaricato: {output_path}")
                     return True
                 else:
-                    self.logger.error(
-                        f"❌ Errore download sottotitolo: {response.status}"
-                    )
+                    self.logger.error(f"❌ Errore download sottotitolo: {response.status}")
                     return False
 
         except Exception as e:
@@ -198,9 +186,7 @@ class OpenSubtitlesAPI:
                     buffer = f.read(8)
                     if not buffer:
                         break
-                    hash_value += int.from_bytes(
-                        buffer, byteorder="little", signed=False
-                    )
+                    hash_value += int.from_bytes(buffer, byteorder="little", signed=False)
 
                 # Last 64KB
                 if filesize > 65536:
@@ -209,9 +195,7 @@ class OpenSubtitlesAPI:
                         buffer = f.read(8)
                         if not buffer:
                             break
-                        hash_value += int.from_bytes(
-                            buffer, byteorder="little", signed=False
-                        )
+                        hash_value += int.from_bytes(buffer, byteorder="little", signed=False)
 
             return format(hash_value & 0xFFFFFFFFFFFFFFFF, "016x")
 
@@ -268,9 +252,7 @@ class SubtitleManager:
         async with OpenSubtitlesAPI() as api:
             # Search subtitles
             self.logger.info(f"🔍 Searching subtitles for: {video_path.name}")
-            subtitles = await api.search_subtitles(
-                video_path, languages, imdb_id, season, episode
-            )
+            subtitles = await api.search_subtitles(video_path, languages, imdb_id, season, episode)
 
             if not subtitles:
                 self.logger.info("❌ No subtitles found")
@@ -287,9 +269,7 @@ class SubtitleManager:
                 best_subtitle = lang_subtitles[0]  # Already sorted by quality
 
                 # Determine output file name
-                subtitle_path = self._get_subtitle_path(
-                    video_path, language, best_subtitle.format
-                )
+                subtitle_path = self._get_subtitle_path(video_path, language, best_subtitle.format)
 
                 # Check if already exists
                 if subtitle_path.exists() and not force:

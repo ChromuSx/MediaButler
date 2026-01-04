@@ -48,9 +48,7 @@ class CommandHandlers:
             BotCommand(command="cancel", description="Cancel a specific download"),
             BotCommand(command="cancel_all", description="Cancel all downloads"),
             BotCommand(command="help", description="Show help and available commands"),
-            BotCommand(
-                command="settings", description="Show and manage global settings"
-            ),
+            BotCommand(command="settings", description="Show and manage global settings"),
             BotCommand(
                 command="mysettings",
                 description="Show and manage your personal settings",
@@ -84,46 +82,26 @@ class CommandHandlers:
         self.client.on(events.NewMessage(pattern="/space"))(self.space_handler)
         self.client.on(events.NewMessage(pattern="/downloads"))(self.downloads_handler)
         self.client.on(events.NewMessage(pattern="/waiting"))(self.waiting_handler)
-        self.client.on(events.NewMessage(pattern="/cancel_all"))(
-            self.cancel_all_handler
-        )
+        self.client.on(events.NewMessage(pattern="/cancel_all"))(self.cancel_all_handler)
         self.client.on(events.NewMessage(pattern="/cancel"))(self.cancel_handler)
         self.client.on(events.NewMessage(pattern="/stop"))(self.stop_handler)
         self.client.on(events.NewMessage(pattern="/users"))(self.users_handler)
         self.client.on(events.NewMessage(pattern="/help"))(self.help_handler)
         self.client.on(events.NewMessage(pattern="/settings"))(self.settings_handler)
         self.client.on(events.NewMessage(pattern="/subtitles"))(self.subtitles_handler)
-        self.client.on(events.NewMessage(pattern="/sub_toggle"))(
-            self.subtitle_toggle_handler
-        )
-        self.client.on(events.NewMessage(pattern="/sub_auto"))(
-            self.subtitle_auto_handler
-        )
+        self.client.on(events.NewMessage(pattern="/sub_toggle"))(self.subtitle_toggle_handler)
+        self.client.on(events.NewMessage(pattern="/sub_auto"))(self.subtitle_auto_handler)
         self.client.on(events.NewMessage(pattern="/stats"))(self.stats_handler)
         self.client.on(events.NewMessage(pattern="/history"))(self.history_handler)
-        self.client.on(events.NewMessage(pattern="/mysettings"))(
-            self.mysettings_handler
-        )
+        self.client.on(events.NewMessage(pattern="/mysettings"))(self.mysettings_handler)
 
         # Callback handler for buttons
-        self.client.on(events.CallbackQuery(pattern="menu_"))(
-            self.menu_callback_handler
-        )
-        self.client.on(events.CallbackQuery(pattern="cancel_"))(
-            self.cancel_callback_handler
-        )
-        self.client.on(events.CallbackQuery(pattern="stop_"))(
-            self.stop_callback_handler
-        )
-        self.client.on(events.CallbackQuery(pattern="sub_"))(
-            self.subtitle_callback_handler
-        )
-        self.client.on(events.CallbackQuery(pattern="stats_"))(
-            self.stats_callback_handler
-        )
-        self.client.on(events.CallbackQuery(pattern="userset_"))(
-            self.user_settings_callback_handler
-        )
+        self.client.on(events.CallbackQuery(pattern="menu_"))(self.menu_callback_handler)
+        self.client.on(events.CallbackQuery(pattern="cancel_"))(self.cancel_callback_handler)
+        self.client.on(events.CallbackQuery(pattern="stop_"))(self.stop_callback_handler)
+        self.client.on(events.CallbackQuery(pattern="sub_"))(self.subtitle_callback_handler)
+        self.client.on(events.CallbackQuery(pattern="stats_"))(self.stats_callback_handler)
+        self.client.on(events.CallbackQuery(pattern="userset_"))(self.user_settings_callback_handler)
 
         self.logger.info("Command handlers registered with inline menu")
 
@@ -182,9 +160,7 @@ class CommandHandlers:
         welcome_text = self._format_welcome_message(user.id, is_admin)
 
         # Send with inline menu
-        await event.reply(
-            welcome_text, buttons=self._create_main_menu(is_admin), link_preview=False
-        )
+        await event.reply(welcome_text, buttons=self._create_main_menu(is_admin), link_preview=False)
 
     async def menu_handler(self, event: events.NewMessage.Event):
         """Handler /menu"""
@@ -281,15 +257,11 @@ class CommandHandlers:
         buttons = []
 
         for idx, info in enumerate(active, 1):
-            filename_short = (
-                info.filename[:30] + "..." if len(info.filename) > 30 else info.filename
-            )
+            filename_short = info.filename[:30] + "..." if len(info.filename) > 30 else info.filename
             text += f"{idx}. `{filename_short}`\n"
             text += f"   {info.progress:.1f}% - {info.size_gb:.1f} GB\n\n"
 
-            buttons.append(
-                [Button.inline(f"❌ Cancel #{idx}", f"cancel_{info.message_id}")]
-            )
+            buttons.append([Button.inline(f"❌ Cancel #{idx}", f"cancel_{info.message_id}")])
 
         buttons.append(
             [
@@ -426,8 +398,7 @@ class CommandHandlers:
             total_cancelled = self.downloads.cancel_all_downloads()
 
             await event.edit(
-                f"✅ **Cancellation Completed**\n\n"
-                f"Cancelled {total_cancelled} operations.",
+                f"✅ **Cancellation Completed**\n\n" f"Cancelled {total_cancelled} operations.",
                 buttons=[[Button.inline("📱 Menu", "menu_back")]],
             )
         else:
@@ -537,9 +508,7 @@ class CommandHandlers:
         queued = self.downloads.get_queued_count()
 
         tmdb_emoji = "🎯" if self.config.tmdb.is_enabled else "⚠️"
-        tmdb_status = (
-            "TMDB Active" if self.config.tmdb.is_enabled else "TMDB Not configured"
-        )
+        tmdb_status = "TMDB Active" if self.config.tmdb.is_enabled else "TMDB Not configured"
 
         role = "👑 Administrator" if is_admin else "👤 User"
 
@@ -580,9 +549,7 @@ class CommandHandlers:
             for info in active[:5]:
                 status_text += f"• `{info.filename[:30]}{'...' if len(info.filename) > 30 else ''}`\n"
                 if info.progress > 0:
-                    status_text += (
-                        f"  {info.progress:.1f}% - {info.speed_mbps:.1f} MB/s\n"
-                    )
+                    status_text += f"  {info.progress:.1f}% - {info.speed_mbps:.1f} MB/s\n"
             if len(active) > 5:
                 status_text += f"  ...and {len(active) - 5} more\n"
             status_text += "\n"
@@ -658,9 +625,7 @@ class CommandHandlers:
 
     def _get_settings_text(self) -> str:
         """Settings text"""
-        tmdb_status = (
-            "✅ Active" if self.config.tmdb.is_enabled else "❌ Not configured"
-        )
+        tmdb_status = "✅ Active" if self.config.tmdb.is_enabled else "❌ Not configured"
 
         return (
             "⚙️ **Current Settings**\n\n"
@@ -752,9 +717,7 @@ class CommandHandlers:
         if not await self.auth.check_authorized(event):
             return
 
-        await event.reply(
-            self._get_subtitle_status(), buttons=self._create_subtitle_menu()
-        )
+        await event.reply(self._get_subtitle_status(), buttons=self._create_subtitle_menu())
 
     async def subtitle_toggle_handler(self, event):
         """Handler for /sub_toggle command - enable/disable subtitles"""
@@ -792,9 +755,7 @@ class CommandHandlers:
             data = event.data.decode("utf-8")
 
             if data == "sub_status":
-                await event.edit(
-                    self._get_subtitle_status(), buttons=self._create_subtitle_menu()
-                )
+                await event.edit(self._get_subtitle_status(), buttons=self._create_subtitle_menu())
 
             elif data == "sub_config":
                 await event.edit(
@@ -857,9 +818,7 @@ class CommandHandlers:
             return
 
         if not self.database:
-            await event.reply(
-                "❌ **Database not enabled**\n\nEnable database in .env to use statistics."
-            )
+            await event.reply("❌ **Database not enabled**\n\nEnable database in .env to use statistics.")
             return
 
         try:
@@ -892,9 +851,7 @@ class CommandHandlers:
             return
 
         if not self.database:
-            await event.reply(
-                "❌ **Database not enabled**\n\nEnable database in .env to use history."
-            )
+            await event.reply("❌ **Database not enabled**\n\nEnable database in .env to use history.")
             return
 
         try:
@@ -941,9 +898,7 @@ class CommandHandlers:
                 user_stats = await self.database.get_user_stats(user_id)
                 global_stats = await self.database.get_all_stats()
 
-                text = await self._format_stats_message(
-                    user_stats, global_stats, user_id
-                )
+                text = await self._format_stats_message(user_stats, global_stats, user_id)
 
                 buttons = [
                     [
@@ -1001,9 +956,7 @@ class CommandHandlers:
                 f"No downloads yet. Send a file to get started!"
             )
 
-        total_gb = (
-            user_stats["total_bytes"] / (1024**3) if user_stats["total_bytes"] else 0
-        )
+        total_gb = user_stats["total_bytes"] / (1024**3) if user_stats["total_bytes"] else 0
         success_rate = (
             (user_stats["successful_downloads"] / user_stats["total_downloads"] * 100)
             if user_stats["total_downloads"] > 0
@@ -1029,9 +982,7 @@ class CommandHandlers:
 
         # Add user rank
         top_users = global_stats.get("top_users", [])
-        user_rank = next(
-            (i + 1 for i, u in enumerate(top_users) if u["user_id"] == user_id), None
-        )
+        user_rank = next((i + 1 for i, u in enumerate(top_users) if u["user_id"] == user_id), None)
 
         if user_rank:
             text += f"• Position: **#{user_rank}** of {len(top_users)} users\n"
@@ -1093,11 +1044,7 @@ class CommandHandlers:
             }.get(dl["status"], "❓")
 
             size_gb = dl["size_bytes"] / (1024**3) if dl["size_bytes"] else 0
-            filename = (
-                dl["filename"][:30] + "..."
-                if len(dl["filename"]) > 30
-                else dl["filename"]
-            )
+            filename = dl["filename"][:30] + "..." if len(dl["filename"]) > 30 else dl["filename"]
 
             text += f"**{i}.** {status_emoji} `{filename}`\n"
             text += f"    📏 {size_gb:.2f} GB"
@@ -1122,9 +1069,7 @@ class CommandHandlers:
             return
 
         if not self.database:
-            await event.reply(
-                "❌ **Database not enabled**\n\nUser settings require database to be enabled."
-            )
+            await event.reply("❌ **Database not enabled**\n\nUser settings require database to be enabled.")
             return
 
         try:
@@ -1267,9 +1212,7 @@ class CommandHandlers:
             elif data == "userset_toggle_sub_enabled":
                 current = await user_config.get_subtitle_enabled()
                 await user_config.set_subtitle_enabled(not current)
-                await event.answer(
-                    f"✅ Subtitles {'enabled' if not current else 'disabled'}"
-                )
+                await event.answer(f"✅ Subtitles {'enabled' if not current else 'disabled'}")
                 # Refresh subtitle view
                 text = await self._format_subtitles_settings(user_config)
                 sub_enabled = await user_config.get_subtitle_enabled()
@@ -1292,9 +1235,7 @@ class CommandHandlers:
             elif data == "userset_toggle_sub_auto":
                 current = await user_config.get_subtitle_auto_download()
                 await user_config.set_subtitle_auto_download(not current)
-                await event.answer(
-                    f"✅ Auto-download {'enabled' if not current else 'disabled'}"
-                )
+                await event.answer(f"✅ Auto-download {'enabled' if not current else 'disabled'}")
                 # Refresh subtitle view
                 text = await self._format_subtitles_settings(user_config)
                 sub_enabled = await user_config.get_subtitle_enabled()
@@ -1317,9 +1258,7 @@ class CommandHandlers:
             elif data == "userset_toggle_notify_complete":
                 current = await user_config.get_notify_download_complete()
                 await user_config.set_notify_download_complete(not current)
-                await event.answer(
-                    f"✅ Notification {'enabled' if not current else 'disabled'}"
-                )
+                await event.answer(f"✅ Notification {'enabled' if not current else 'disabled'}")
                 # Refresh notifications view
                 text = await self._format_notifications_settings(user_config)
                 notify_complete = await user_config.get_notify_download_complete()
@@ -1349,9 +1288,7 @@ class CommandHandlers:
             elif data == "userset_toggle_notify_failed":
                 current = await user_config.get_notify_download_failed()
                 await user_config.set_notify_download_failed(not current)
-                await event.answer(
-                    f"✅ Notification {'enabled' if not current else 'disabled'}"
-                )
+                await event.answer(f"✅ Notification {'enabled' if not current else 'disabled'}")
                 # Refresh notifications view
                 text = await self._format_notifications_settings(user_config)
                 notify_complete = await user_config.get_notify_download_complete()
@@ -1381,9 +1318,7 @@ class CommandHandlers:
             elif data == "userset_toggle_notify_space":
                 current = await user_config.get_notify_low_space()
                 await user_config.set_notify_low_space(not current)
-                await event.answer(
-                    f"✅ Notification {'enabled' if not current else 'disabled'}"
-                )
+                await event.answer(f"✅ Notification {'enabled' if not current else 'disabled'}")
                 # Refresh notifications view
                 text = await self._format_notifications_settings(user_config)
                 notify_complete = await user_config.get_notify_download_complete()
@@ -1413,9 +1348,7 @@ class CommandHandlers:
             elif data == "userset_toggle_compact":
                 current = await user_config.get_compact_messages()
                 await user_config.set_compact_messages(not current)
-                await event.answer(
-                    f"✅ Compact mode {'enabled' if not current else 'disabled'}"
-                )
+                await event.answer(f"✅ Compact mode {'enabled' if not current else 'disabled'}")
                 # Refresh interface view
                 text = await self._format_interface_settings(user_config)
                 compact = await user_config.get_compact_messages()

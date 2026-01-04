@@ -72,10 +72,7 @@ class ConnectionManager:
         if user_id in self.user_connections:
             # Send to all user connections in parallel
             await asyncio.gather(
-                *[
-                    self._send_safe(conn, message)
-                    for conn in self.user_connections[user_id]
-                ],
+                *[self._send_safe(conn, message) for conn in self.user_connections[user_id]],
                 return_exceptions=True,
             )
 
@@ -103,9 +100,7 @@ class ConnectionManager:
             return_exceptions=True,
         )
 
-    async def broadcast_download_progress(
-        self, download_id: int, progress: float, speed_mbps: float, eta_seconds: int
-    ):
+    async def broadcast_download_progress(self, download_id: int, progress: float, speed_mbps: float, eta_seconds: int):
         """Broadcast download progress update"""
         message = {
             "type": "download_progress",
@@ -126,9 +121,7 @@ class ConnectionManager:
         }
         await self.broadcast(message)
 
-    async def broadcast_download_failed(
-        self, download_id: int, filename: str, error: str
-    ):
+    async def broadcast_download_failed(self, download_id: int, filename: str, error: str):
         """Broadcast download failure"""
         message = {
             "type": "download_failed",
@@ -141,9 +134,7 @@ class ConnectionManager:
         message = {"type": "stats_update", "data": stats}
         await self.broadcast(message)
 
-    async def broadcast_download_started(
-        self, download_id: int, filename: str, user_id: int
-    ):
+    async def broadcast_download_started(self, download_id: int, filename: str, user_id: int):
         """Broadcast download started"""
         message = {
             "type": "download_started",
@@ -218,13 +209,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # Helper function to be called from download manager
-async def notify_download_progress(
-    download_id: int, progress: float, speed_mbps: float, eta_seconds: int
-):
+async def notify_download_progress(download_id: int, progress: float, speed_mbps: float, eta_seconds: int):
     """Notify clients of download progress"""
-    await manager.broadcast_download_progress(
-        download_id, progress, speed_mbps, eta_seconds
-    )
+    await manager.broadcast_download_progress(download_id, progress, speed_mbps, eta_seconds)
 
 
 async def notify_download_completed(download_id: int, filename: str):

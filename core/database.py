@@ -245,28 +245,12 @@ class DatabaseManager:
                 download_info.media_type.value,
                 download_info.is_movie,
                 download_info.movie_folder,
-                (
-                    download_info.series_info.series_name
-                    if download_info.series_info
-                    else None
-                ),
+                (download_info.series_info.series_name if download_info.series_info else None),
                 download_info.series_info.season if download_info.series_info else None,
-                (
-                    download_info.series_info.episode
-                    if download_info.series_info
-                    else None
-                ),
+                (download_info.series_info.episode if download_info.series_info else None),
                 download_info.selected_tmdb.id if download_info.selected_tmdb else None,
-                (
-                    download_info.selected_tmdb.title
-                    if download_info.selected_tmdb
-                    else None
-                ),
-                (
-                    download_info.selected_tmdb.year
-                    if download_info.selected_tmdb
-                    else None
-                ),
+                (download_info.selected_tmdb.title if download_info.selected_tmdb else None),
+                (download_info.selected_tmdb.year if download_info.selected_tmdb else None),
                 download_info.tmdb_confidence,
                 str(download_info.dest_path) if download_info.dest_path else None,
                 download_info.status.value,
@@ -344,9 +328,7 @@ class DatabaseManager:
 
     async def get_download_by_message_id(self, message_id: int) -> Optional[Dict]:
         """Get download by message ID"""
-        cursor = await self._connection.execute(
-            "SELECT * FROM downloads WHERE message_id = ?", (message_id,)
-        )
+        cursor = await self._connection.execute("SELECT * FROM downloads WHERE message_id = ?", (message_id,))
         row = await cursor.fetchone()
 
         if row:
@@ -387,9 +369,7 @@ class DatabaseManager:
         rows = await cursor.fetchall()
         return [dict(row) for row in rows]
 
-    async def check_duplicate_file(
-        self, filename: str, user_id: Optional[int] = None
-    ) -> Optional[Dict]:
+    async def check_duplicate_file(self, filename: str, user_id: Optional[int] = None) -> Optional[Dict]:
         """Check if file was already downloaded"""
 
         if user_id:
@@ -427,9 +407,7 @@ class DatabaseManager:
         """Update user statistics after download"""
 
         # Get or create user stats
-        cursor = await self._connection.execute(
-            "SELECT * FROM user_stats WHERE user_id = ?", (user_id,)
-        )
+        cursor = await self._connection.execute("SELECT * FROM user_stats WHERE user_id = ?", (user_id,))
         row = await cursor.fetchone()
 
         if row is None:
@@ -485,9 +463,7 @@ class DatabaseManager:
 
     async def get_user_stats(self, user_id: int) -> Optional[Dict]:
         """Get statistics for a specific user"""
-        cursor = await self._connection.execute(
-            "SELECT * FROM user_stats WHERE user_id = ?", (user_id,)
-        )
+        cursor = await self._connection.execute("SELECT * FROM user_stats WHERE user_id = ?", (user_id,))
         row = await cursor.fetchone()
 
         if row:
@@ -498,9 +474,7 @@ class DatabaseManager:
         """Get global statistics"""
 
         # Total downloads
-        cursor = await self._connection.execute(
-            "SELECT COUNT(*) as total FROM downloads"
-        )
+        cursor = await self._connection.execute("SELECT COUNT(*) as total FROM downloads")
         total = (await cursor.fetchone())["total"]
 
         # By status
@@ -568,9 +542,7 @@ class DatabaseManager:
         total_size_gb = total_bytes / (1024**3) if total_bytes else 0.0
 
         # Calculate average file size (only from completed downloads)
-        avg_file_size_gb = (
-            total_size_gb / successful_downloads if successful_downloads > 0 else 0.0
-        )
+        avg_file_size_gb = total_size_gb / successful_downloads if successful_downloads > 0 else 0.0
 
         result = {
             "total_downloads": total,
@@ -590,9 +562,7 @@ class DatabaseManager:
 
     # ==================== TMDB CACHE ====================
 
-    async def cache_tmdb_result(
-        self, query: str, media_type: str, tmdb_data: Dict[str, Any]
-    ):
+    async def cache_tmdb_result(self, query: str, media_type: str, tmdb_data: Dict[str, Any]):
         """Cache TMDB search result"""
         try:
             await self._connection.execute(
@@ -608,8 +578,7 @@ class DatabaseManager:
                     tmdb_data.get("id"),
                     tmdb_data.get("title") or tmdb_data.get("name"),
                     tmdb_data.get("original_title") or tmdb_data.get("original_name"),
-                    tmdb_data.get("release_date", "")[:4]
-                    or tmdb_data.get("first_air_date", "")[:4],
+                    tmdb_data.get("release_date", "")[:4] or tmdb_data.get("first_air_date", "")[:4],
                     tmdb_data.get("poster_path"),
                     tmdb_data.get("overview"),
                     tmdb_data.get("vote_average", 0.0),
@@ -619,9 +588,7 @@ class DatabaseManager:
         except Exception as e:
             self.logger.error(f"Error caching TMDB result: {e}")
 
-    async def get_cached_tmdb_results(
-        self, query: str, media_type: str, max_age_days: int = 30
-    ) -> List[Dict]:
+    async def get_cached_tmdb_results(self, query: str, media_type: str, max_age_days: int = 30) -> List[Dict]:
         """Get cached TMDB results"""
         cursor = await self._connection.execute(
             """
@@ -653,18 +620,14 @@ class DatabaseManager:
 
     async def get_user_preferences(self, user_id: int) -> Optional[Dict]:
         """Get user preferences for a specific user"""
-        cursor = await self._connection.execute(
-            "SELECT * FROM user_preferences WHERE user_id = ?", (user_id,)
-        )
+        cursor = await self._connection.execute("SELECT * FROM user_preferences WHERE user_id = ?", (user_id,))
         row = await cursor.fetchone()
 
         if row:
             return dict(row)
         return None
 
-    async def get_user_setting(
-        self, user_id: int, setting_name: str, default: Any = None
-    ) -> Any:
+    async def get_user_setting(self, user_id: int, setting_name: str, default: Any = None) -> Any:
         """
         Get a specific user setting with fallback to default
 
@@ -749,18 +712,14 @@ class DatabaseManager:
 
             params = list(preferences.values()) + [user_id]
 
-            query = (
-                f"UPDATE user_preferences SET {', '.join(updates)} WHERE user_id = ?"
-            )
+            query = f"UPDATE user_preferences SET {', '.join(updates)} WHERE user_id = ?"
             await self._connection.execute(query, params)
 
         await self._connection.commit()
 
     async def reset_user_preferences(self, user_id: int):
         """Reset user preferences to defaults (delete custom settings)"""
-        await self._connection.execute(
-            "DELETE FROM user_preferences WHERE user_id = ?", (user_id,)
-        )
+        await self._connection.execute("DELETE FROM user_preferences WHERE user_id = ?", (user_id,))
         await self._connection.commit()
 
     async def get_all_user_preferences(self) -> List[Dict]:
@@ -785,9 +744,7 @@ class DatabaseManager:
 
     async def get_authorized_user(self, user_id: int) -> Optional[Dict]:
         """Get authorized user by ID"""
-        cursor = await self._connection.execute(
-            "SELECT * FROM authorized_users WHERE user_id = ?", (user_id,)
-        )
+        cursor = await self._connection.execute("SELECT * FROM authorized_users WHERE user_id = ?", (user_id,))
         row = await cursor.fetchone()
         return dict(row) if row else None
 

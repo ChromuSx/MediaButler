@@ -38,9 +38,7 @@ class FileHelpers:
         return hash_func.hexdigest()
 
     @staticmethod
-    async def get_file_hash_async(
-        filepath: Path, algorithm: str = "md5", timeout: float = 30.0
-    ) -> str:
+    async def get_file_hash_async(filepath: Path, algorithm: str = "md5", timeout: float = 30.0) -> str:
         """
         Calculate file hash asynchronously (non-blocking)
 
@@ -343,9 +341,7 @@ class ValidationHelpers:
         return path_str.strip()
 
     @staticmethod
-    def validate_user_path(
-        user_path: Union[str, Path], allowed_base_paths: list[Path]
-    ) -> tuple[bool, str]:
+    def validate_user_path(user_path: Union[str, Path], allowed_base_paths: list[Path]) -> tuple[bool, str]:
         """
         Validate that user-provided path is within allowed base directories.
         Prevents path traversal attacks.

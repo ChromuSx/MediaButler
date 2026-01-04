@@ -147,9 +147,7 @@ class CallbackHandlers:
 
         # Check space
         size_gb = download_info.size_gb
-        space_ok, free_gb = self.space.check_space_available(
-            download_info.dest_path, size_gb
-        )
+        space_ok, free_gb = self.space.check_space_available(download_info.dest_path, size_gb)
 
         if not space_ok:
             # Put in space queue
@@ -184,11 +182,7 @@ class CallbackHandlers:
             return
 
         # Series name
-        series_name = (
-            download_info.series_info.series_name
-            if download_info.series_info
-            else "Serie"
-        )
+        series_name = download_info.series_info.series_name if download_info.series_info else "Serie"
         if download_info.selected_tmdb:
             series_name = download_info.selected_tmdb.title
 
@@ -201,9 +195,7 @@ class CallbackHandlers:
             f"📄 File: `{download_info.filename}`\n\n"
             f"**Enter the season number** (e.g., `12`)\n"
             f"_I'll respond below_",
-            buttons=[
-                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
-            ],
+            buttons=[[Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]],
         )
 
     async def _handle_cancel(self, event, data: str):
@@ -257,9 +249,7 @@ class CallbackHandlers:
 
         # Check space
         size_gb = download_info.size_gb
-        space_ok, free_gb = self.space.check_space_available(
-            download_info.dest_path, size_gb
-        )
+        space_ok, free_gb = self.space.check_space_available(download_info.dest_path, size_gb)
 
         if not space_ok:
             position = self.downloads.queue_for_space(download_info)
@@ -287,9 +277,7 @@ class CallbackHandlers:
             )
         else:
             await event.edit(
-                f"🎬 **Movie** selected\n\n"
-                f"📥 **Preparing download...**\n"
-                f"✅ Available space: {free_gb:.1f} GB"
+                f"🎬 **Movie** selected\n\n" f"📥 **Preparing download...**\n" f"✅ Available space: {free_gb:.1f} GB"
             )
 
     async def _process_tv_selection(self, event, download_info):
@@ -307,34 +295,18 @@ class CallbackHandlers:
             for i in range(1, 6):
                 if len(season_buttons) < 1:
                     season_buttons.append([])
-                season_buttons[0].append(
-                    Button.inline(f"S{i}", f"season_{i}_{download_info.message_id}")
-                )
+                season_buttons[0].append(Button.inline(f"S{i}", f"season_{i}_{download_info.message_id}"))
 
             for i in range(6, 11):
                 if len(season_buttons) < 2:
                     season_buttons.append([])
-                season_buttons[1].append(
-                    Button.inline(f"S{i}", f"season_{i}_{download_info.message_id}")
-                )
+                season_buttons[1].append(Button.inline(f"S{i}", f"season_{i}_{download_info.message_id}"))
 
-            season_buttons.append(
-                [
-                    Button.inline(
-                        "✏️ Enter number", f"manual_season_{download_info.message_id}"
-                    )
-                ]
-            )
-            season_buttons.append(
-                [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
-            )
+            season_buttons.append([Button.inline("✏️ Enter number", f"manual_season_{download_info.message_id}")])
+            season_buttons.append([Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")])
 
             # Series name
-            series_name = (
-                download_info.series_info.series_name
-                if download_info.series_info
-                else "Series"
-            )
+            series_name = download_info.series_info.series_name if download_info.series_info else "Series"
             if download_info.selected_tmdb:
                 series_name = download_info.selected_tmdb.title
 
@@ -353,9 +325,7 @@ class CallbackHandlers:
 
         # Check space
         size_gb = download_info.size_gb
-        space_ok, free_gb = self.space.check_space_available(
-            download_info.dest_path, size_gb
-        )
+        space_ok, free_gb = self.space.check_space_available(download_info.dest_path, size_gb)
 
         if not space_ok:
             position = self.downloads.queue_for_space(download_info)
@@ -408,9 +378,7 @@ class CallbackHandlers:
         elif action == "download":
             # Download again - proceed with normal flow
             await event.edit(
-                f"📥 **Downloading duplicate file**\n\n"
-                f"📁 File: `{download_info.filename}`\n"
-                f"⏳ Processing..."
+                f"📥 **Downloading duplicate file**\n\n" f"📁 File: `{download_info.filename}`\n" f"⏳ Processing..."
             )
 
             # Determine media type and proceed
