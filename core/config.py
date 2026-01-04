@@ -145,9 +145,7 @@ class Config:
         self.paths.create_directories()
 
         # Create directory for session
-        Path(os.path.dirname(self.telegram.session_path)).mkdir(
-            parents=True, exist_ok=True
-        )
+        Path(os.path.dirname(self.telegram.session_path)).mkdir(parents=True, exist_ok=True)
 
         # Create directory for database
         self.database.path.parent.mkdir(parents=True, exist_ok=True)
@@ -197,13 +195,9 @@ class Config:
     def _load_auth_config(self) -> AuthConfig:
         """Load authorization configuration"""
         users_str = os.getenv("AUTHORIZED_USERS", "")
-        authorized_users = [
-            int(uid.strip()) for uid in users_str.split(",") if uid.strip()
-        ]
+        authorized_users = [int(uid.strip()) for uid in users_str.split(",") if uid.strip()]
 
-        return AuthConfig(
-            authorized_users=authorized_users, admin_mode=len(authorized_users) == 0
-        )
+        return AuthConfig(authorized_users=authorized_users, admin_mode=len(authorized_users) == 0)
 
     def _load_subtitle_config(self) -> SubtitleConfig:
         """Load subtitles configuration"""
@@ -212,12 +206,9 @@ class Config:
 
         return SubtitleConfig(
             enabled=os.getenv("SUBTITLE_ENABLED", "false").lower() == "true",
-            auto_download=os.getenv("SUBTITLE_AUTO_DOWNLOAD", "false").lower()
-            == "true",
+            auto_download=os.getenv("SUBTITLE_AUTO_DOWNLOAD", "false").lower() == "true",
             languages=languages,
-            opensubtitles_user_agent=os.getenv(
-                "OPENSUBTITLES_USER_AGENT", "MediaButler v1.0"
-            ),
+            opensubtitles_user_agent=os.getenv("OPENSUBTITLES_USER_AGENT", "MediaButler v1.0"),
             opensubtitles_username=os.getenv("OPENSUBTITLES_USERNAME") or None,
             opensubtitles_password=os.getenv("OPENSUBTITLES_PASSWORD") or None,
             preferred_format=os.getenv("SUBTITLE_FORMAT", "srt"),
@@ -247,13 +238,9 @@ class Config:
 
     def _validate_config(self):
         """Validate configuration"""
-        if not all(
-            [self.telegram.api_id, self.telegram.api_hash, self.telegram.bot_token]
-        ):
+        if not all([self.telegram.api_id, self.telegram.api_hash, self.telegram.bot_token]):
             self.logger.error("Missing Telegram credentials!")
-            self.logger.error(
-                "Configure: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_BOT_TOKEN"
-            )
+            self.logger.error("Configure: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_BOT_TOKEN")
             sys.exit(1)
 
     def log_config(self):
@@ -272,9 +259,7 @@ class Config:
         self.logger.info(
             f"Delete archives after extraction: {self.extraction.delete_after_extract}"
         )
-        self.logger.info(
-            f"Max concurrent downloads: {self.limits.max_concurrent_downloads}"
-        )
+        self.logger.info(f"Max concurrent downloads: {self.limits.max_concurrent_downloads}")
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
 
 

@@ -182,9 +182,7 @@ class FileHelpers:
         Returns:
             True if video or archive
         """
-        return FileHelpers.is_video_file(filename) or FileHelpers.is_archive_file(
-            filename
-        )
+        return FileHelpers.is_video_file(filename) or FileHelpers.is_archive_file(filename)
 
     @staticmethod
     def find_duplicate_files(directory: Path) -> dict[str, list[Path]]:
@@ -208,9 +206,7 @@ class FileHelpers:
                 hash_map[file_hash].append(filepath)
 
         # Return only duplicates
-        return {
-            hash_val: files for hash_val, files in hash_map.items() if len(files) > 1
-        }
+        return {hash_val: files for hash_val, files in hash_map.items() if len(files) > 1}
 
 
 class RetryHelpers:
@@ -427,9 +423,7 @@ class AsyncHelpers:
     """Helper for asynchronous operations"""
 
     @staticmethod
-    async def run_with_timeout(
-        coro: Callable, timeout: float, default: Any = None
-    ) -> Any:
+    async def run_with_timeout(coro: Callable, timeout: float, default: Any = None) -> Any:
         """
         Execute coroutine with timeout
 
@@ -464,9 +458,7 @@ class AsyncHelpers:
             async with semaphore:
                 return await coro
 
-        return await asyncio.gather(
-            *[limited_coro(coro) for coro in coros], return_exceptions=True
-        )
+        return await asyncio.gather(*[limited_coro(coro) for coro in coros], return_exceptions=True)
 
     @staticmethod
     def create_task_safe(coro: Callable) -> asyncio.Task:
@@ -581,9 +573,7 @@ class RateLimiter:
         now = time.time()
 
         # Remove old calls
-        self.calls = [
-            call_time for call_time in self.calls if now - call_time < self.period
-        ]
+        self.calls = [call_time for call_time in self.calls if now - call_time < self.period]
 
         # If too many calls, wait
         if len(self.calls) >= self.max_calls:
@@ -605,9 +595,7 @@ class RateLimiter:
         now = time.time()
 
         # Remove old calls
-        self.calls = [
-            call_time for call_time in self.calls if now - call_time < self.period
-        ]
+        self.calls = [call_time for call_time in self.calls if now - call_time < self.period]
 
         return len(self.calls) < self.max_calls
 

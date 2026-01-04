@@ -152,10 +152,7 @@ class DownloadManager:
         Args:
             download_info: Download info with created_folders list
         """
-        if (
-            not hasattr(download_info, "created_folders")
-            or not download_info.created_folders
-        ):
+        if not hasattr(download_info, "created_folders") or not download_info.created_folders:
             return
 
         # Iterate in reverse order (deepest folders first)
@@ -240,9 +237,7 @@ class DownloadManager:
     def get_active_downloads(self) -> list[DownloadInfo]:
         """Get active downloads"""
         return [
-            info
-            for msg_id, info in self.active_downloads.items()
-            if msg_id in self.download_tasks
+            info for msg_id, info in self.active_downloads.items() if msg_id in self.download_tasks
         ]
 
     def get_queued_count(self) -> int:
@@ -266,10 +261,7 @@ class DownloadManager:
         while True:
             try:
                 # Wait for free slot
-                while (
-                    len(self.download_tasks)
-                    >= self.config.limits.max_concurrent_downloads
-                ):
+                while len(self.download_tasks) >= self.config.limits.max_concurrent_downloads:
                     await asyncio.sleep(1)
 
                 # Get from queue
@@ -279,9 +271,7 @@ class DownloadManager:
 
                 # Check if cancelled
                 if msg_id in self.cancelled_downloads:
-                    self.logger.info(
-                        f"Download cancelled from queue: {download_info.filename}"
-                    )
+                    self.logger.info(f"Download cancelled from queue: {download_info.filename}")
                     self.cancelled_downloads.discard(msg_id)
                     continue
 
@@ -295,8 +285,7 @@ class DownloadManager:
                     # Put back in space queue
                     self.queue_for_space(download_info)
                     self.logger.warning(
-                        f"Insufficient space for {download_info.filename}, "
-                        f"queued for space"
+                        f"Insufficient space for {download_info.filename}, " f"queued for space"
                     )
 
                     # Notify user if possible
@@ -352,8 +341,7 @@ class DownloadManager:
                     # If there's space and free slot, move to download queue
                     if (
                         space_ok
-                        and len(self.download_tasks)
-                        < self.config.limits.max_concurrent_downloads
+                        and len(self.download_tasks) < self.config.limits.max_concurrent_downloads
                     ):
                         await self.download_queue.put(queue_item)
                         processed.append(queue_item)
@@ -389,9 +377,7 @@ class DownloadManager:
         try:
             # Check cancellation
             if msg_id in self.cancelled_downloads:
-                self.logger.info(
-                    f"Download already cancelled: {download_info.filename}"
-                )
+                self.logger.info(f"Download already cancelled: {download_info.filename}")
                 return
 
             # Update status
@@ -416,9 +402,7 @@ class DownloadManager:
             if filepath.exists():
                 # Use async hash calculation to avoid blocking event loop
                 existing_hash = await FileHelpers.get_file_hash_async(filepath)
-                self.logger.warning(
-                    f"File already exists: {filepath} (hash: {existing_hash})"
-                )
+                self.logger.warning(f"File already exists: {filepath} (hash: {existing_hash})")
 
                 # Notifica utente
                 if download_info.event:
@@ -429,9 +413,7 @@ class DownloadManager:
                     )
                 return
 
-            self.logger.info(
-                f"Download started: {download_info.filename} -> {filepath}"
-            )
+            self.logger.info(f"Download started: {download_info.filename} -> {filepath}")
 
             # Info for display
             path_info = self._get_path_info(download_info, filepath)
@@ -519,9 +501,7 @@ class DownloadManager:
 
                     # Check if original archive was multi-part and rename accordingly
                     if self.extractor.is_multipart_archive(original_archive_path):
-                        part_num = self.extractor.get_multipart_number(
-                            original_archive_path
-                        )
+                        part_num = self.extractor.get_multipart_number(original_archive_path)
                         if part_num is not None:
                             # Add part number to filename
                             stem = filepath.stem
@@ -533,9 +513,7 @@ class DownloadManager:
                             try:
                                 filepath.rename(new_filepath)
                                 filepath = new_filepath
-                                self.logger.info(
-                                    f"Renamed to include part number: {filepath.name}"
-                                )
+                                self.logger.info(f"Renamed to include part number: {filepath.name}")
                             except Exception as e:
                                 self.logger.warning(
                                     f"Could not rename file to add part number: {e}"
@@ -578,9 +556,7 @@ class DownloadManager:
                         duration,
                         download_info.speed_mbps,
                     )
-                    await _database_manager.update_user_stats(
-                        download_info.user_id, download_info
-                    )
+                    await _database_manager.update_user_stats(download_info.user_id, download_info)
                 except Exception as e:
                     self.logger.error(f"Error saving to database: {e}")
 
@@ -600,9 +576,7 @@ class DownloadManager:
                     await _database_manager.update_download_status(
                         download_info.message_id, DownloadStatus.CANCELLED
                     )
-                    await _database_manager.increment_cancelled_downloads(
-                        download_info.user_id
-                    )
+                    await _database_manager.increment_cancelled_downloads(download_info.user_id)
                 except Exception as e:
                     self.logger.error(f"Error saving cancellation to database: {e}")
 
@@ -612,16 +586,13 @@ class DownloadManager:
 
             # Cleanup final file and folders
             if download_info.final_path and download_info.final_path.exists():
-                self.space_manager.smart_cleanup(
-                    download_info.final_path, download_info.is_movie
-                )
+                self.space_manager.smart_cleanup(download_info.final_path, download_info.is_movie)
 
             # Notify cancellation
             if download_info.event:
                 try:
                     await download_info.event.edit(
-                        f"❌ **Download cancelled**\n\n"
-                        f"File: `{download_info.filename}`"
+                        f"❌ **Download cancelled**\n\n" f"File: `{download_info.filename}`"
                     )
                 except:
                     pass
@@ -639,9 +610,7 @@ class DownloadManager:
                         DownloadStatus.FAILED,
                         error_message=str(e),
                     )
-                    await _database_manager.increment_failed_downloads(
-                        download_info.user_id
-                    )
+                    await _database_manager.increment_failed_downloads(download_info.user_id)
                 except Exception as db_err:
                     self.logger.error(f"Error saving failure to database: {db_err}")
 
@@ -661,9 +630,7 @@ class DownloadManager:
             if notify_failed and download_info.event:
                 try:
                     if compact_messages:
-                        await download_info.event.edit(
-                            f"❌ **Failed**\n`{download_info.filename}`"
-                        )
+                        await download_info.event.edit(f"❌ **Failed**\n`{download_info.filename}`")
                     else:
                         await download_info.event.edit(
                             f"❌ **Download error**\n\n"
@@ -704,9 +671,7 @@ class DownloadManager:
             )
 
             if similar_folder:
-                self.logger.info(
-                    f"Found similar folder: '{similar_folder}' for '{folder_name}'"
-                )
+                self.logger.info(f"Found similar folder: '{similar_folder}' for '{folder_name}'")
                 folder_name = similar_folder
 
             folder_path = download_info.dest_path / folder_name
@@ -729,20 +694,12 @@ class DownloadManager:
                 folder_name = similar_series
 
             series_folder = download_info.dest_path / folder_name
-            season_folder = (
-                series_folder / f"Season {download_info.selected_season:02d}"
-            )
+            season_folder = series_folder / f"Season {download_info.selected_season:02d}"
             season_folder.mkdir(parents=True, exist_ok=True)
 
-            if (
-                not series_folder.exists()
-                and series_folder not in download_info.created_folders
-            ):
+            if not series_folder.exists() and series_folder not in download_info.created_folders:
                 download_info.created_folders.append(series_folder)
-            if (
-                not season_folder.exists()
-                and season_folder not in download_info.created_folders
-            ):
+            if not season_folder.exists() and season_folder not in download_info.created_folders:
                 download_info.created_folders.append(season_folder)
 
             filepath = season_folder / filename
@@ -756,10 +713,7 @@ class DownloadManager:
         else:
             season_folder = filepath.parent
             series_folder = season_folder.parent
-            return (
-                f"📁 Series: `{series_folder.name}/`\n"
-                f"📅 Season: `{season_folder.name}/`\n"
-            )
+            return f"📁 Series: `{series_folder.name}/`\n" f"📅 Season: `{season_folder.name}/`\n"
 
     async def _update_progress(
         self, download_info: DownloadInfo, current: int, total: int, path_info: str
@@ -866,9 +820,7 @@ class DownloadManager:
 
         self.logger.info(f"Download completed: {filepath}")
 
-    async def _handle_subtitles_download(
-        self, download_info: DownloadInfo, filepath: Path
-    ):
+    async def _handle_subtitles_download(self, download_info: DownloadInfo, filepath: Path):
         """Handle subtitle download after video completion"""
         # Get user-specific configuration
         user_config = await get_user_config_for_download(download_info.user_id)
@@ -926,11 +878,7 @@ class DownloadManager:
                 if download_info.event:
                     try:
                         langs = ", ".join(
-                            [
-                                f.stem.split(".")[-2]
-                                for f in subtitle_files
-                                if "." in f.stem
-                            ]
+                            [f.stem.split(".")[-2] for f in subtitle_files if "." in f.stem]
                         )
                         current_text = download_info.event.text or ""
                         if "🎬 Available on your media server!" in current_text:

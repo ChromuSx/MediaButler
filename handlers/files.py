@@ -40,9 +40,9 @@ class FileHandlers:
     def register(self):
         """Register file handlers"""
         self.client.on(events.NewMessage(func=lambda e: e.file))(self.file_handler)
-        self.client.on(
-            events.NewMessage(func=lambda e: e.text and not e.text.startswith("/"))
-        )(self.text_handler)
+        self.client.on(events.NewMessage(func=lambda e: e.text and not e.text.startswith("/")))(
+            self.text_handler
+        )
         self.logger.info("File handlers registered")
 
     async def file_handler(self, event: events.NewMessage.Event):
@@ -97,17 +97,13 @@ class FileHandlers:
 
         # Set movie_folder only if NOT a recognized TV series
         if series_info.season is None:
-            download_info.movie_folder = FileNameParser.create_folder_name(
-                movie_name, year
-            )
+            download_info.movie_folder = FileNameParser.create_folder_name(movie_name, year)
 
         download_info.series_info = series_info
 
         # Check for duplicates
         if self.database:
-            duplicate = await self.database.check_duplicate_file(
-                filename, event.sender_id
-            )
+            duplicate = await self.database.check_duplicate_file(filename, event.sender_id)
 
             if duplicate:
                 await self._show_duplicate_warning(event, download_info, duplicate)
@@ -202,8 +198,7 @@ class FileHandlers:
 
             # Caption is metadata if it matches any pattern
             is_metadata = any(
-                re.search(pattern, message_text.lower())
-                for pattern in metadata_patterns
+                re.search(pattern, message_text.lower()) for pattern in metadata_patterns
             )
 
             # Clean the caption
@@ -245,7 +240,8 @@ class FileHandlers:
                 return (detected_name, original_filename)
             else:
                 self.logger.info(
-                    f"Caption appears to be metadata, using file attribute instead: '{message_text}'"
+                    f"Caption appears to be metadata, "
+                    f"using file attribute instead: '{message_text}'"
                 )
 
         return (original_filename, original_filename)
@@ -271,9 +267,7 @@ class FileHandlers:
             media_hint = None
 
         # Search on TMDB
-        tmdb_result, confidence = await self.tmdb.search_with_confidence(
-            search_query, media_hint
-        )
+        tmdb_result, confidence = await self.tmdb.search_with_confidence(search_query, media_hint)
 
         if tmdb_result:
             download_info.tmdb_results = [tmdb_result]
@@ -293,18 +287,14 @@ class FileHandlers:
             retry_movie_name, retry_year = FileNameParser.extract_movie_info(
                 download_info.original_filename
             )
-            retry_series_info = FileNameParser.extract_series_info(
-                download_info.original_filename
-            )
+            retry_series_info = FileNameParser.extract_series_info(download_info.original_filename)
 
             # Determine search query for retry
             if retry_series_info.season:
                 retry_search_query = retry_series_info.series_name
                 retry_media_hint = "tv"
             else:
-                retry_folder = FileNameParser.create_folder_name(
-                    retry_movie_name, retry_year
-                )
+                retry_folder = FileNameParser.create_folder_name(retry_movie_name, retry_year)
                 retry_search_query = retry_folder
                 retry_media_hint = None
 
@@ -325,9 +315,7 @@ class FileHandlers:
                 download_info.tmdb_confidence = retry_confidence
                 # Update parsed info
                 download_info.movie_folder = (
-                    retry_folder
-                    if not retry_series_info.season
-                    else download_info.movie_folder
+                    retry_folder if not retry_series_info.season else download_info.movie_folder
                 )
                 download_info.series_info = retry_series_info
 
@@ -347,9 +335,7 @@ class FileHandlers:
                 initial_msg, download_info, tmdb_result, confidence, space_warning
             )
         elif tmdb_result and confidence >= 40:
-            await self._show_medium_confidence_match(
-                initial_msg, download_info, space_warning
-            )
+            await self._show_medium_confidence_match(initial_msg, download_info, space_warning)
         else:
             await self._show_manual_selection(initial_msg, download_info, space_warning)
 
@@ -358,12 +344,12 @@ class FileHandlers:
     ):
         """Auto-confirm download when confidence >= threshold"""
         # Update message to show auto-confirmation
-        text, poster_url = self.tmdb.format_result(
-            tmdb_result, download_info.series_info
-        )
+        text, poster_url = self.tmdb.format_result(tmdb_result, download_info.series_info)
 
         info_text = f"📁 **File:** `{download_info.filename}`\n"
-        info_text += f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        info_text += (
+            f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        )
         info_text += f"⚡ **Auto-confirmed** (confidence {confidence}%)\n\n"
         info_text += text
 
@@ -395,9 +381,7 @@ class FileHandlers:
                     await msg.edit(
                         f"{download_info.emoji} **{download_info.media_type}**\n"
                         f"📅 Season {download_info.selected_season}\n\n"
-                        + self.space.format_space_warning(
-                            download_info.dest_path, size_gb
-                        )
+                        + self.space.format_space_warning(download_info.dest_path, size_gb)
                         + f"\nPosition in space queue: #{position}"
                     )
                     return
@@ -421,9 +405,7 @@ class FileHandlers:
 
             # Check space
             size_gb = download_info.size_gb
-            space_ok, free_gb = self.space.check_space_available(
-                download_info.dest_path, size_gb
-            )
+            space_ok, free_gb = self.space.check_space_available(download_info.dest_path, size_gb)
 
             if not space_ok:
                 position = self.downloads.queue_for_space(download_info)
@@ -459,12 +441,8 @@ class FileHandlers:
         if download_info.series_info.season:
             buttons = [
                 [
-                    Button.inline(
-                        "✅ Confirm TV Series", f"tv_{download_info.message_id}"
-                    ),
-                    Button.inline(
-                        "🎬 It's a Movie", f"movie_{download_info.message_id}"
-                    ),
+                    Button.inline("✅ Confirm TV Series", f"tv_{download_info.message_id}"),
+                    Button.inline("🎬 It's a Movie", f"movie_{download_info.message_id}"),
                 ],
                 [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")],
             ]
@@ -496,12 +474,12 @@ class FileHandlers:
         self, msg, download_info, tmdb_result, confidence, space_warning
     ):
         """Show high confidence TMDB match"""
-        text, poster_url = self.tmdb.format_result(
-            tmdb_result, download_info.series_info
-        )
+        text, poster_url = self.tmdb.format_result(tmdb_result, download_info.series_info)
 
         info_text = f"📁 **File:** `{download_info.filename}`\n"
-        info_text += f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        info_text += (
+            f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        )
         info_text += f"✅ **TMDB Match** (confidence {confidence}%)\n\n"
         info_text += text
 
@@ -531,7 +509,9 @@ class FileHandlers:
             download_info.tmdb_results = results[:3]
 
         info_text = f"📁 **File:** `{download_info.filename}`\n"
-        info_text += f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        info_text += (
+            f"📏 **Size:** {download_info.size_mb:.1f} MB ({download_info.size_gb:.1f} GB)\n\n"
+        )
         info_text += f"🔍 **Possible matches:**\n\n"
 
         # Show first 3 results
@@ -547,15 +527,9 @@ class FileHandlers:
         buttons = []
         # Buttons for each result
         for idx, result in enumerate(download_info.tmdb_results, 1):
-            title = (
-                result.title[:17] + "..." if len(result.title) > 20 else result.title
-            )
+            title = result.title[:17] + "..." if len(result.title) > 20 else result.title
             buttons.append(
-                [
-                    Button.inline(
-                        f"{idx}. {title}", f"tmdb_{idx}_{download_info.message_id}"
-                    )
-                ]
+                [Button.inline(f"{idx}. {title}", f"tmdb_{idx}_{download_info.message_id}")]
             )
 
         buttons.append(
@@ -564,9 +538,7 @@ class FileHandlers:
                 Button.inline("📺 TV Series", f"tv_{download_info.message_id}"),
             ]
         )
-        buttons.append(
-            [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")]
-        )
+        buttons.append([Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")])
 
         await msg.edit(info_text + space_warning, buttons=buttons)
 
@@ -581,12 +553,8 @@ class FileHandlers:
         if download_info.series_info.season:
             buttons = [
                 [
-                    Button.inline(
-                        "✅ Confirm TV Series", f"tv_{download_info.message_id}"
-                    ),
-                    Button.inline(
-                        "🎬 It's a Movie", f"movie_{download_info.message_id}"
-                    ),
+                    Button.inline("✅ Confirm TV Series", f"tv_{download_info.message_id}"),
+                    Button.inline("🎬 It's a Movie", f"movie_{download_info.message_id}"),
                 ],
                 [Button.inline("❌ Cancel", f"cancel_{download_info.message_id}")],
             ]
@@ -617,17 +585,14 @@ class FileHandlers:
         info_text = ""
 
         if download_info.series_info.season:
-            info_text = (
-                f"\n\n📺 **Detected:** {download_info.series_info.series_name}\n"
-            )
+            info_text = f"\n\n📺 **Detected:** {download_info.series_info.series_name}\n"
             info_text += f"📅 Season {download_info.series_info.season}"
             if download_info.series_info.episode:
                 info_text += f", Episode {download_info.series_info.episode}"
         else:
             info_text = f"\n\n🎬 **Possible title:** {download_info.movie_folder}"
             if any(
-                x in download_info.filename.lower()
-                for x in ["ep", "episode", "x0", "x1", "x2"]
+                x in download_info.filename.lower() for x in ["ep", "episode", "x0", "x1", "x2"]
             ):
                 info_text += f"\n⚠️ Looks like a TV series but can't identify the season"
 
@@ -637,16 +602,16 @@ class FileHandlers:
         """Generate space warning if necessary"""
         size_gb = download_info.size_gb
 
-        movies_ok, movies_free = self.space.check_space_available(
-            self.config.paths.movies, size_gb
-        )
+        movies_ok, movies_free = self.space.check_space_available(self.config.paths.movies, size_gb)
         tv_ok, tv_free = self.space.check_space_available(self.config.paths.tv, size_gb)
 
         if not movies_ok and not tv_ok:
             return (
                 f"\n\n🟡 **Space warning:**\n"
-                f"File requires {size_gb:.1f} GB + {self.config.limits.min_free_space_gb} GB reserved\n"
-                f"Free space: Movies {movies_free:.1f} GB, TV Series {tv_free:.1f} GB\n"
+                f"File requires {size_gb:.1f} GB + "
+                f"{self.config.limits.min_free_space_gb} GB reserved\n"
+                f"Free space: Movies {movies_free:.1f} GB, "
+                f"TV Series {tv_free:.1f} GB\n"
                 f"File may be queued for space."
             )
 
@@ -692,9 +657,7 @@ class FileHandlers:
             season_num = int(season_text)
 
             if season_num < 1 or season_num > 50:
-                await event.reply(
-                    "❌ Invalid season number. Enter a number between 1 and 50."
-                )
+                await event.reply("❌ Invalid season number. Enter a number between 1 and 50.")
                 return
 
             # Reset waiting flag
@@ -712,9 +675,7 @@ class FileHandlers:
                 position = self.downloads.queue_for_space(waiting_download)
                 await event.reply(
                     f"📺 **TV Series** - Season {season_num}\n\n"
-                    + self.space.format_space_warning(
-                        waiting_download.dest_path, size_gb
-                    )
+                    + self.space.format_space_warning(waiting_download.dest_path, size_gb)
                     + f"\nSpace queue position: #{position}"
                 )
                 return
@@ -736,14 +697,10 @@ class FileHandlers:
             await event.reply("❌ Error during selection. Please try again.")
             waiting_download.waiting_for_season = False
 
-    async def _show_duplicate_warning(
-        self, event, download_info: DownloadInfo, duplicate: dict
-    ):
+    async def _show_duplicate_warning(self, event, download_info: DownloadInfo, duplicate: dict):
         """Show duplicate file warning with options"""
         # Format duplicate info
-        downloaded_date = (
-            duplicate["created_at"][:16] if duplicate["created_at"] else "Unknown"
-        )
+        downloaded_date = duplicate["created_at"][:16] if duplicate["created_at"] else "Unknown"
         size_gb = duplicate["size_bytes"] / (1024**3) if duplicate["size_bytes"] else 0
         status = duplicate["status"]
 
@@ -774,20 +731,12 @@ class FileHandlers:
         # Create buttons
         buttons = [
             [
-                Button.inline(
-                    "⏭️ Skip (Don't Download)", f"dup_skip_{download_info.message_id}"
-                ),
+                Button.inline("⏭️ Skip (Don't Download)", f"dup_skip_{download_info.message_id}"),
             ],
             [
-                Button.inline(
-                    "📥 Download Again", f"dup_download_{download_info.message_id}"
-                ),
+                Button.inline("📥 Download Again", f"dup_download_{download_info.message_id}"),
             ],
-            [
-                Button.inline(
-                    "✏️ Rename & Download", f"dup_rename_{download_info.message_id}"
-                )
-            ],
+            [Button.inline("✏️ Rename & Download", f"dup_rename_{download_info.message_id}")],
             [Button.inline("❌ Cancel", f"dup_cancel_{download_info.message_id}")],
         ]
 
@@ -833,10 +782,7 @@ class FileHandlers:
                 download_info.emoji = "📺"
 
                 # Check if season info exists
-                if (
-                    not download_info.series_info
-                    or not download_info.series_info.season
-                ):
+                if not download_info.series_info or not download_info.series_info.season:
                     # Need season selection - create a temporary event for callback handler
                     from handlers.callbacks import CallbackHandlers
 
@@ -848,14 +794,10 @@ class FileHandlers:
                             break
 
                     if callback_handler:
-                        await callback_handler._process_tv_selection(
-                            event, download_info
-                        )
+                        await callback_handler._process_tv_selection(event, download_info)
                     else:
                         self.logger.error("Could not find CallbackHandlers instance")
-                        await event.reply(
-                            "❌ Error processing TV series. Please try again."
-                        )
+                        await event.reply("❌ Error processing TV series. Please try again.")
                 else:
                     # Has season info, proceed
                     download_info.selected_season = download_info.series_info.season
@@ -878,10 +820,7 @@ class FileHandlers:
                 download_info.dest_path = self.config.paths.tv
                 download_info.emoji = "📺"
                 # Need season info
-                if (
-                    not download_info.series_info
-                    or not download_info.series_info.season
-                ):
+                if not download_info.series_info or not download_info.series_info.season:
                     from handlers.callbacks import CallbackHandlers
 
                     callback_handler = None
@@ -891,9 +830,7 @@ class FileHandlers:
                             break
 
                     if callback_handler:
-                        await callback_handler._process_tv_selection(
-                            event, download_info
-                        )
+                        await callback_handler._process_tv_selection(event, download_info)
                 else:
                     download_info.selected_season = download_info.series_info.season
                     await self._queue_for_download(event, download_info)
@@ -918,9 +855,7 @@ class FileHandlers:
         """Queue download after all info is ready"""
         # Check space
         size_gb = download_info.size_gb
-        space_ok, free_gb = self.space.check_space_available(
-            download_info.dest_path, size_gb
-        )
+        space_ok, free_gb = self.space.check_space_available(download_info.dest_path, size_gb)
 
         if not space_ok:
             position = self.downloads.queue_for_space(download_info)

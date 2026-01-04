@@ -246,9 +246,7 @@ class FileNameParser:
         import re
 
         if any(filename.lower().endswith(ext) for ext in [".rar", ".zip", ".7z"]):
-            filename_no_ext = re.sub(
-                r"\.part\d+", "", filename_no_ext, flags=re.IGNORECASE
-            )
+            filename_no_ext = re.sub(r"\.part\d+", "", filename_no_ext, flags=re.IGNORECASE)
 
         # Detect years and dates in filename to avoid false TV series matches
         # Store positions to exclude them from pattern matching
@@ -343,9 +341,7 @@ class FileNameParser:
                 elif pattern_type == "multi_episode":
                     season = int(match.group(1))
                     episode = int(match.group(2))
-                    end_episode = (
-                        int(match.group(3)) if len(match.groups()) >= 3 else None
-                    )
+                    end_episode = int(match.group(3)) if len(match.groups()) >= 3 else None
                 else:
                     season = int(match.group(1))
                     episode = int(match.group(2))
@@ -365,7 +361,8 @@ class FileNameParser:
                 if total_confidence > best_confidence:
                     best_confidence = total_confidence
 
-                    # Special handling for pattern at start of filename (12x06 American Horror Story)
+                    # Special handling for pattern at start of filename
+                    # (e.g., 12x06 American Horror Story)
                     if pattern_type == "x_format_leading" and match.start() == 0:
                         # Pattern is at start, series name comes AFTER the pattern
                         series_name_raw = filename_no_ext[match.end() :].strip()
@@ -568,16 +565,12 @@ class FileNameParser:
 
         if tmdb_result.is_movie:
             # Movie
-            folder_name = cls.create_folder_name(
-                tmdb_result.title, tmdb_result.year, is_italian
-            )
+            folder_name = cls.create_folder_name(tmdb_result.title, tmdb_result.year, is_italian)
             filename = folder_name + extension
 
         else:
             # TV Series
-            folder_name = cls.create_folder_name(
-                tmdb_result.title, is_italian=is_italian
-            )
+            folder_name = cls.create_folder_name(tmdb_result.title, is_italian=is_italian)
 
             if series_info and series_info.season and series_info.episode:
                 filename = cls.create_episode_filename(
@@ -721,9 +714,7 @@ class FileNameParser:
         # Patterns to find title (until quality tags or parentheses)
         title_patterns = [
             r"^[\s\-\.]*(.+?)[\[\(]",  # Until [ or (
-            r"^[\s\-\.]*(.+?)\s+(?:"
-            + "|".join(cls.QUALITY_TAGS)
-            + r")",  # Until quality tag
+            r"^[\s\-\.]*(.+?)\s+(?:" + "|".join(cls.QUALITY_TAGS) + r")",  # Until quality tag
             r"^[\s\-\.]*(.+?)\.(?:mkv|mp4|avi|mov|wmv|flv|webm|ts)$",  # Until extension
             r"^[\s\-\.]*(.+?)$",  # Rest of string
         ]

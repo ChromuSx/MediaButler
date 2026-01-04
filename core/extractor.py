@@ -4,7 +4,6 @@ Archive extraction manager for MediaButler
 
 import asyncio
 import zipfile
-import shutil
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -53,17 +52,15 @@ class ArchiveExtractor:
         self.has_py7zr = False
 
         try:
-            import rarfile
+            import rarfile  # noqa: F401
 
             self.has_rarfile = True
             self.logger.info("RAR extraction support available")
         except ImportError:
-            self.logger.warning(
-                "RAR extraction not available (install rarfile library)"
-            )
+            self.logger.warning("RAR extraction not available (install rarfile library)")
 
         try:
-            import py7zr
+            import py7zr  # noqa: F401
 
             self.has_py7zr = True
             self.logger.info("7z extraction support available")
@@ -141,13 +138,15 @@ class ArchiveExtractor:
             # For .rar multi-part, check if rarfile is available
             if ".rar" in filename and not self.has_rarfile:
                 self.logger.warning(
-                    f"Multi-part RAR file detected but rarfile library not available: {file_path.name}"
+                    f"Multi-part RAR file detected but rarfile library "
+                    f"not available: {file_path.name}"
                 )
                 return False
             # For .7z multi-part, check if py7zr is available
             if re.search(r"\.\d{3}$", filename) and not self.has_py7zr:
                 self.logger.warning(
-                    f"Multi-part 7z file detected but py7zr library not available: {file_path.name}"
+                    f"Multi-part 7z file detected but py7zr library "
+                    f"not available: {file_path.name}"
                 )
                 return False
             return True
@@ -219,28 +218,20 @@ class ArchiveExtractor:
                 return False, []
 
             # Filter video files
-            video_files = [
-                f for f in extracted_files if f.suffix.lower() in self.VIDEO_EXTENSIONS
-            ]
+            video_files = [f for f in extracted_files if f.suffix.lower() in self.VIDEO_EXTENSIONS]
 
             if not video_files:
-                self.logger.warning(
-                    f"No video files found in archive: {archive_path.name}"
-                )
+                self.logger.warning(f"No video files found in archive: {archive_path.name}")
                 # Clean up extracted non-video files
                 for file in extracted_files:
                     try:
                         if file.exists():
                             file.unlink()
                     except Exception as e:
-                        self.logger.warning(
-                            f"Could not delete non-video file {file}: {e}"
-                        )
+                        self.logger.warning(f"Could not delete non-video file {file}: {e}")
                 return False, []
 
-            self.logger.info(
-                f"Extracted {len(video_files)} video file(s) from {archive_path.name}"
-            )
+            self.logger.info(f"Extracted {len(video_files)} video file(s) from {archive_path.name}")
 
             # Delete archive if requested and extraction successful
             if delete_archive and self.config.extraction.delete_after_extract:
@@ -248,16 +239,12 @@ class ArchiveExtractor:
                     archive_path.unlink()
                     self.logger.info(f"Deleted archive: {archive_path.name}")
                 except Exception as e:
-                    self.logger.warning(
-                        f"Could not delete archive {archive_path.name}: {e}"
-                    )
+                    self.logger.warning(f"Could not delete archive {archive_path.name}: {e}")
 
             return True, video_files
 
         except Exception as e:
-            self.logger.error(
-                f"Error extracting archive {archive_path.name}: {e}", exc_info=True
-            )
+            self.logger.error(f"Error extracting archive {archive_path.name}: {e}", exc_info=True)
             return False, []
 
     async def _extract_zip(self, archive_path: Path, extract_to: Path) -> List[Path]:
@@ -280,9 +267,7 @@ class ArchiveExtractor:
                 return files
 
         # Run extraction in executor to avoid blocking
-        extracted_files = await asyncio.get_event_loop().run_in_executor(
-            None, extract_sync
-        )
+        extracted_files = await asyncio.get_event_loop().run_in_executor(None, extract_sync)
 
         return extracted_files
 
@@ -311,9 +296,7 @@ class ArchiveExtractor:
                 return files
 
         # Run extraction in executor to avoid blocking
-        extracted_files = await asyncio.get_event_loop().run_in_executor(
-            None, extract_sync
-        )
+        extracted_files = await asyncio.get_event_loop().run_in_executor(None, extract_sync)
 
         return extracted_files
 
@@ -333,9 +316,7 @@ class ArchiveExtractor:
                 return [extract_to / name for name in sz_ref.getnames()]
 
         # Run extraction in executor to avoid blocking
-        extracted_files = await asyncio.get_event_loop().run_in_executor(
-            None, extract_sync
-        )
+        extracted_files = await asyncio.get_event_loop().run_in_executor(None, extract_sync)
 
         return extracted_files
 
@@ -386,7 +367,5 @@ class ArchiveExtractor:
             return has_video
 
         except Exception as e:
-            self.logger.error(
-                f"Error checking archive contents {archive_path.name}: {e}"
-            )
+            self.logger.error(f"Error checking archive contents {archive_path.name}: {e}")
             return False
