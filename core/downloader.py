@@ -509,7 +509,7 @@ class DownloadManager:
                 success, video_files = await self.extractor.extract_archive(
                     archive_path=filepath,
                     extract_to=filepath.parent,
-                    delete_archive=self.config.extraction.delete_after_extract
+                    delete_archive=self.config.extraction.delete_after_extract,
                 )
 
                 if success and video_files:
@@ -519,7 +519,9 @@ class DownloadManager:
 
                     # Check if original archive was multi-part and rename accordingly
                     if self.extractor.is_multipart_archive(original_archive_path):
-                        part_num = self.extractor.get_multipart_number(original_archive_path)
+                        part_num = self.extractor.get_multipart_number(
+                            original_archive_path
+                        )
                         if part_num is not None:
                             # Add part number to filename
                             stem = filepath.stem
@@ -531,9 +533,13 @@ class DownloadManager:
                             try:
                                 filepath.rename(new_filepath)
                                 filepath = new_filepath
-                                self.logger.info(f"Renamed to include part number: {filepath.name}")
+                                self.logger.info(
+                                    f"Renamed to include part number: {filepath.name}"
+                                )
                             except Exception as e:
-                                self.logger.warning(f"Could not rename file to add part number: {e}")
+                                self.logger.warning(
+                                    f"Could not rename file to add part number: {e}"
+                                )
 
                     download_info.final_path = filepath
                     self.logger.info(f"Archive extracted successfully: {filepath.name}")

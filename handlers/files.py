@@ -71,8 +71,8 @@ class FileHandlers:
 
         # Verify it's a video or archive file
         if not FileHelpers.is_video_or_archive_file(filename):
-            video_exts = ', '.join(FileHelpers.get_video_extensions())
-            archive_exts = ', '.join(FileHelpers.get_archive_extensions())
+            video_exts = ", ".join(FileHelpers.get_video_extensions())
+            archive_exts = ", ".join(FileHelpers.get_archive_extensions())
             await event.reply(
                 f"⚠️ **Unsupported file**\n\n"
                 f"The file `{filename}` doesn't appear to be a video or archive.\n\n"
@@ -194,14 +194,17 @@ class FileHandlers:
 
             # Skip if caption looks like metadata (dates, timestamps, "da username", etc.)
             metadata_patterns = [
-                r'\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}',  # Dates like 01/11/2023
-                r'\d{6,8}',  # Numbers like 01112023 or 191858
-                r'da\s+\w+',  # "da username"
-                r'\d{1,2}:\d{2}:\d{2}',  # Times like 19:18:58
+                r"\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}",  # Dates like 01/11/2023
+                r"\d{6,8}",  # Numbers like 01112023 or 191858
+                r"da\s+\w+",  # "da username"
+                r"\d{1,2}:\d{2}:\d{2}",  # Times like 19:18:58
             ]
 
             # Caption is metadata if it matches any pattern
-            is_metadata = any(re.search(pattern, message_text.lower()) for pattern in metadata_patterns)
+            is_metadata = any(
+                re.search(pattern, message_text.lower())
+                for pattern in metadata_patterns
+            )
 
             # Clean the caption
             cleaned_caption = self._clean_caption(message_text)
@@ -221,7 +224,18 @@ class FileHandlers:
                 # Add extension if not present
                 if not any(
                     detected_name.lower().endswith(ext)
-                    for ext in [".mp4", ".mkv", ".avi", ".mov", ".ts", ".webm", ".flv", ".rar", ".zip", ".7z"]
+                    for ext in [
+                        ".mp4",
+                        ".mkv",
+                        ".avi",
+                        ".mov",
+                        ".ts",
+                        ".webm",
+                        ".flv",
+                        ".rar",
+                        ".zip",
+                        ".7z",
+                    ]
                 ):
                     detected_name += file_ext
 
@@ -267,22 +281,30 @@ class FileHandlers:
             download_info.tmdb_confidence = confidence
 
         # RETRY with original filename if confidence is low and we used caption
-        if (not tmdb_result or confidence < 60) and (download_info.filename != download_info.original_filename):
+        if (not tmdb_result or confidence < 60) and (
+            download_info.filename != download_info.original_filename
+        ):
             self.logger.info(
                 f"Low confidence ({confidence}) with caption-based filename. "
                 f"Retrying with original filename: {download_info.original_filename}"
             )
 
             # Re-extract info from original filename
-            retry_movie_name, retry_year = FileNameParser.extract_movie_info(download_info.original_filename)
-            retry_series_info = FileNameParser.extract_series_info(download_info.original_filename)
+            retry_movie_name, retry_year = FileNameParser.extract_movie_info(
+                download_info.original_filename
+            )
+            retry_series_info = FileNameParser.extract_series_info(
+                download_info.original_filename
+            )
 
             # Determine search query for retry
             if retry_series_info.season:
                 retry_search_query = retry_series_info.series_name
                 retry_media_hint = "tv"
             else:
-                retry_folder = FileNameParser.create_folder_name(retry_movie_name, retry_year)
+                retry_folder = FileNameParser.create_folder_name(
+                    retry_movie_name, retry_year
+                )
                 retry_search_query = retry_folder
                 retry_media_hint = None
 
@@ -302,7 +324,11 @@ class FileHandlers:
                 download_info.selected_tmdb = retry_result
                 download_info.tmdb_confidence = retry_confidence
                 # Update parsed info
-                download_info.movie_folder = retry_folder if not retry_series_info.season else download_info.movie_folder
+                download_info.movie_folder = (
+                    retry_folder
+                    if not retry_series_info.season
+                    else download_info.movie_folder
+                )
                 download_info.series_info = retry_series_info
 
         # Prepare space warning

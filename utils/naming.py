@@ -43,7 +43,11 @@ class FileNameParser:
         (r"(?:Episode|Ep)[\s\.]?(\d{1,3})", "episode_word", 65),  # Episode 1
         (r"[Pp]art[\s\.]?(\d{1,3})", "part_format", 60),  # Part 1
         # Low confidence patterns (50-69)
-        (r"(?<![0-9xX])(\d)(\d{2})(?![0-9])", "concatenated", 55),  # 101 (1x01), but not x265
+        (
+            r"(?<![0-9xX])(\d)(\d{2})(?![0-9])",
+            "concatenated",
+            55,
+        ),  # 101 (1x01), but not x265
         (r"[Ee][Pp][\.\s]?(\d{1,3})", "episode_only", 50),  # EP01
     ]
 
@@ -240,8 +244,11 @@ class FileNameParser:
         # If file is an archive, remove .partX pattern to avoid false detection
         # (e.g., "movie.part2.rar" should not be detected as episode 2)
         import re
-        if any(filename.lower().endswith(ext) for ext in ['.rar', '.zip', '.7z']):
-            filename_no_ext = re.sub(r'\.part\d+', '', filename_no_ext, flags=re.IGNORECASE)
+
+        if any(filename.lower().endswith(ext) for ext in [".rar", ".zip", ".7z"]):
+            filename_no_ext = re.sub(
+                r"\.part\d+", "", filename_no_ext, flags=re.IGNORECASE
+            )
 
         # Detect years and dates in filename to avoid false TV series matches
         # Store positions to exclude them from pattern matching
@@ -277,7 +284,7 @@ class FileNameParser:
             month = int(date_str[2:4])
             year = int(date_str[4:8])
 
-            if (1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2099):
+            if 1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2099:
                 year_positions.append((date_match.start(), date_match.end()))
 
         # Pattern 4: Timestamps or random numbers like "191858"
@@ -289,7 +296,7 @@ class FileNameParser:
             minute = int(ts_str[2:4])
             second = int(ts_str[4:6])
 
-            if (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+            if 0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59:
                 # Avoid overlapping
                 overlap = any(
                     ts_match.start() >= start and ts_match.end() <= end

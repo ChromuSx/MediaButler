@@ -121,7 +121,7 @@ class ExtractionConfig:
 
     def __post_init__(self):
         if self.supported_formats is None:
-            self.supported_formats = ['.zip', '.rar', '.7z']
+            self.supported_formats = [".zip", ".rar", ".7z"]
 
 
 class Config:
@@ -235,10 +235,7 @@ class Config:
         enabled = os.getenv("EXTRACTION_ENABLED", "true").lower() == "true"
         delete_after = os.getenv("EXTRACTION_DELETE_AFTER", "true").lower() == "true"
 
-        return ExtractionConfig(
-            enabled=enabled,
-            delete_after_extract=delete_after
-        )
+        return ExtractionConfig(enabled=enabled, delete_after_extract=delete_after)
 
     def _setup_logging(self) -> logging.Logger:
         """Configure logging"""
@@ -272,7 +269,9 @@ class Config:
         self.logger.info(f"Database enabled: {self.database.enabled}")
         self.logger.info(f"Database path: {self.database.path}")
         self.logger.info(f"Archive extraction enabled: {self.extraction.enabled}")
-        self.logger.info(f"Delete archives after extraction: {self.extraction.delete_after_extract}")
+        self.logger.info(
+            f"Delete archives after extraction: {self.extraction.delete_after_extract}"
+        )
         self.logger.info(
             f"Max concurrent downloads: {self.limits.max_concurrent_downloads}"
         )
