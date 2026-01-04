@@ -148,6 +148,45 @@ class FileHelpers:
         return ext in FileHelpers.get_video_extensions()
 
     @staticmethod
+    def get_archive_extensions() -> list[str]:
+        """
+        Get supported archive extensions
+
+        Returns:
+            Extension list
+        """
+        return [".zip", ".rar", ".7z"]
+
+    @staticmethod
+    def is_archive_file(filename: str) -> bool:
+        """
+        Check if it's an archive file
+
+        Args:
+            filename: Filename
+
+        Returns:
+            True if archive
+        """
+        ext = Path(filename).suffix.lower()
+        return ext in FileHelpers.get_archive_extensions()
+
+    @staticmethod
+    def is_video_or_archive_file(filename: str) -> bool:
+        """
+        Check if it's a video or archive file
+
+        Args:
+            filename: Filename
+
+        Returns:
+            True if video or archive
+        """
+        return FileHelpers.is_video_file(filename) or FileHelpers.is_archive_file(
+            filename
+        )
+
+    @staticmethod
     def find_duplicate_files(directory: Path) -> dict[str, list[Path]]:
         """
         Find duplicate files based on hash

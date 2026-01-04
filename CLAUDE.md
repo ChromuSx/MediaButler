@@ -75,6 +75,7 @@ cd web/frontend && npm run lint
    - `tmdb_client.py`: TMDB API integration for movie/TV metadata
    - `database.py`: SQLite database for download history and statistics
    - `subtitle_manager.py`: OpenSubtitles integration for subtitle downloads
+   - `extractor.py`: Archive extraction manager for compressed files (ZIP, RAR, 7z)
 
 3. **Handlers (`handlers/`)**:
    - `commands.py`: Telegram command handlers with inline menu system
@@ -125,8 +126,12 @@ The bot automatically organizes files into:
 4. If space available: download directly
 5. If space insufficient: queue in space_waiting_queue
 6. Space monitor periodically processes waiting queue
-7. If database enabled: save download record
-8. If subtitles enabled: optionally auto-download subtitles
+7. Archive extraction (if enabled and file is compressed):
+   - Detects ZIP, RAR, or 7z archives
+   - Extracts video files automatically
+   - Optionally deletes archive after extraction
+8. If database enabled: save download record
+9. If subtitles enabled: optionally auto-download subtitles
 
 ### Multi-Service Architecture
 
@@ -146,6 +151,8 @@ Services communicate via shared database and filesystem. The API can query downl
 - `fastapi` + `uvicorn`: Web API backend
 - `python-dotenv`: Environment variable loading
 - `cryptg`: Telegram encryption optimization
+- `rarfile`: RAR archive extraction (optional)
+- `py7zr`: 7z archive extraction (optional)
 
 **JavaScript:**
 - `react` + `react-dom`: UI framework
@@ -164,3 +171,5 @@ Services communicate via shared database and filesystem. The API can query downl
 - Space management includes automatic queue processing when space becomes available
 - Database is optional but enables download history and web dashboard statistics
 - Web dashboard requires JWT_SECRET_KEY configuration for production use
+- Archive extraction automatically extracts compressed files (ZIP, RAR, 7z) to enable playback on Jellyfin and other media servers
+- ZIP extraction works natively; RAR and 7z require optional dependencies (rarfile, py7zr)

@@ -66,15 +66,18 @@ class FileHandlers:
             await event.reply(f"⚠️ {error_msg}")
             return
 
-        # Extract filename
-        filename = self._extract_filename(event)
+        # Extract filename (returns tuple: filename_to_use, original_file_attribute)
+        filename, original_filename = self._extract_filename(event)
 
-        # Verify it's a video file
-        if not FileHelpers.is_video_file(filename):
+        # Verify it's a video or archive file
+        if not FileHelpers.is_video_or_archive_file(filename):
+            video_exts = ', '.join(FileHelpers.get_video_extensions())
+            archive_exts = ', '.join(FileHelpers.get_archive_extensions())
             await event.reply(
                 f"⚠️ **Unsupported file**\n\n"
-                f"The file `{filename}` doesn't appear to be a video.\n"
-                f"Supported formats: {', '.join(FileHelpers.get_video_extensions())}"
+                f"The file `{filename}` doesn't appear to be a video or archive.\n\n"
+                f"**Supported video formats:**\n{video_exts}\n\n"
+                f"**Supported archive formats:**\n{archive_exts}"
             )
             return
 
@@ -82,8 +85,8 @@ class FileHandlers:
         download_info = DownloadInfo(
             message_id=event.message.id,
             user_id=event.sender_id,
-            filename=filename,
-            original_filename=filename,
+            filename=filename,  # May be from caption
+            original_filename=original_filename,  # Always the real file attribute
             size=event.file.size,
             message=event.message,
         )
@@ -151,7 +154,7 @@ class FileHandlers:
 
         return cleaned
 
-    def _extract_filename(self, event) -> str:
+    def _extract_filename(self, event) -> tuple[str, str]:
         """
         Extract filename from message, prioritizing caption over filename
 
@@ -159,57 +162,79 @@ class FileHandlers:
         1. Message caption (if present and valid)
         2. File name from file attributes
         3. Generated name
-        """
-        filename = "unknown"
 
-        # Try from file attributes first
+        Returns:
+            Tuple of (filename_to_use, original_file_attribute)
+        """
+        original_filename = "unknown"
+
+        # Try from file attributes first - this is the REAL filename
         if hasattr(event.file, "name") and event.file.name:
-            filename = event.file.name
+            original_filename = event.file.name
         # Try from document attributes
         elif event.document:
             for attr in event.document.attributes:
                 if isinstance(attr, DocumentAttributeFilename):
-                    filename = attr.file_name
+                    original_filename = attr.file_name
                     break
 
         # If still unknown, generate name
-        if not filename or filename == "unknown":
-            filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+        if not original_filename or original_filename == "unknown":
+            original_filename = f"video_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
 
         # Get file extension for later use
-        file_ext = os.path.splitext(filename)[1] or ".mp4"
+        file_ext = os.path.splitext(original_filename)[1] or ".mp4"
 
-        # ALWAYS check for message caption/text (prioritize it!)
+        # Check for message caption/text (but validate it's not just metadata)
         message_text = event.message.message if event.message.message else ""
 
         if message_text:
+            # Check if caption looks like metadata BEFORE cleaning
+            import re
+
+            # Skip if caption looks like metadata (dates, timestamps, "da username", etc.)
+            metadata_patterns = [
+                r'\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}',  # Dates like 01/11/2023
+                r'\d{6,8}',  # Numbers like 01112023 or 191858
+                r'da\s+\w+',  # "da username"
+                r'\d{1,2}:\d{2}:\d{2}',  # Times like 19:18:58
+            ]
+
+            # Caption is metadata if it matches any pattern
+            is_metadata = any(re.search(pattern, message_text.lower()) for pattern in metadata_patterns)
+
             # Clean the caption
             cleaned_caption = self._clean_caption(message_text)
 
-            # Check if cleaned caption has meaningful content (at least 3 alphanumeric chars)
+            # Check if cleaned caption has meaningful content
             alphanumeric_count = sum(c.isalnum() for c in cleaned_caption)
+            has_letters = any(c.isalpha() for c in cleaned_caption)
 
-            if alphanumeric_count >= 3:
+            # Only use caption if:
+            # - Not metadata
+            # - Has at least 3 alphanumeric characters
+            # - Has at least some letters (not just numbers)
+            if not is_metadata and alphanumeric_count >= 3 and has_letters:
                 # Use caption as filename
                 detected_name = cleaned_caption.strip()
 
                 # Add extension if not present
                 if not any(
                     detected_name.lower().endswith(ext)
-                    for ext in [".mp4", ".mkv", ".avi", ".mov", ".ts", ".webm", ".flv"]
+                    for ext in [".mp4", ".mkv", ".avi", ".mov", ".ts", ".webm", ".flv", ".rar", ".zip", ".7z"]
                 ):
                     detected_name += file_ext
 
                 self.logger.info(
                     f"Using caption as filename: '{message_text}' -> '{detected_name}'"
                 )
-                return detected_name
+                return (detected_name, original_filename)
             else:
                 self.logger.info(
-                    f"Caption too short or invalid: '{message_text}' (cleaned: '{cleaned_caption}')"
+                    f"Caption appears to be metadata, using file attribute instead: '{message_text}'"
                 )
 
-        return filename
+        return (original_filename, original_filename)
 
     async def _process_with_tmdb(self, event, download_info: DownloadInfo):
         """Process file with TMDB search"""
@@ -240,6 +265,45 @@ class FileHandlers:
             download_info.tmdb_results = [tmdb_result]
             download_info.selected_tmdb = tmdb_result
             download_info.tmdb_confidence = confidence
+
+        # RETRY with original filename if confidence is low and we used caption
+        if (not tmdb_result or confidence < 60) and (download_info.filename != download_info.original_filename):
+            self.logger.info(
+                f"Low confidence ({confidence}) with caption-based filename. "
+                f"Retrying with original filename: {download_info.original_filename}"
+            )
+
+            # Re-extract info from original filename
+            retry_movie_name, retry_year = FileNameParser.extract_movie_info(download_info.original_filename)
+            retry_series_info = FileNameParser.extract_series_info(download_info.original_filename)
+
+            # Determine search query for retry
+            if retry_series_info.season:
+                retry_search_query = retry_series_info.series_name
+                retry_media_hint = "tv"
+            else:
+                retry_folder = FileNameParser.create_folder_name(retry_movie_name, retry_year)
+                retry_search_query = retry_folder
+                retry_media_hint = None
+
+            # Retry TMDB search
+            retry_result, retry_confidence = await self.tmdb.search_with_confidence(
+                retry_search_query, retry_media_hint
+            )
+
+            # Use retry result if better
+            if retry_result and retry_confidence > confidence:
+                self.logger.info(
+                    f"Retry successful! New confidence: {retry_confidence} (was {confidence})"
+                )
+                tmdb_result = retry_result
+                confidence = retry_confidence
+                download_info.tmdb_results = [retry_result]
+                download_info.selected_tmdb = retry_result
+                download_info.tmdb_confidence = retry_confidence
+                # Update parsed info
+                download_info.movie_folder = retry_folder if not retry_series_info.season else download_info.movie_folder
+                download_info.series_info = retry_series_info
 
         # Prepare space warning
         space_warning = self._get_space_warning(download_info)

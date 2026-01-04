@@ -11,6 +11,7 @@ from core.config import get_config
 from core.space_manager import SpaceManager
 from core.tmdb_client import TMDBClient
 from core.subtitle_manager import SubtitleManager
+from core.extractor import ArchiveExtractor
 from core.user_config import UserConfig
 from models.download import DownloadInfo, DownloadStatus, QueueItem
 from utils.helpers import RetryHelpers, FileHelpers
@@ -47,6 +48,7 @@ class DownloadManager:
         self.space_manager = space_manager
         self.tmdb_client = tmdb_client
         self.subtitle_manager = SubtitleManager()
+        self.extractor = ArchiveExtractor()
         self.config = get_config()
         self.logger = self.config.logger
 
@@ -485,6 +487,68 @@ class DownloadManager:
             # Move file to final position (atomic)
             if not FileHelpers.safe_move(temp_path, filepath):
                 raise Exception("Unable to move file to final destination")
+
+            # Check if file is an archive and extract if needed
+            if self.config.extraction.enabled and self.extractor.is_archive(filepath):
+                self.logger.info(f"Archive detected: {filepath.name}")
+
+                # Notify user about extraction
+                if download_info.event:
+                    try:
+                        await download_info.event.edit(
+                            f"{download_info.emoji} **{download_info.media_type}**\n\n"
+                            f"📦 **Extracting archive...**\n"
+                            f"`{filepath.name}`\n\n"
+                            f"{path_info}"
+                            f"Please wait..."
+                        )
+                    except:
+                        pass
+
+                # Extract archive
+                success, video_files = await self.extractor.extract_archive(
+                    archive_path=filepath,
+                    extract_to=filepath.parent,
+                    delete_archive=self.config.extraction.delete_after_extract
+                )
+
+                if success and video_files:
+                    # Use the first extracted video file as the main file
+                    original_archive_path = filepath
+                    filepath = video_files[0]
+
+                    # Check if original archive was multi-part and rename accordingly
+                    if self.extractor.is_multipart_archive(original_archive_path):
+                        part_num = self.extractor.get_multipart_number(original_archive_path)
+                        if part_num is not None:
+                            # Add part number to filename
+                            stem = filepath.stem
+                            suffix = filepath.suffix
+                            new_name = f"{stem} - Part {part_num}{suffix}"
+                            new_filepath = filepath.parent / new_name
+
+                            # Rename the extracted file
+                            try:
+                                filepath.rename(new_filepath)
+                                filepath = new_filepath
+                                self.logger.info(f"Renamed to include part number: {filepath.name}")
+                            except Exception as e:
+                                self.logger.warning(f"Could not rename file to add part number: {e}")
+
+                    download_info.final_path = filepath
+                    self.logger.info(f"Archive extracted successfully: {filepath.name}")
+
+                    # If multiple video files were extracted, log them
+                    if len(video_files) > 1:
+                        self.logger.info(
+                            f"Multiple video files extracted ({len(video_files)}): "
+                            f"{', '.join([f.name for f in video_files])}"
+                        )
+                elif not success:
+                    self.logger.warning(
+                        f"Archive extraction failed or no video files found: {filepath.name}"
+                    )
+                    # Continue with the archive file itself if extraction failed
 
             # Completed
             download_info.status = DownloadStatus.COMPLETED

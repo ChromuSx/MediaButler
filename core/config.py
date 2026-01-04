@@ -111,6 +111,19 @@ class DatabaseConfig:
     enabled: bool = True
 
 
+@dataclass
+class ExtractionConfig:
+    """Archive extraction configuration"""
+
+    enabled: bool = True
+    delete_after_extract: bool = True
+    supported_formats: List[str] = None
+
+    def __post_init__(self):
+        if self.supported_formats is None:
+            self.supported_formats = ['.zip', '.rar', '.7z']
+
+
 class Config:
     """Main MediaButler configuration"""
 
@@ -122,6 +135,7 @@ class Config:
         self.auth = self._load_auth_config()
         self.subtitles = self._load_subtitle_config()
         self.database = self._load_database_config()
+        self.extraction = self._load_extraction_config()
         self.logger = self._setup_logging()
 
         # Validation
@@ -216,6 +230,16 @@ class Config:
 
         return DatabaseConfig(path=Path(db_path), enabled=enabled)
 
+    def _load_extraction_config(self) -> ExtractionConfig:
+        """Load extraction configuration"""
+        enabled = os.getenv("EXTRACTION_ENABLED", "true").lower() == "true"
+        delete_after = os.getenv("EXTRACTION_DELETE_AFTER", "true").lower() == "true"
+
+        return ExtractionConfig(
+            enabled=enabled,
+            delete_after_extract=delete_after
+        )
+
     def _setup_logging(self) -> logging.Logger:
         """Configure logging"""
         logging.basicConfig(
@@ -247,6 +271,8 @@ class Config:
         self.logger.info(f"Subtitle auto-download: {self.subtitles.auto_download}")
         self.logger.info(f"Database enabled: {self.database.enabled}")
         self.logger.info(f"Database path: {self.database.path}")
+        self.logger.info(f"Archive extraction enabled: {self.extraction.enabled}")
+        self.logger.info(f"Delete archives after extraction: {self.extraction.delete_after_extract}")
         self.logger.info(
             f"Max concurrent downloads: {self.limits.max_concurrent_downloads}"
         )

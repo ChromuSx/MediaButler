@@ -43,7 +43,7 @@ class FileNameParser:
         (r"(?:Episode|Ep)[\s\.]?(\d{1,3})", "episode_word", 65),  # Episode 1
         (r"[Pp]art[\s\.]?(\d{1,3})", "part_format", 60),  # Part 1
         # Low confidence patterns (50-69)
-        (r"(?<![0-9])(\d)(\d{2})(?![0-9])", "concatenated", 55),  # 101 (1x01)
+        (r"(?<![0-9xX])(\d)(\d{2})(?![0-9])", "concatenated", 55),  # 101 (1x01), but not x265
         (r"[Ee][Pp][\.\s]?(\d{1,3})", "episode_only", 50),  # EP01
     ]
 
@@ -237,15 +237,66 @@ class FileNameParser:
         # Remove extension first to avoid including it in series name
         filename_no_ext = os.path.splitext(filename)[0]
 
-        # Detect years in filename to avoid false TV series matches
-        # Store positions of years to exclude them from pattern matching
+        # If file is an archive, remove .partX pattern to avoid false detection
+        # (e.g., "movie.part2.rar" should not be detected as episode 2)
+        import re
+        if any(filename.lower().endswith(ext) for ext in ['.rar', '.zip', '.7z']):
+            filename_no_ext = re.sub(r'\.part\d+', '', filename_no_ext, flags=re.IGNORECASE)
+
+        # Detect years and dates in filename to avoid false TV series matches
+        # Store positions to exclude them from pattern matching
         year_positions = []
-        year_pattern = r"[\(\[](\d{4})[\)\]]"
-        for year_match in re.finditer(year_pattern, filename_no_ext):
+
+        # Pattern 1: Years in brackets/parentheses like (2004) or [2004]
+        year_pattern_brackets = r"[\(\[](\d{4})[\)\]]"
+        for year_match in re.finditer(year_pattern_brackets, filename_no_ext):
             year_value = int(year_match.group(1))
-            # Check if it's a valid year (1900-2099)
             if 1900 <= year_value <= 2099:
                 year_positions.append((year_match.start(), year_match.end()))
+
+        # Pattern 2: Standalone years (not in brackets) like "2004"
+        year_pattern_standalone = r"\b(19\d{2}|20\d{2})\b"
+        for year_match in re.finditer(year_pattern_standalone, filename_no_ext):
+            year_value = int(year_match.group(1))
+            if 1900 <= year_value <= 2099:
+                # Avoid overlapping with already detected bracketed years
+                overlap = any(
+                    year_match.start() >= start and year_match.end() <= end
+                    for start, end in year_positions
+                )
+                if not overlap:
+                    year_positions.append((year_match.start(), year_match.end()))
+
+        # Pattern 3: Dates in DDMMYYYY format like "01112023"
+        date_pattern = r"\b\d{8}\b"
+        for date_match in re.finditer(date_pattern, filename_no_ext):
+            date_str = date_match.group(0)
+            # Verify it could be a valid date (basic check)
+            # Day: 01-31, Month: 01-12, Year: 19xx or 20xx
+            day = int(date_str[0:2])
+            month = int(date_str[2:4])
+            year = int(date_str[4:8])
+
+            if (1 <= day <= 31 and 1 <= month <= 12 and 1900 <= year <= 2099):
+                year_positions.append((date_match.start(), date_match.end()))
+
+        # Pattern 4: Timestamps or random numbers like "191858"
+        timestamp_pattern = r"\b\d{6}\b"
+        for ts_match in re.finditer(timestamp_pattern, filename_no_ext):
+            ts_str = ts_match.group(0)
+            # Could be HHMMSS format or similar
+            hour = int(ts_str[0:2])
+            minute = int(ts_str[2:4])
+            second = int(ts_str[4:6])
+
+            if (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+                # Avoid overlapping
+                overlap = any(
+                    ts_match.start() >= start and ts_match.end() <= end
+                    for start, end in year_positions
+                )
+                if not overlap:
+                    year_positions.append((ts_match.start(), ts_match.end()))
 
         # Try all patterns with scoring
         for pattern, pattern_type, confidence in cls.TV_PATTERNS:
