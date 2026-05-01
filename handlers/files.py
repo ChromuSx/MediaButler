@@ -272,47 +272,47 @@ class FileHandlers:
                         ai_result.title, ai_result.year
                     )
 
-        # Determine search query: prefer AI suggestion, fall back to regex parsing.
-        # For TV we deliberately skip the year — TMDB filters by first_air_date_year
-        # and the AI may return a later season's year (e.g. 2019 for GoT, which
-        # started in 2011), filtering out the real match.
+        # Search on TMDB. When AI is available, scan the full result list and
+        # pick the candidate whose title matches AI's suggestion — TMDB ranks
+        # by popularity and may return a spin-off (e.g. "Fear the Walking
+        # Dead") before the actual show. For TV searches the AI year is
+        # intentionally NOT appended: TMDB filters by first_air_date_year and
+        # the AI sometimes returns a later season's year, excluding the
+        # correct match.
         if ai_result and ai_result.title:
-            search_query = ai_result.title
-            if ai_result.year and ai_result.media_type == "movie":
-                search_query = f"{search_query} {ai_result.year}"
-            media_hint = ai_result.media_type
-        elif download_info.series_info.season:
-            search_query = download_info.series_info.series_name
-            media_hint = "tv"
-        else:
-            search_query = download_info.movie_folder
-            media_hint = None
-
-        # Search on TMDB
-        tmdb_result, confidence = await self.tmdb.search_with_confidence(search_query, media_hint)
-
-        # Validate match against AI's title to avoid confidently-wrong matches
-        # (e.g. "Mr Wrong" → "Mr. Robot"). Compare against both the localized
-        # title and the original_title — TMDB returns titles in the configured
-        # language ("Il Trono di Spade") while the AI may return the original
-        # title ("Game of Thrones").
-        if tmdb_result and ai_result and ai_result.title:
-            agrees = self._titles_agree(ai_result.title, tmdb_result.title) or (
-                tmdb_result.original_title
-                and self._titles_agree(ai_result.title, tmdb_result.original_title)
-            )
-            if agrees:
-                old_conf = confidence
-                confidence = max(confidence, 85)
-                if confidence > old_conf:
-                    self.logger.info(f"AI/TMDB agreement: confidence {old_conf} -> {confidence}")
-            else:
-                self.logger.warning(
-                    f"AI/TMDB mismatch: AI='{ai_result.title}' "
-                    f"TMDB='{tmdb_result.title}' / orig='{tmdb_result.original_title}' "
-                    f"— capping confidence at 45"
+            raw_results = await self.tmdb.search(ai_result.title, ai_result.media_type)
+            if raw_results:
+                tmdb_result, exact_match = self._pick_best_candidate(ai_result.title, raw_results)
+                confidence = self.tmdb.calculate_confidence(
+                    tmdb_result, ai_result.title, download_info.original_filename
                 )
-                confidence = min(confidence, 45)
+                if exact_match:
+                    old_conf = confidence
+                    confidence = max(confidence, 85)
+                    self.logger.info(
+                        f"AI/TMDB exact match: '{tmdb_result.title}' "
+                        f"(orig='{tmdb_result.original_title}') "
+                        f"confidence {old_conf} -> {confidence}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"AI/TMDB no exact match: AI='{ai_result.title}' "
+                        f"best candidate='{tmdb_result.title}' "
+                        f"(orig='{tmdb_result.original_title}') "
+                        f"— capping confidence at 45"
+                    )
+                    confidence = min(confidence, 45)
+            else:
+                tmdb_result = None
+                confidence = 0
+        else:
+            if download_info.series_info.season:
+                search_query = download_info.series_info.series_name
+                media_hint = "tv"
+            else:
+                search_query = download_info.movie_folder
+                media_hint = None
+            tmdb_result, confidence = await self.tmdb.search_with_confidence(search_query, media_hint)
 
         if tmdb_result:
             download_info.tmdb_results = [tmdb_result]
@@ -602,32 +602,53 @@ class FileHandlers:
         )
 
     @staticmethod
-    def _titles_agree(a: str, b: str) -> bool:
+    def _pick_best_candidate(ai_title, results):
         """
-        Token-overlap check used to validate AI vs TMDB titles.
+        Pick the TMDB result whose title best matches the AI-suggested title.
 
-        Uses tokens with length >= 4 as "distinctive" — this filters
-        common short prefixes/articles ("mr", "the", "of", "il", "la")
-        that would otherwise produce false positives like
-        "Mr. Wrong" vs "Mr. Robot".
+        Returns (chosen_result, exact_match). An exact match means the
+        normalized tokens of the AI title equal the tokens of the
+        candidate's title or original_title, after stripping subtitle
+        suffixes (" - X", ": X"). This avoids false positives when TMDB
+        ranks a spin-off above the actual match (e.g. "Fear the Walking
+        Dead" before "The Walking Dead").
+
+        When no exact match exists, the candidate with the highest token
+        overlap is returned with exact_match=False so the caller can cap
+        confidence and force manual selection.
         """
         import re
 
-        def tokens(s: str, min_len: int) -> set:
-            return set(t for t in re.sub(r"[^\w\s]", " ", s.lower()).split() if len(t) >= min_len)
+        def _strip_subtitle(s):
+            for sep in (" - ", ": "):
+                if sep in s:
+                    s = s.split(sep)[0]
+            return s
 
-        da, db = tokens(a, 4), tokens(b, 4)
-        if not da or not db:
-            # Both titles are made of short tokens only — fall back to
-            # full-token equality (handles cases like "Up" vs "Up").
-            ta, tb = tokens(a, 2), tokens(b, 2)
-            return bool(ta and tb and ta == tb)
+        def _tokens(s):
+            s = re.sub(r"[^\w\s]", " ", _strip_subtitle(s).lower())
+            return frozenset(t for t in s.split() if len(t) >= 2)
 
-        overlap = len(da & db)
-        smaller = min(len(da), len(db))
-        if smaller == 1:
-            return overlap >= 1
-        return overlap >= max(1, int(0.5 * smaller))
+        ai_tokens = _tokens(ai_title)
+        if not ai_tokens or not results:
+            return (results[0] if results else None), False
+
+        best = results[0]
+        best_score = -1.0
+        for r in results:
+            for cand in (r.title, r.original_title):
+                if not cand:
+                    continue
+                ct = _tokens(cand)
+                if not ct:
+                    continue
+                if ct == ai_tokens:
+                    return r, True
+                score = len(ai_tokens & ct) / max(len(ai_tokens), len(ct))
+                if score > best_score:
+                    best_score = score
+                    best = r
+        return best, False
 
     def _format_file_info(self, download_info: DownloadInfo) -> str:
         """Format extracted file info"""
