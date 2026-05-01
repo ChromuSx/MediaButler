@@ -267,6 +267,11 @@ class FileHandlers:
                         download_info.series_info.season = ai_result.season
                     if ai_result.episode is not None and not download_info.series_info.episode:
                         download_info.series_info.episode = ai_result.episode
+                    # Filenames like "Ep 2" provide an episode number but no
+                    # season — assume season 1 so auto-confirm doesn't stall.
+                    if download_info.series_info.episode and not download_info.series_info.season:
+                        download_info.series_info.season = 1
+                        self.logger.info("AI provided episode without season; defaulting to season 1")
                 elif ai_result.media_type == "movie":
                     download_info.movie_folder = FileNameParser.create_folder_name(
                         ai_result.title, ai_result.year
@@ -424,6 +429,19 @@ class FileHandlers:
                     f"📥 **Preparing download...**\n"
                     f"✅ Available space: {free_gb:.1f} GB\n"
                     f"📊 Position in queue: #{position}"
+                )
+            else:
+                # Auto-confirmed but no season info — ask the user.
+                download_info.waiting_for_season = True
+                series_name = (
+                    download_info.selected_tmdb.title
+                    if download_info.selected_tmdb
+                    else download_info.series_info.series_name
+                )
+                await msg.edit(
+                    f"📺 **TV Series:** {series_name}\n\n"
+                    f"⚠️ Season number could not be detected from the filename.\n"
+                    f"**Please reply with the season number** (e.g. `1`, `2`, ...)."
                 )
         else:
             # Movie - proceed directly
