@@ -292,10 +292,16 @@ class FileHandlers:
         tmdb_result, confidence = await self.tmdb.search_with_confidence(search_query, media_hint)
 
         # Validate match against AI's title to avoid confidently-wrong matches
-        # (e.g. "Mr Wrong" → "Mr. Robot"). Token-overlap check is more robust
-        # than the substring check used by TMDBClient.calculate_confidence.
+        # (e.g. "Mr Wrong" → "Mr. Robot"). Compare against both the localized
+        # title and the original_title — TMDB returns titles in the configured
+        # language ("Il Trono di Spade") while the AI may return the original
+        # title ("Game of Thrones").
         if tmdb_result and ai_result and ai_result.title:
-            if self._titles_agree(ai_result.title, tmdb_result.title):
+            agrees = self._titles_agree(ai_result.title, tmdb_result.title) or (
+                tmdb_result.original_title
+                and self._titles_agree(ai_result.title, tmdb_result.original_title)
+            )
+            if agrees:
                 old_conf = confidence
                 confidence = max(confidence, 85)
                 if confidence > old_conf:
@@ -303,7 +309,8 @@ class FileHandlers:
             else:
                 self.logger.warning(
                     f"AI/TMDB mismatch: AI='{ai_result.title}' "
-                    f"TMDB='{tmdb_result.title}' — capping confidence at 45"
+                    f"TMDB='{tmdb_result.title}' / orig='{tmdb_result.original_title}' "
+                    f"— capping confidence at 45"
                 )
                 confidence = min(confidence, 45)
 
