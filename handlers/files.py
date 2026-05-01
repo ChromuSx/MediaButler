@@ -11,6 +11,7 @@ from core.downloader import DownloadManager, get_user_config_for_download
 from core.tmdb_client import TMDBClient
 from core.space_manager import SpaceManager
 from core.database import DatabaseManager
+from core.ai_parser import AIParser
 from models.download import DownloadInfo, MediaType
 from utils.naming import FileNameParser
 from utils.helpers import ValidationHelpers, FileHelpers
@@ -36,6 +37,7 @@ class FileHandlers:
         self.database = database_manager
         self.config = download_manager.config
         self.logger = self.config.logger
+        self.ai_parser = AIParser()
 
     def register(self):
         """Register file handlers"""
@@ -300,6 +302,52 @@ class FileHandlers:
                     retry_folder if not retry_series_info.season else download_info.movie_folder
                 )
                 download_info.series_info = retry_series_info
+
+        # AI fallback: if confidence is still below threshold, ask the LLM
+        # to extract a clean title from the original filename and retry TMDB.
+        if (
+            self.ai_parser.is_available
+            and confidence < self.config.openai.confidence_threshold
+        ):
+            ai_result = await self.ai_parser.parse(download_info.original_filename)
+
+            if ai_result:
+                self.logger.info(
+                    f"AI parser suggested: title='{ai_result.title}' "
+                    f"type={ai_result.media_type} year={ai_result.year} "
+                    f"S{ai_result.season} E{ai_result.episode}"
+                )
+
+                ai_query = ai_result.title
+                if ai_result.year:
+                    ai_query = f"{ai_query} {ai_result.year}"
+                ai_media_hint = ai_result.media_type
+
+                ai_tmdb, ai_confidence = await self.tmdb.search_with_confidence(
+                    ai_query, ai_media_hint
+                )
+
+                if ai_tmdb and ai_confidence > confidence:
+                    self.logger.info(
+                        f"AI fallback improved match: {ai_confidence} (was {confidence})"
+                    )
+                    tmdb_result = ai_tmdb
+                    confidence = ai_confidence
+                    download_info.tmdb_results = [ai_tmdb]
+                    download_info.selected_tmdb = ai_tmdb
+                    download_info.tmdb_confidence = ai_confidence
+
+                    # Sync parsed info from AI when available
+                    if ai_result.media_type == "tv":
+                        download_info.series_info.series_name = ai_result.title
+                        if ai_result.season is not None:
+                            download_info.series_info.season = ai_result.season
+                        if ai_result.episode is not None:
+                            download_info.series_info.episode = ai_result.episode
+                    elif ai_result.media_type == "movie":
+                        download_info.movie_folder = FileNameParser.create_folder_name(
+                            ai_result.title, ai_result.year
+                        )
 
         # Prepare space warning
         space_warning = self._get_space_warning(download_info)

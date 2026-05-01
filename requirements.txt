@@ -14,6 +14,9 @@ requests==2.31.0
 rarfile==4.1
 py7zr==0.20.8
 
+# AI title recognition (optional fallback when TMDB confidence is low)
+openai==1.51.0
+
 # Web Dashboard
 fastapi==0.109.0
 uvicorn[standard]==0.27.0

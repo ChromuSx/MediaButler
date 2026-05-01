@@ -124,6 +124,21 @@ class ExtractionConfig:
             self.supported_formats = [".zip", ".rar", ".7z"]
 
 
+@dataclass
+class OpenAIConfig:
+    """OpenAI configuration for AI-assisted title recognition"""
+
+    api_key: Optional[str] = None
+    model: str = "gpt-4o-mini"
+    enabled: bool = False
+    confidence_threshold: int = 60
+    timeout_seconds: int = 15
+
+    @property
+    def is_enabled(self) -> bool:
+        return self.enabled and bool(self.api_key)
+
+
 class Config:
     """Main MediaButler configuration"""
 
@@ -136,6 +151,7 @@ class Config:
         self.subtitles = self._load_subtitle_config()
         self.database = self._load_database_config()
         self.extraction = self._load_extraction_config()
+        self.openai = self._load_openai_config()
         self.logger = self._setup_logging()
 
         # Validation
@@ -228,6 +244,16 @@ class Config:
 
         return ExtractionConfig(enabled=enabled, delete_after_extract=delete_after)
 
+    def _load_openai_config(self) -> OpenAIConfig:
+        """Load OpenAI configuration"""
+        return OpenAIConfig(
+            api_key=os.getenv("OPENAI_API_KEY") or None,
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            enabled=os.getenv("OPENAI_ENABLED", "false").lower() == "true",
+            confidence_threshold=int(os.getenv("OPENAI_CONFIDENCE_THRESHOLD", "60")),
+            timeout_seconds=int(os.getenv("OPENAI_TIMEOUT_SECONDS", "15")),
+        )
+
     def _setup_logging(self) -> logging.Logger:
         """Configure logging"""
         logging.basicConfig(
@@ -257,6 +283,9 @@ class Config:
         self.logger.info(f"Database path: {self.database.path}")
         self.logger.info(f"Archive extraction enabled: {self.extraction.enabled}")
         self.logger.info(f"Delete archives after extraction: {self.extraction.delete_after_extract}")
+        self.logger.info(f"OpenAI fallback enabled: {self.openai.is_enabled}")
+        if self.openai.is_enabled:
+            self.logger.info(f"OpenAI model: {self.openai.model}")
         self.logger.info(f"Max concurrent downloads: {self.limits.max_concurrent_downloads}")
         self.logger.info(f"Min free space: {self.limits.min_free_space_gb} GB")
 
