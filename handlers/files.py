@@ -248,8 +248,37 @@ class FileHandlers:
         if user_config:
             auto_confirm_threshold = await user_config.get_auto_confirm_threshold()
 
-        # Determine search type
-        if download_info.series_info.season:
+        # AI-first parsing: when OpenAI is enabled, use it as the primary
+        # parser since it handles messy real-world filenames much better
+        # than regex. The result drives the TMDB query and validates the
+        # final match.
+        ai_result = None
+        if self.ai_parser.is_available:
+            ai_result = await self.ai_parser.parse(download_info.original_filename)
+            if ai_result:
+                self.logger.info(
+                    f"AI parser: title='{ai_result.title}' type={ai_result.media_type} "
+                    f"year={ai_result.year} S{ai_result.season} E{ai_result.episode}"
+                )
+
+                if ai_result.media_type == "tv":
+                    download_info.series_info.series_name = ai_result.title
+                    if ai_result.season is not None and not download_info.series_info.season:
+                        download_info.series_info.season = ai_result.season
+                    if ai_result.episode is not None and not download_info.series_info.episode:
+                        download_info.series_info.episode = ai_result.episode
+                elif ai_result.media_type == "movie":
+                    download_info.movie_folder = FileNameParser.create_folder_name(
+                        ai_result.title, ai_result.year
+                    )
+
+        # Determine search query: prefer AI suggestion, fall back to regex parsing
+        if ai_result and ai_result.title:
+            search_query = ai_result.title
+            if ai_result.year:
+                search_query = f"{search_query} {ai_result.year}"
+            media_hint = ai_result.media_type
+        elif download_info.series_info.season:
             search_query = download_info.series_info.series_name
             media_hint = "tv"
         else:
@@ -259,23 +288,42 @@ class FileHandlers:
         # Search on TMDB
         tmdb_result, confidence = await self.tmdb.search_with_confidence(search_query, media_hint)
 
+        # Validate match against AI's title to avoid confidently-wrong matches
+        # (e.g. "Mr Wrong" → "Mr. Robot"). Token-overlap check is more robust
+        # than the substring check used by TMDBClient.calculate_confidence.
+        if tmdb_result and ai_result and ai_result.title:
+            if self._titles_agree(ai_result.title, tmdb_result.title):
+                old_conf = confidence
+                confidence = max(confidence, 85)
+                if confidence > old_conf:
+                    self.logger.info(f"AI/TMDB agreement: confidence {old_conf} -> {confidence}")
+            else:
+                self.logger.warning(
+                    f"AI/TMDB mismatch: AI='{ai_result.title}' "
+                    f"TMDB='{tmdb_result.title}' — capping confidence at 45"
+                )
+                confidence = min(confidence, 45)
+
         if tmdb_result:
             download_info.tmdb_results = [tmdb_result]
             download_info.selected_tmdb = tmdb_result
             download_info.tmdb_confidence = confidence
 
-        # RETRY with original filename if confidence is low and we used caption
-        if (not tmdb_result or confidence < 60) and (download_info.filename != download_info.original_filename):
+        # Retry with original filename if AI is unavailable, confidence is low,
+        # and we used a caption-based filename for the first attempt.
+        if (
+            not ai_result
+            and (not tmdb_result or confidence < 60)
+            and download_info.filename != download_info.original_filename
+        ):
             self.logger.info(
                 f"Low confidence ({confidence}) with caption-based filename. "
                 f"Retrying with original filename: {download_info.original_filename}"
             )
 
-            # Re-extract info from original filename
             retry_movie_name, retry_year = FileNameParser.extract_movie_info(download_info.original_filename)
             retry_series_info = FileNameParser.extract_series_info(download_info.original_filename)
 
-            # Determine search query for retry
             if retry_series_info.season:
                 retry_search_query = retry_series_info.series_name
                 retry_media_hint = "tv"
@@ -284,12 +332,10 @@ class FileHandlers:
                 retry_search_query = retry_folder
                 retry_media_hint = None
 
-            # Retry TMDB search
             retry_result, retry_confidence = await self.tmdb.search_with_confidence(
                 retry_search_query, retry_media_hint
             )
 
-            # Use retry result if better
             if retry_result and retry_confidence > confidence:
                 self.logger.info(f"Retry successful! New confidence: {retry_confidence} (was {confidence})")
                 tmdb_result = retry_result
@@ -297,57 +343,10 @@ class FileHandlers:
                 download_info.tmdb_results = [retry_result]
                 download_info.selected_tmdb = retry_result
                 download_info.tmdb_confidence = retry_confidence
-                # Update parsed info
                 download_info.movie_folder = (
                     retry_folder if not retry_series_info.season else download_info.movie_folder
                 )
                 download_info.series_info = retry_series_info
-
-        # AI fallback: if confidence is still below threshold, ask the LLM
-        # to extract a clean title from the original filename and retry TMDB.
-        if (
-            self.ai_parser.is_available
-            and confidence < self.config.openai.confidence_threshold
-        ):
-            ai_result = await self.ai_parser.parse(download_info.original_filename)
-
-            if ai_result:
-                self.logger.info(
-                    f"AI parser suggested: title='{ai_result.title}' "
-                    f"type={ai_result.media_type} year={ai_result.year} "
-                    f"S{ai_result.season} E{ai_result.episode}"
-                )
-
-                ai_query = ai_result.title
-                if ai_result.year:
-                    ai_query = f"{ai_query} {ai_result.year}"
-                ai_media_hint = ai_result.media_type
-
-                ai_tmdb, ai_confidence = await self.tmdb.search_with_confidence(
-                    ai_query, ai_media_hint
-                )
-
-                if ai_tmdb and ai_confidence > confidence:
-                    self.logger.info(
-                        f"AI fallback improved match: {ai_confidence} (was {confidence})"
-                    )
-                    tmdb_result = ai_tmdb
-                    confidence = ai_confidence
-                    download_info.tmdb_results = [ai_tmdb]
-                    download_info.selected_tmdb = ai_tmdb
-                    download_info.tmdb_confidence = ai_confidence
-
-                    # Sync parsed info from AI when available
-                    if ai_result.media_type == "tv":
-                        download_info.series_info.series_name = ai_result.title
-                        if ai_result.season is not None:
-                            download_info.series_info.season = ai_result.season
-                        if ai_result.episode is not None:
-                            download_info.series_info.episode = ai_result.episode
-                    elif ai_result.media_type == "movie":
-                        download_info.movie_folder = FileNameParser.create_folder_name(
-                            ai_result.title, ai_result.year
-                        )
 
         # Prepare space warning
         space_warning = self._get_space_warning(download_info)
@@ -591,6 +590,20 @@ class FileHandlers:
             f"{question}",
             buttons=buttons,
         )
+
+    @staticmethod
+    def _titles_agree(a: str, b: str) -> bool:
+        """Token-overlap check used to validate AI vs TMDB titles."""
+        import re
+
+        def tokens(s: str) -> set:
+            return set(t for t in re.sub(r"[^\w\s]", " ", s.lower()).split() if len(t) > 1)
+
+        ta, tb = tokens(a), tokens(b)
+        if not ta or not tb:
+            return False
+        smaller = min(len(ta), len(tb))
+        return len(ta & tb) >= max(1, int(0.6 * smaller))
 
     def _format_file_info(self, download_info: DownloadInfo) -> str:
         """Format extracted file info"""
