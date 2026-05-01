@@ -272,10 +272,13 @@ class FileHandlers:
                         ai_result.title, ai_result.year
                     )
 
-        # Determine search query: prefer AI suggestion, fall back to regex parsing
+        # Determine search query: prefer AI suggestion, fall back to regex parsing.
+        # For TV we deliberately skip the year — TMDB filters by first_air_date_year
+        # and the AI may return a later season's year (e.g. 2019 for GoT, which
+        # started in 2011), filtering out the real match.
         if ai_result and ai_result.title:
             search_query = ai_result.title
-            if ai_result.year:
+            if ai_result.year and ai_result.media_type == "movie":
                 search_query = f"{search_query} {ai_result.year}"
             media_hint = ai_result.media_type
         elif download_info.series_info.season:
@@ -593,17 +596,31 @@ class FileHandlers:
 
     @staticmethod
     def _titles_agree(a: str, b: str) -> bool:
-        """Token-overlap check used to validate AI vs TMDB titles."""
+        """
+        Token-overlap check used to validate AI vs TMDB titles.
+
+        Uses tokens with length >= 4 as "distinctive" — this filters
+        common short prefixes/articles ("mr", "the", "of", "il", "la")
+        that would otherwise produce false positives like
+        "Mr. Wrong" vs "Mr. Robot".
+        """
         import re
 
-        def tokens(s: str) -> set:
-            return set(t for t in re.sub(r"[^\w\s]", " ", s.lower()).split() if len(t) > 1)
+        def tokens(s: str, min_len: int) -> set:
+            return set(t for t in re.sub(r"[^\w\s]", " ", s.lower()).split() if len(t) >= min_len)
 
-        ta, tb = tokens(a), tokens(b)
-        if not ta or not tb:
-            return False
-        smaller = min(len(ta), len(tb))
-        return len(ta & tb) >= max(1, int(0.6 * smaller))
+        da, db = tokens(a, 4), tokens(b, 4)
+        if not da or not db:
+            # Both titles are made of short tokens only — fall back to
+            # full-token equality (handles cases like "Up" vs "Up").
+            ta, tb = tokens(a, 2), tokens(b, 2)
+            return bool(ta and tb and ta == tb)
+
+        overlap = len(da & db)
+        smaller = min(len(da), len(db))
+        if smaller == 1:
+            return overlap >= 1
+        return overlap >= max(1, int(0.5 * smaller))
 
     def _format_file_info(self, download_info: DownloadInfo) -> str:
         """Format extracted file info"""
