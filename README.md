@@ -5,10 +5,10 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/docker-ready-brightgreen.svg" alt="Docker Ready">
-  <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License">
-  <img src="https://img.shields.io/badge/telegram-bot-blue.svg" alt="Telegram Bot">
+  <img src="https://img.shields.io/badge/python-3.8+-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/docker-ready-brightgreen?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT License">
+  <img src="https://img.shields.io/badge/telegram-bot-blue?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram Bot">
 </p>
 
 <p align="center">
@@ -96,8 +96,8 @@ mediabutler/
 
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/yourusername/mediabutler.git
-cd mediabutler
+git clone https://github.com/ChromuSx/MediaButler.git
+cd MediaButler
 ```
 
 2. **Configure environment**:
@@ -368,6 +368,6 @@ Bot for personal use. Respect copyright laws and only download content you have 
 
 ---
 
-<p align="center">
-  Developed with ❤️ for the self-hosted community
-</p>
+<div align="center">
+  <sub>Made with ❤️ by <a href="https://github.com/ChromuSx">Giovanni Guarino</a></sub>
+</div>
