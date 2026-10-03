@@ -42,7 +42,9 @@ class FileHandlers:
     def register(self):
         """Register file handlers"""
         self.client.on(events.NewMessage(func=lambda e: e.file))(self.file_handler)
-        self.client.on(events.NewMessage(func=lambda e: e.text and not e.text.startswith("/")))(self.text_handler)
+        self.client.on(events.NewMessage(func=lambda e: e.text and not e.file and not e.text.startswith("/")))(
+            self.text_handler
+        )
         self.logger.info("File handlers registered")
 
     async def file_handler(self, event: events.NewMessage.Event):
@@ -130,14 +132,17 @@ class FileHandlers:
         import re
 
         # Remove emoji and special Unicode characters
-        # Keep only: letters, numbers, spaces, basic punctuation (.,!?-'")
-        cleaned = re.sub(r'[^\w\s.,!?\-\'"]+', "", caption, flags=re.UNICODE)
+        # Preserve brackets and parentheses for language tags and release years.
+        cleaned = re.sub(r'[^\w\s.,!?\-\'"():\[\]]+', "", caption, flags=re.UNICODE)
 
         # Remove extra whitespace
         cleaned = " ".join(cleaned.split())
 
-        # Remove common video/download markers
-        markers = ["film", "movie", "video", "download", "HD", "4K", "1080p", "720p"]
+        # Remove labelled prefixes, preserving title words like "Scary Movie".
+        cleaned = re.sub(r"^(?:film|movie|video|download)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+
+        # Remove common quality markers.
+        markers = ["HD", "4K", "1080p", "720p"]
         for marker in markers:
             # Case insensitive removal of standalone markers
             cleaned = re.sub(rf"\b{marker}\b", "", cleaned, flags=re.IGNORECASE)
@@ -185,29 +190,34 @@ class FileHandlers:
             # Check if caption looks like metadata BEFORE cleaning
             import re
 
-            # Skip if caption looks like metadata (dates, timestamps, "da username", etc.)
+            # Remove forwarding metadata line by line so it does not discard
+            # a meaningful title elsewhere in the caption.
             metadata_patterns = [
-                r"\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}",  # Dates like 01/11/2023
-                r"\d{6,8}",  # Numbers like 01112023 or 191858
-                r"da\s+\w+",  # "da username"
-                r"\d{1,2}:\d{2}:\d{2}",  # Times like 19:18:58
+                r"^\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}\b",  # Dates like 01/11/2023
+                r"^\d{6,8}\b",  # Numbers like 01112023 or 191858
+                r"^da\s+\w+\s*$",  # "da username"
+                r"^\d{1,2}:\d{2}:\d{2}\b",  # Times like 19:18:58
             ]
 
-            # Caption is metadata if it matches any pattern
-            is_metadata = any(re.search(pattern, message_text.lower()) for pattern in metadata_patterns)
-
-            # Clean the caption
-            cleaned_caption = self._clean_caption(message_text)
+            title_lines = []
+            for line in message_text.splitlines():
+                # Ignore quote/formatting markers before checking metadata.
+                metadata_line = re.sub(r"^[^\w]+", "", line.strip())
+                if metadata_line and not any(
+                    re.search(pattern, metadata_line, re.IGNORECASE) for pattern in metadata_patterns
+                ):
+                    title_lines.append(line)
+            cleaned_caption = self._clean_caption(" ".join(title_lines))
 
             # Check if cleaned caption has meaningful content
             alphanumeric_count = sum(c.isalnum() for c in cleaned_caption)
             has_letters = any(c.isalpha() for c in cleaned_caption)
+            has_numeric_title = bool(re.fullmatch(r"\d+\s*[\[(](?:19|20)\d{2}[\])]", cleaned_caption))
 
             # Only use caption if:
-            # - Not metadata
             # - Has at least 3 alphanumeric characters
-            # - Has at least some letters (not just numbers)
-            if not is_metadata and alphanumeric_count >= 3 and has_letters:
+            # - Has letters or a numeric title followed by a release year
+            if alphanumeric_count >= 3 and (has_letters or has_numeric_title):
                 # Use caption as filename
                 detected_name = cleaned_caption.strip()
 
@@ -254,7 +264,7 @@ class FileHandlers:
         # final match.
         ai_result = None
         if self.ai_parser.is_available:
-            ai_result = await self.ai_parser.parse(download_info.original_filename)
+            ai_result = await self.ai_parser.parse(download_info.filename)
             if ai_result:
                 self.logger.info(
                     f"AI parser: title='{ai_result.title}' type={ai_result.media_type} "
@@ -273,9 +283,7 @@ class FileHandlers:
                         download_info.series_info.season = 1
                         self.logger.info("AI provided episode without season; defaulting to season 1")
                 elif ai_result.media_type == "movie":
-                    download_info.movie_folder = FileNameParser.create_folder_name(
-                        ai_result.title, ai_result.year
-                    )
+                    download_info.movie_folder = FileNameParser.create_folder_name(ai_result.title, ai_result.year)
 
         # Search on TMDB. When AI is available, scan the full result list and
         # pick the candidate whose title matches AI's suggestion — TMDB ranks
@@ -288,9 +296,7 @@ class FileHandlers:
             raw_results = await self.tmdb.search(ai_result.title, ai_result.media_type)
             if raw_results:
                 tmdb_result, exact_match = self._pick_best_candidate(ai_result.title, raw_results)
-                confidence = self.tmdb.calculate_confidence(
-                    tmdb_result, ai_result.title, download_info.original_filename
-                )
+                confidence = self.tmdb.calculate_confidence(tmdb_result, ai_result.title, download_info.filename)
                 if exact_match:
                     old_conf = confidence
                     confidence = max(confidence, 85)
@@ -705,6 +711,9 @@ class FileHandlers:
 
     async def text_handler(self, event: events.NewMessage.Event):
         """Handler for text messages (manual season/rename input)"""
+        if event.file:
+            return
+
         if not await self.auth.check_authorized(event):
             return
 
